@@ -15,7 +15,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: 34.176.150.125
-          username: root
+          username: uprisingsynergyltd
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /var/repo/kyc_yativo_com.git
