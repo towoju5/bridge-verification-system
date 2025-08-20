@@ -1,15 +1,14 @@
 <?php
-
 namespace App\Http\Controllers;
 
+use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class CustomerController extends Controller
@@ -23,266 +22,237 @@ class CustomerController extends Controller
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
     }
 
-    /**
-     * Show the initial account type selection page.
-     */
     public function showAccountTypeSelection()
     {
         return Inertia::render('Customer/AccountTypeSelection');
-    } 
+    }
 
-     /**
-     * Start the individual verification process.
-     * Creates a CustomerSubmission record and stores its ID in the session.
-     * This is called when the user selects 'Individual' and before showing Step 1.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function startBusinessVerification(Request $request)
     {
-        // Create a new, empty submission record for 'individual'
-        // signed_agreement_id should ideally come from the frontend or be pre-defined
-        // For now, we generate a placeholder or you can set a default/config value
-        $signedAgreementId = $request->signed_agreement_id ?? Str::uuid(); // Or a predefined ID
+        $signedAgreementId = $request->signed_agreement_id ?? Str::uuid();
 
         $customerSubmission = CustomerSubmission::create([
-            'type' => 'individual',
+            'type'                => 'business',
             'signed_agreement_id' => $signedAgreementId,
-            // All other fields will be null initially
         ]);
 
-        // Store the submission ID in the session
         session(['customer_submission_id' => $customerSubmission->id]);
 
-        // Redirect to the first step
         return redirect()->route('business.verify.step', ['step' => 1]);
     }
 
-     /**
-     * Start the individual verification process.
-     * Creates a CustomerSubmission record and stores its ID in the session.
-     * This is called when the user selects 'Individual' and before showing Step 1.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function startIndividualVerification(Request $request)
     {
-        // Create a new, empty submission record for 'individual'
-        // signed_agreement_id should ideally come from the frontend or be pre-defined
-        // For now, we generate a placeholder or you can set a default/config value
-        $signedAgreementId = $request->signed_agreement_id ?? Str::uuid(); // Or a predefined ID
+        $signedAgreementId = $request->signed_agreement_id ?? Str::uuid();
 
         $customerSubmission = CustomerSubmission::create([
-            'type' => 'individual',
+            'type'                => 'individual',
             'signed_agreement_id' => $signedAgreementId,
-            // All other fields will be null initially
         ]);
 
-        // Store the submission ID in the session
         session(['customer_submission_id' => $customerSubmission->id]);
 
-        // Redirect to the first step
         return redirect()->route('customer.verify.step', ['step' => 1]);
     }
 
-    /**
-     * Show a specific step of the individual verification form.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $step
-     * @return \Inertia\Response
-     */
     public function showVerificationStep(Request $request, $step = 1)
     {
-        $step = (int) $step;
-        $maxSteps = 5; // Define your total steps
+        $step     = (int) $step;
+        $maxSteps = 6;
 
         if ($step < 1 || $step > $maxSteps) {
             return redirect()->route('customer.verify.step', ['step' => 1]);
         }
 
-        // Retrieve the submission ID from the session
         $submissionId = session('customer_submission_id');
-
-        // If no session ID, redirect to the start or account type selection
-        if (!$submissionId) {
-             return redirect()->route('account.type')->with('error', 'No session ID'); // Or a dedicated start route
+        if (! $submissionId) {
+            return redirect()->route('account.type')->with('error', 'Session expired');
         }
 
-        // Find the submission record
         $customerSubmission = CustomerSubmission::find($submissionId);
-
-        // If record not found or type mismatch, redirect appropriately
-        if (!$customerSubmission || $customerSubmission->type !== 'individual') {
-             // Clear invalid session data
-             session()->forget('customer_submission_id');
-             return redirect()->route('account.type');
+        if (! $customerSubmission || $customerSubmission->type !== 'individual') {
+            session()->forget('customer_submission_id');
+            return redirect()->route('account.type');
         }
 
-        // Pass initial data needed for dropdowns (as before)
         $initialData = [
-            'occupations' => config('bridge_data.occupations'),
-            'accountPurposes' => config('bridge_data.account_purposes'),
-            'sourceOfFunds' => config('bridge_data.source_of_funds'),
-            'countries' => config('bridge_data.countries'),
+            'occupations'                  => config('bridge_data.occupations'),
+            'accountPurposes'              => config('bridge_data.account_purposes'),
+            'sourceOfFunds'                => config('bridge_data.source_of_funds'),
+            'countries'                    => config('bridge_data.countries'),
             'identificationTypesByCountry' => config('bridge_data.identification_types_by_country'),
-            // Add subdivisions if needed dynamically or via API
         ];
 
-        // Pass current step data to the view
         return Inertia::render('Customer/Verify', [
-            'initialData' => $initialData,
-            'currentStep' => $step,
-            'maxSteps' => $maxSteps,
-            'customerData' => $customerSubmission, // Pass the full model instance
+            'initialData'  => $initialData,
+            'currentStep'  => $step,
+            'maxSteps'     => $maxSteps,
+            'customerData' => $customerSubmission,
             'submissionId' => $customerSubmission->id,
         ]);
     }
 
-    /**
-     * Save data for a specific step.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $step
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function saveVerificationStep(Request $request, $step)
     {
-        $step = (int) $step;
-        $maxSteps = 5; // Define your total steps
+        $step     = (int) $step;
+        $maxSteps = 6;
 
         if ($step < 1 || $step > $maxSteps) {
             return response()->json(['success' => false, 'message' => 'Invalid step.'], 400);
         }
 
-        // Retrieve the submission ID from the session
         $submissionId = session('customer_submission_id');
-
-        // Check if session ID exists
-        if (!$submissionId) {
-            // This is the key change: Instead of failing, we could potentially
-            // try to recreate the session if it's the first step, but it's better
-            // to ensure the flow starts correctly.
-            // For now, we treat it as an error state.
-            return response()->json(['success' => false, 'message' => 'Session expired or not found. Please start the verification process again.'], 400);
+        if (! $submissionId) {
+            return response()->json(['success' => false, 'message' => 'Session expired.'], 400);
         }
 
-        // Find the submission record
         $customerSubmission = CustomerSubmission::find($submissionId);
-
-        // Check if the record exists
-        if (!$customerSubmission) {
-            // Clear the invalid session ID
+        if (! $customerSubmission) {
             session()->forget('customer_submission_id');
-            return response()->json(['success' => false, 'message' => 'Submission record not found. Please start the verification process again.'], 404);
+            return response()->json(['success' => false, 'message' => 'Submission not found.'], 404);
         }
 
         try {
-            // 1. Validate data for the current step
-            $validatedData = $this->validateStepData($request, $step); // You need to implement this
+            // 🔑 Normalize all dot-notated fields before validation
+            $request = $this->normalizeRequest($request);
+            // Validate the request data for the current step
+            $validatedData = $this->validateStepData($request, $step);
+            $stepData      = $this->mapStepDataToModel($validatedData, $step);
 
-            // 2. Map validated data to model attributes for this step
-            $stepData = $this->mapStepDataToModel($validatedData, $step); // You need to implement this
+            // Handle file uploads
+            $this->handleFileUploads($request, $customerSubmission);
 
-            // 3. Update the model
+            // Update model
             $customerSubmission->update($stepData);
 
-            // Determine next step or if finished
-            $nextStep = ($step < $maxSteps) ? $step + 1 : null;
+            $nextStep   = ($step < $maxSteps) ? $step + 1 : null;
             $isComplete = ($step === $maxSteps);
 
-            // Return success response with updated data
             return response()->json([
-                'success' => true,
-                'message' => 'Step ' . $step . ' saved successfully.',
-                'next_step' => $nextStep,
-                'is_complete' => $isComplete,
-                'customer_data' => $customerSubmission->fresh(), // Return the updated model instance
-            ], 200);
-
+                'success'       => true,
+                'message'       => "Step $step saved.",
+                'next_step'     => $nextStep,
+                'is_complete'   => $isComplete,
+                'customer_data' => $customerSubmission->fresh(),
+            ]);
         } catch (\Exception $e) {
             Log::error('Customer Step Save Failed', [
-                'message' => $e->getMessage(),
-                'step' => $step,
+                'message'       => $e->getMessage(),
+                'step'          => $step,
                 'submission_id' => $submissionId,
-                'data' => $request->all(),
-                'trace' => $e->getTraceAsString()
+                'trace'         => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while saving data. Please try again.',
-                'debug' => $e->getMessage() // Uncomment for debugging, remove in production
+                'message' => 'An error occurred.',
+                'debug'   => $e->getMessage(),
             ], 500);
         }
     }
 
+    private function normalizeRequest(Request $request): Request
+    {
+        $data       = $request->all();
+        $normalized = [];
 
-    /**
-     * Validate data for a specific step.
-     */
+        foreach ($data as $key => $value) {
+            // Case 1: Dot notation (e.g., residential_address.city)
+            if (str_contains($key, '.')) {
+                \Illuminate\Support\Arr::set($normalized, $key, $value);
+                unset($data[$key]);
+            }
+
+            // Case 2: Underscore style (e.g., residential_address_city)
+            elseif (str_contains($key, 'residential_address_')) {
+                $subKey                                     = str_replace('residential_address_', '', $key);
+                $normalized['residential_address'][$subKey] = $value;
+                unset($data[$key]);
+            }
+
+            // Case 3: Handle endorsements_0, endorsements_1 etc.
+            elseif (preg_match('/^endorsements_(\d+)$/', $key, $matches)) {
+                $index                              = (int) $matches[1];
+                $normalized['endorsements'][$index] = $value;
+                unset($data[$key]);
+            }
+
+            // Case 4: Underscore style for identifying_information (e.g. identifying_information_0_number)
+            elseif (preg_match('/^identifying_information_(\d+)_(.+)$/', $key, $matches)) {
+                $index                                                 = (int) $matches[1];
+                $field                                                 = $matches[2];
+                $normalized['identifying_information'][$index][$field] = $value;
+                unset($data[$key]);
+            }
+        }
+
+        // Merge normalized arrays back with remaining data
+        $data = array_merge($data, $normalized);
+
+        $request->replace($data);
+        Log::info('Normalized Request Data', [
+            'original'   => $data,
+            'normalized' => $request->all(),
+        ]);
+
+        return $request;
+    }
+
     private function validateStepData(Request $request, int $step)
     {
         $rules = [];
         switch ($step) {
-            case 1: // Personal Information
+            case 1:
                 $rules = [
-                    'first_name' => ['nullable', 'string', 'between:2,1024'],
-                    'middle_name' => ['nullable', 'string', 'between:1,1024'],
-                    'last_name' => ['nullable', 'string', 'between:1,1024'],
-                    'last_name_native' => ['nullable', 'string', 'between:1,1024'],
-                    'email' => ['nullable', 'string', 'between:1,1024', 'email'],
-                    'phone' => ['nullable', 'string', 'between:1,1024', 'regex:/^\+\d{1,15}$/'],
-                    'birth_date' => ['nullable', 'date_format:Y-m-d', 'before:today'],
+                    'first_name'       => 'required|string|min:1|max:1024',
+                    'middle_name'      => 'required|string|max:1024',
+                    'last_name'        => 'required|string|min:1|max:1024',
+                    'last_name_native' => 'required|string|max:1024',
+                    'email'            => 'required|email|max:1024',
+                    'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
+                    'birth_date'       => 'required|date|before:today',
+                    'nationality'      => 'required|string|size:3',
                 ];
                 break;
-            case 2: // Address
+            case 2:
                 $rules = [
-                    'residential_address.street_line_1' => ['sometimes', 'string', 'between:1,256'],
-                    'residential_address.street_line_2' => ['sometimes', 'string', 'between:1,256'],
-                    'residential_address.city' => ['sometimes', 'string', 'between:1,256'],
-                    'residential_address.state' => ['sometimes', 'string'],
-                    'residential_address.postal_code' => ['sometimes', 'string', 'between:1,16'],
-                    'residential_address.country' => ['sometimes', 'string', 'size:3'],
-                    // Transliterated address rules would be similar if needed
+                    'residential_address.street_line_1'         => 'required|string|max:256',
+                    'residential_address.street_line_2'         => 'nullable|string|max:256',
+                    'residential_address.city'                  => 'required|string|max:256',
+                    'residential_address.state'                 => 'required|string|max:256',
+                    'residential_address.postal_code'           => 'required|string|max:256',
+                    'residential_address.country'               => 'required|string|max:256',
+                    'residential_address.proof_of_address_file' => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:10240',
                 ];
                 break;
-            case 3: // Identification
-                 $rules = [
-                    'identifying_information' => ['sometimes', 'array'],
-                    'identifying_information.*.type' => ['required_with:identifying_information', 'string'],
-                    'identifying_information.*.issuing_country' => ['required_with:identifying_information', 'string', 'size:3'],
-                    'identifying_information.*.number' => ['required', 'string'],
-                    'identifying_information.*.description' => ['sometimes', 'string'],
-                    // 'identifying_information.*.image_front' => ['required', 'string'],
-                    // 'identifying_information.*.image_back' => ['required', 'string'],
-                    'identifying_information.*.expiration_date' => ['required', 'date_format:Y-m-d', 'after:today'],
+            case 3:
+                $rules = [
+                    'identifying_information'                    => 'array',
+                    'identifying_information.*.type'             => 'required_with:identifying_information|string',
+                    'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:3',
+                    'identifying_information.*.number'           => 'required|string',
+                    'identifying_information.*.expiration_date'  => 'required|date|after:today',
+                    'identifying_information.*.image_front_file' => 'required_with:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:10240',
+                    'identifying_information.*.image_back_file'  => 'sometimes:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:10240',
                 ];
                 break;
-            case 4: // Employment & Finances
+            case 4:
+                $request->merge(['acting_as_intermediary' => (bool) $request->input('acting_as_intermediary')]);
                 $rules = [
-                    'employment_status' => ['required', 'string', Rule::in(config('bridge_data.employment_status'))],
-                    'most_recent_occupation' => ['sometimes', 'string'],
-                    'expected_monthly_payments_usd' => ['required', 'string'],
-                    'source_of_funds' => ['required', Rule::in(config('bridge_data.source_of_funds'))],
-                    'account_purpose' => ['required', Rule::in(config('bridge_data.account_purposes'))],
-                    'account_purpose_other' => ['required_if:account_purpose,other'],
-                    'acting_as_intermediary' => ['nullable'],
+                    'employment_status'             => ['required', Rule::in(config('bridge_data.employment_status'))],
+                    'most_recent_occupation_code'   => 'required|string',
+                    'expected_monthly_payments_usd' => ['required', Rule::in(config('bridge_data.expected_monthly_payments_usd'))],
+                    'source_of_funds'               => ['required', Rule::in(config('bridge_data.source_of_funds'))],
+                    'account_purpose'               => ['required', Rule::in(config('bridge_data.account_purposes'))],
+                    'account_purpose_other'         => 'required_if:account_purpose,other',
+                    'acting_as_intermediary'        => 'sometimes|boolean',
                 ];
-                 // Add conditional validation for occupation code
-                if ($request->has('most_recent_occupation')) {
-                    $occupationCodes = Arr::pluck(config('bridge_data.occupations'), 'code');
-                    $rules['most_recent_occupation'][] = Rule::in($occupationCodes);
-                }
                 break;
-            case 5: // Review & Submit (might just validate required fields)
-                // This step might not save new data, just confirm
-                // Or it could save endorsements if they are part of the form
+            case 5:
                 $rules = [
-                    // 'endorsements' => ['nullable', 'array'],
-                    // 'endorsements.*' => ['string'],
+                    'uploaded_documents'        => 'array',
+                    'uploaded_documents.*.type' => 'required_with:uploaded_documents|string',
+                    'uploaded_documents.*.file' => 'required_with:uploaded_documents|file|mimes:pdf,jpg,jpeg,png|max:10240',
                 ];
                 break;
         }
@@ -290,106 +260,240 @@ class CustomerController extends Controller
         return $request->validate($rules);
     }
 
-    /**
-     * Map validated step data to CustomerSubmission model attributes.
-     */
     private function mapStepDataToModel(array $validatedData, int $step)
     {
-        $modelData = [];
+        $modelData      = [];
         $transliterated = app(\App\Services\TransliterationService::class);
 
         switch ($step) {
-            case 1: // Personal Information
-                $modelData = [
-                    'first_name' => $validatedData['first_name'] ?? null,
-                    'middle_name' => $validatedData['middle_name'] ?? null,
-                    'last_name' => $validatedData['last_name'] ?? null,
-                    'last_name_native' => $validatedData['last_name_native'] ?? null,
-                    'email' => $validatedData['email'] ?? null,
-                    'phone' => $validatedData['phone'] ?? null,
-                    'birth_date' => $validatedData['birth_date'] ? Carbon::createFromFormat('Y-m-d', $validatedData['birth_date'])->startOfDay() : null,
-                ];
+            case 1:
+                $modelData                 = Arr::only($validatedData, ['first_name', 'middle_name', 'last_name', 'last_name_native', 'email', 'phone', 'birth_date', 'nationality']);
+                $modelData['endorsements'] = ['spei', 'base', 'sepa'];
 
-                $modelData['endorsements'] = ["spei", "base", "sepa"];
-
-                $modelData['transliterated_first_name'] = $transliterated->needsTransliteration($validatedData['first_name'])['transliterated'] ?? null;
-                $modelData['transliterated_middle_name'] = $transliterated->needsTransliteration($validatedData['middle_name'])['transliterated'] ?? null;
-                $modelData['transliterated_last_name'] = $transliterated->needsTransliteration($validatedData['last_name'])['transliterated'] ?? null;
+                foreach (['first_name', 'middle_name', 'last_name'] as $field) {
+                    $val                                  = $validatedData[$field] ?? null;
+                    $modelData["transliterated_{$field}"] = $val ? $transliterated->needsTransliteration($val)['transliterated'] ?? null : null;
+                }
                 break;
-            case 2: // Address
-                if (!empty($validatedData['residential_address'])) {
-                    $modelData['residential_address'] = array_filter([
-                        'street_line_1' => $validatedData['residential_address']['street_line_1'] ?? null,
-                        'street_line_2' => $validatedData['residential_address']['street_line_2'] ?? null,
-                        'city' => $validatedData['residential_address']['city'] ?? null,
-                        'state' => $validatedData['residential_address']['state'] ?? null,
-                        'postal_code' => $validatedData['residential_address']['postal_code'] ?? null,
-                        'country' => $validatedData['residential_address']['country'] ?? null,
-                    ], function ($value) { return $value !== null && $value !== ''; });
-                     if (empty($modelData['residential_address'])) {
+
+            case 2:
+                if (isset($validatedData['residential_address'])) {
+                    $addr                             = Arr::except($validatedData['residential_address'], ['proof_of_address_file']);
+                    $modelData['residential_address'] = array_filter($addr, fn($v) => ! empty($v));
+
+                    $fileUrl = $this->uploadFileIfExists('residential_address.proof_of_address_file',
+                        'customer_documents/' . request()->signed_agreement_id);
+
+                    $modelData['residential_address']['proof_of_address_file'] = $fileUrl;
+
+                    if (empty($modelData['residential_address'])) {
                         $modelData['residential_address'] = null;
                     }
-                } else {
-                    $modelData['residential_address'] = null;
                 }
-                // Handle transliterated address similarly if needed
+
                 break;
-            case 3: // Identification
-                if (!empty($validatedData['identifying_information']) && is_array($validatedData['identifying_information'])) {
-                    $modelData['identifying_information'] = [];
-                    foreach ($validatedData['identifying_information'] as $info) {
-                        if (!empty($info['type'])) {
-                            $docInfo = array_filter([
-                                'type' => $info['type'],
-                                'issuing_country' => $info['issuing_country'] ?? null,
-                                'number' => $info['number'] ?? null,
-                                'description' => $info['description'] ?? null,
-                                'image_front' => $info['image_front'] ?? null,
-                                'image_back' => $info['image_back'] ?? null,
-                                'expiration_date' => $info['expiration_date'] ?? null,
-                            ], function ($value) { return $value !== null && $value !== ''; });
-                            $modelData['identifying_information'][] = $docInfo;
+
+            case 3:
+                // if (! empty($validatedData['identifying_information'])) {
+                //     $modelData['identifying_information'] = collect($validatedData['identifying_information'])->map(function ($doc) {
+                //         return array_filter($doc, fn($v) => ! is_file($v) && $v !== null && $v !== '');
+                //     })->toArray();
+                // }
+                if (! empty($validatedData['identifying_information'])) {
+                    $modelData['identifying_information'] = collect($validatedData['identifying_information'])->map(function ($doc, $index) {
+                        $cleaned = array_filter($doc, fn($v) => ! is_file($v) && $v !== null && $v !== '');
+
+                        // Attach file URLs
+                        foreach (['image_front_file', 'image_back_file'] as $fileField) {
+                            $fileUrl = $this->uploadFileIfExists("identifying_information.$index.$fileField",
+                                'customer_documents/' . request()->signed_agreement_id);
+                            $cleaned[$fileField] = $fileUrl;
                         }
-                    }
-                    if (empty($modelData['identifying_information'])) {
-                        $modelData['identifying_information'] = null;
-                    }
-                } else {
-                    $modelData['identifying_information'] = null;
+
+                        return $cleaned;
+                    })->toArray();
+                }
+
+                break;
+
+            case 4:
+                $modelData = Arr::only($validatedData, [
+                    'employment_status',
+                    'most_recent_occupation_code',
+                    'expected_monthly_payments_usd',
+                    'source_of_funds',
+                    'account_purpose',
+                    'account_purpose_other',
+                    'acting_as_intermediary',
+                ]);
+                break;
+            case 5:
+                if (! empty($validatedData['uploaded_documents'])) {
+                    $modelData['documents'] = collect($validatedData['uploaded_documents'])->map(function ($doc, $index) {
+                        $cleaned = Arr::only($doc, ['type']); // keep metadata like type
+
+                        $fileUrl = $this->uploadFileIfExists("uploaded_documents.$index.file", 
+                            'customer_documents/' . request()->signed_agreement_id);
+
+                        $cleaned['file'] = $fileUrl;
+
+                        return $cleaned;
+                    })->toArray();
                 }
                 break;
-            case 4: // Employment & Finances
-                $modelData = [
-                    'employment_status' => $validatedData['employment_status'] ?? null,
-                    'most_recent_occupation_code' => $validatedData['most_recent_occupation'] ?? null,
-                    'expected_monthly_payments_usd' => $validatedData['expected_monthly_payments_usd'] ?? null,
-                    'source_of_funds' => $validatedData['source_of_funds'] ?? null,
-                    'account_purpose' => $validatedData['account_purpose'] ?? null,
-                    'account_purpose_other' => $validatedData['account_purpose_other'] ?? null,
-                    'acting_as_intermediary' => $validatedData['acting_as_intermediary'] ?? null,
-                ];
-                break;
-            case 5: // Review & Submit
-                // If there's data to save on this step (e.g., endorsements)
-                // $modelData['endorsements'] = $validatedData['endorsements'] ?? null;
-                break;
+            default:
+                Log::warning('Unknown step in customer verification', ['step' => $step, 'submission_id' => session('customer_submission_id')]);
+                return response()->json(['success' => false, 'message' => 'Unknown step.'], 400);   
+
         }
 
         return $modelData;
     }
 
-    // --- API Endpoints for Frontend Data (Dropdowns etc.) ---
-    // These remain the same as in your previous controller
-    public function getOccupations() { return response()->json(config('bridge_data.occupations')); }
-    public function getAccountPurposes() { return response()->json(config('bridge_data.account_purposes')); }
-    public function getSourceOfFunds() { return response()->json(config('bridge_data.source_of_funds')); }
-    public function getCountries() { return response()->json(config('bridge_data.countries')); }
-    public function getSubdivisions($countryCode) {
-        $subdivisions = config('bridge_data.subdivisions_by_country');
-        return response()->json($subdivisions[strtoupper($countryCode)] ?? []);
+    private function handleFileUploads(Request $request, CustomerSubmission $submission)
+    {
+        $this->uploadProofOfAddress($request, $submission);
+        $this->uploadIdDocuments($request, $submission);
+        $this->uploadAdditionalDocuments($request, $submission);
     }
-    public function getIdentificationTypesByCountry($countryCode) {
-        $identificationTypesByCountry = config('bridge_data.identification_types_by_country');
-        return response()->json($identificationTypesByCountry[strtoupper($countryCode)] ?? [['type' => 'other', 'description' => 'Please provide a description of the document being provided']]);
+
+    private function uploadProofOfAddress(Request $request, CustomerSubmission $submission)
+    {
+        if ($file = $request->file('residential_address.proof_of_address_file')) {
+            $path = $file->store('customer_documents/' . $submission->id, 'public');
+            $url  = Storage::url($path);
+
+            $addr                            = $submission->residential_address ?? [];
+            $addr['proof_of_address_url']    = $url;
+            $submission->residential_address = $addr;
+            $submission->save();
+
+            CustomerDocument::create([
+                'customer_submission_id' => $submission->id,
+                'document_type'          => 'proof_of_address',
+                'file_path'              => $path,
+                'file_name'              => $file->getClientOriginalName(),
+                'mime_type'              => $file->getMimeType(),
+                'file_size'              => $file->getSize(),
+            ]);
+        }
+    }
+
+    private function uploadIdDocuments(Request $request, CustomerSubmission $submission)
+    {
+        foreach ($request->file('identifying_information', []) as $idx => $docFiles) {
+            foreach (['image_front_file', 'image_back_file'] as $sideKey) {
+                if (isset($docFiles[$sideKey]) && $file = $docFiles[$sideKey]) {
+                    $path = $file->store("customer_documents/{$submission->id}/ids", 'public');
+                    $url  = Storage::url($path);
+
+                    $info                                      = $submission->identifying_information[$idx] ?? [];
+                    $info[str_replace('_file', '', $sideKey)]  = $url;
+                    $submission->identifying_information[$idx] = $info;
+                    $submission->save();
+
+                    CustomerDocument::create([
+                        'customer_submission_id' => $submission->id,
+                        'document_type'          => 'identification',
+                        'side'                   => str_replace('image_', '', $sideKey),
+                        'reference_field'        => "identifying_information.{$idx}.{$sideKey}",
+                        'file_path'              => $path,
+                        'file_name'              => $file->getClientOriginalName(),
+                        'mime_type'              => $file->getMimeType(),
+                        'file_size'              => $file->getSize(),
+                        'issuing_country'        => $info['issuing_country'] ?? null,
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function uploadAdditionalDocuments(Request $request, CustomerSubmission $submission)
+    {
+        foreach ($request->file('uploaded_documents', []) as $idx => $file) {
+            $type = $request->input("uploaded_documents.{$idx}.type");
+            $path = $file->store("customer_documents/{$submission->id}/additional", 'public');
+            $url  = Storage::url($path);
+
+            CustomerDocument::create([
+                'customer_submission_id' => $submission->id,
+                'document_type'          => $type ?: 'other',
+                'file_path'              => $path,
+                'file_name'              => $file->getClientOriginalName(),
+                'mime_type'              => $file->getMimeType(),
+                'file_size'              => $file->getSize(),
+            ]);
+        }
+    }
+
+    private function uploadFileIfExists(string $key, string $folder): ?string
+    {
+        $file = null;
+
+        // Dot notation style
+        if (request()->hasFile($key)) {
+            $file = request()->file($key);
+        }
+        // Underscore style (convert dot → underscore)
+        elseif (request()->hasFile(str_replace('.', '_', $key))) {
+            $file = request()->file(str_replace('.', '_', $key));
+        }
+
+        if ($file) {
+            $path = $file->store($folder, 'public');
+            return asset(Storage::url($path));
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert dot-notation keys into nested arrays.
+     * Example: ['residential_address.city' => 'NYC'] → ['residential_address' => ['city' => 'NYC']]
+     */
+    private function dotToNestedArray(array $data): array
+    {
+        $result = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                // Recursively handle array values (e.g., uploaded_documents)
+                $value = $this->dotToNestedArray($value);
+            }
+
+            // Skip file objects — don't convert them
+            if ($value instanceof \Illuminate\Http\UploadedFile  || $value === null) {
+                data_set($result, $key, $value);
+                continue;
+            }
+
+            data_set($result, $key, $value);
+        }
+
+        return $result;
+    }
+
+    // API Endpoints
+    public function getOccupations()
+    {
+        return response()->json(config('bridge_data.occupations'));
+    }
+    public function getAccountPurposes()
+    {
+        return response()->json(config('bridge_data.account_purposes'));
+    }
+    public function getSourceOfFunds()
+    {
+        return response()->json(config('bridge_data.source_of_funds'));
+    }
+    public function getCountries()
+    {
+        return response()->json(config('bridge_data.countries'));
+    }
+    public function getSubdivisions($countryCode)
+    { /* ... */
+    }
+    public function getIdentificationTypesByCountry($countryCode)
+    { /* ... */
     }
 }

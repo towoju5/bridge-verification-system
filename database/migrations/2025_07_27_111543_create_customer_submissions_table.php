@@ -13,51 +13,55 @@ return new class extends Migration
     {
         Schema::create('customer_submissions', function (Blueprint $table) {
             $table->id();
-            // Core Identifiers
-            $table->uuid('uuid')->unique(); // For idempotency key
-            $table->string('bridge_customer_id')->nullable(); // ID returned by Bridge on success
-            $table->string('status')->default('pending'); // pending, success, failed
-            $table->text('bridge_response')->nullable(); // Store Bridge API response for debugging
 
-            // Customer Type (Fixed to 'individual' for this system)
-            $table->string('type')->default('individual');
+            $table->string('type', 20)->index(); // individual/business
+            $table->string('signed_agreement_id')->nullable()->index();
 
-            // Personal Information
+            // Personal Info
             $table->string('first_name', 1024)->nullable();
             $table->string('middle_name', 1024)->nullable();
             $table->string('last_name', 1024)->nullable();
-            $table->string('last_name_native', 1024)->nullable(); // Conditional based on last_name content
+            $table->string('last_name_native', 1024)->nullable();
+            $table->string('transliterated_first_name', 1024)->nullable();
+            $table->string('transliterated_middle_name', 1024)->nullable();
+            $table->string('transliterated_last_name', 1024)->nullable();
             $table->string('email', 1024)->nullable();
-            $table->string('phone', 1024)->nullable(); // Format "+12223334444"
-            $table->date('birth_date')->nullable(); // Format yyyy-mm-dd
+            $table->string('phone', 1024)->nullable();
+            $table->string('nationality', 3)->nullable(); // ISO 3166-1 alpha-3
+            $table->date('birth_date')->nullable();
 
-            // Signed Agreement
-            $table->uuid('signed_agreement_id'); // Required by Bridge API, assumed provided
+            // Address
+            $table->json('residential_address')->nullable(); // includes proof_of_address_url
+            $table->json('transliterated_residential_address')->nullable();
 
-            // Address (Residential)
-            // Using json for address objects is often easier for handling optional nested fields
-            // Alternative: Create separate columns for each address part (street_line_1, city, etc.)
-            $table->json('residential_address')->nullable();
-            $table->json('transliterated_residential_address')->nullable(); // Conditional
+            // Identification
+            $table->json('identifying_information')->nullable(); // with image_front/image_back URLs
 
-            // Employment & Financials
-            $table->string('employment_status', 255)->nullable();
-            // Assuming 'most_recent_occupation' stores the code (e.g., '132011')
-            $table->string('most_recent_occupation_code', 20)->nullable(); // Link to occupations config
-            $table->string('expected_monthly_payments_usd', 255)->nullable(); // String as per example
-            $table->string('source_of_funds', 255)->nullable(); // From predefined list
-            $table->string('account_purpose', 255)->nullable(); // From predefined list
-            $table->string('account_purpose_other', 1024)->nullable(); // Conditional
-            $table->boolean('acting_as_intermediary')->nullable(); // Yes/No -> Boolean
+            // Employment & Finance
+            $table->string('employment_status', 50)->nullable();
+            $table->string('most_recent_occupation_code', 10)->nullable();
+            $table->string('expected_monthly_payments_usd', 20)->nullable();
+            $table->string('source_of_funds', 50)->nullable();
+            $table->string('account_purpose', 50)->nullable();
+            $table->text('account_purpose_other')->nullable();
+            $table->boolean('acting_as_intermediary')->nullable();
 
-            // Endorsements (Array of strings)
-            $table->json('endorsements')->nullable(); // Store array like ["base", "sepa"]
+            // Endorsements
+            $table->json('endorsements')->nullable();
+            $table->json('documents')->nullable();
 
-            // Identifying Information (Array of Objects)
-            // Storing as JSON is standard for complex nested arrays in relational DBs
-            $table->json('identifying_information')->nullable(); // Array of objects
+            // Status
+            $table->enum('status', ['draft', 'submitted', 'verified', 'rejected', 'pending'])->default('draft');
+            $table->timestamp('submitted_at')->nullable();
+            $table->timestamp('verified_at')->nullable();
+
+            // Metadata
+            $table->ipAddress('ip_address')->nullable();
+            $table->text('user_agent')->nullable();
 
             $table->timestamps();
+
+            $table->index(['status', 'email']);
         });
     }
 

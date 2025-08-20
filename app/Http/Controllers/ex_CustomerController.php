@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
-class BusinessController extends Controller
+class ex_CustomerController extends Controller
 {
     protected $bridgeApiKey;
     protected $bridgeApiUrl;
@@ -28,10 +28,10 @@ class BusinessController extends Controller
      */
     public function showAccountTypeSelection()
     {
-        return Inertia::render('Business/BusinessCustomerForm');
-    } 
+        return Inertia::render('Customer/AccountTypeSelection');
+    }
 
-     /**
+    /**
      * Start the individual verification process.
      * Creates a CustomerSubmission record and stores its ID in the session.
      * This is called when the user selects 'Individual' and before showing Step 1.
@@ -47,32 +47,19 @@ class BusinessController extends Controller
         $signedAgreementId = $request->signed_agreement_id ?? Str::uuid(); // Or a predefined ID
 
         $customerSubmission = CustomerSubmission::create([
-            'type' => 'business',
+            'type' => 'individual',
             'signed_agreement_id' => $signedAgreementId,
+            // All other fields will be null initially
         ]);
 
         // Store the submission ID in the session
         session(['customer_submission_id' => $customerSubmission->id]);
 
-        return Inertia::render('Business/BusinessCustomerForm', [
-            'initialData' => [
-                'occupations' => config('bridge_data.occupations'),
-                'accountPurposes' => config('bridge_data.account_purposes'),
-                'sourceOfFunds' => config('bridge_data.source_of_funds'),
-                'countries' => config('bridge_data.countries'),
-                'identificationTypesByCountry' => config('bridge_data.identification_types_by_country'),
-            ],
-            'currentStep' => 1,
-            'maxSteps' => 5,
-            'customerData' => $customerSubmission, // Pass the full model instance
-            'submissionId' => $customerSubmission->id,
-        ]);
-
         // Redirect to the first step
-        // return redirect()->route('business.verify.step', ['step' => 1]);
+        return redirect()->route('business.verify.step', ['step' => 1]);
     }
 
-     /**
+    /**
      * Start the individual verification process.
      * Creates a CustomerSubmission record and stores its ID in the session.
      * This is called when the user selects 'Individual' and before showing Step 1.
@@ -121,7 +108,7 @@ class BusinessController extends Controller
 
         // If no session ID, redirect to the start or account type selection
         if (!$submissionId) {
-             return redirect()->route('account.type')->with('error', 'No session ID'); // Or a dedicated start route
+            return redirect()->route('account.type')->with('error', 'No session ID'); // Or a dedicated start route
         }
 
         // Find the submission record
@@ -129,9 +116,9 @@ class BusinessController extends Controller
 
         // If record not found or type mismatch, redirect appropriately
         if (!$customerSubmission || $customerSubmission->type !== 'individual') {
-             // Clear invalid session data
-             session()->forget('customer_submission_id');
-             return redirect()->route('account.type');
+            // Clear invalid session data
+            session()->forget('customer_submission_id');
+            return redirect()->route('account.type');
         }
 
         // Pass initial data needed for dropdowns (as before)
@@ -145,7 +132,7 @@ class BusinessController extends Controller
         ];
 
         // Pass current step data to the view
-        return Inertia::render('Business/BusinessCustomerForm', [
+        return Inertia::render('Customer/Verify', [
             'initialData' => $initialData,
             'currentStep' => $step,
             'maxSteps' => $maxSteps,
@@ -214,9 +201,8 @@ class BusinessController extends Controller
                 'is_complete' => $isComplete,
                 'customer_data' => $customerSubmission->fresh(), // Return the updated model instance
             ], 200);
-
         } catch (\Exception $e) {
-            \Log::error('Customer Step Save Failed', [
+            Log::error('Customer Step Save Failed', [
                 'message' => $e->getMessage(),
                 'step' => $step,
                 'submission_id' => $submissionId,
@@ -253,18 +239,18 @@ class BusinessController extends Controller
                 break;
             case 2: // Address
                 $rules = [
-                    'residential_address.street_line_1' => ['required', 'string', 'between:1,256'],
-                    'residential_address.street_line_2' => ['required', 'string', 'between:1,256'],
-                    'residential_address.city' => ['required', 'string', 'between:1,256'],
-                    'residential_address.state' => ['required', 'string'],
-                    'residential_address.postal_code' => ['required', 'string', 'between:1,16'],
-                    'residential_address.country' => ['required', 'string', 'size:3'],
+                    'residential_address.street_line_1' => ['sometimes', 'string', 'between:1,256'],
+                    'residential_address.street_line_2' => ['sometimes', 'string', 'between:1,256'],
+                    'residential_address.city' => ['sometimes', 'string', 'between:1,256'],
+                    'residential_address.state' => ['sometimes', 'string'],
+                    'residential_address.postal_code' => ['sometimes', 'string', 'between:1,16'],
+                    'residential_address.country' => ['sometimes', 'string', 'size:3'],
                     // Transliterated address rules would be similar if needed
                 ];
                 break;
             case 3: // Identification
-                 $rules = [
-                    'identifying_information' => ['required', 'array'],
+                $rules = [
+                    'identifying_information' => ['sometimes', 'array'],
                     'identifying_information.*.type' => ['required_with:identifying_information', 'string'],
                     'identifying_information.*.issuing_country' => ['required_with:identifying_information', 'string', 'size:3'],
                     'identifying_information.*.number' => ['required', 'string'],
@@ -276,15 +262,15 @@ class BusinessController extends Controller
                 break;
             case 4: // Employment & Finances
                 $rules = [
-                    'employment_status' => ['required', 'string'],
-                    'most_recent_occupation' => ['required', 'string'],
+                    'employment_status' => ['required', 'string', Rule::in(config('bridge_data.employment_status'))],
+                    'most_recent_occupation' => ['sometimes', 'string'],
                     'expected_monthly_payments_usd' => ['required', 'string'],
                     'source_of_funds' => ['required', Rule::in(config('bridge_data.source_of_funds'))],
                     'account_purpose' => ['required', Rule::in(config('bridge_data.account_purposes'))],
-                    'account_purpose_other' => ['required', 'string', 'required_if:account_purpose,other'],
-                    'acting_as_intermediary' => ['required', 'boolean'],
+                    'account_purpose_other' => ['required_if:account_purpose,other'],
+                    'acting_as_intermediary' => ['nullable'],
                 ];
-                 // Add conditional validation for occupation code
+                // Add conditional validation for occupation code
                 if ($request->has('most_recent_occupation')) {
                     $occupationCodes = Arr::pluck(config('bridge_data.occupations'), 'code');
                     $rules['most_recent_occupation'][] = Rule::in($occupationCodes);
@@ -338,8 +324,10 @@ class BusinessController extends Controller
                         'state' => $validatedData['residential_address']['state'] ?? null,
                         'postal_code' => $validatedData['residential_address']['postal_code'] ?? null,
                         'country' => $validatedData['residential_address']['country'] ?? null,
-                    ], function ($value) { return $value !== null && $value !== ''; });
-                     if (empty($modelData['residential_address'])) {
+                    ], function ($value) {
+                        return $value !== null && $value !== '';
+                    });
+                    if (empty($modelData['residential_address'])) {
                         $modelData['residential_address'] = null;
                     }
                 } else {
@@ -360,7 +348,9 @@ class BusinessController extends Controller
                                 'image_front' => $info['image_front'] ?? null,
                                 'image_back' => $info['image_back'] ?? null,
                                 'expiration_date' => $info['expiration_date'] ?? null,
-                            ], function ($value) { return $value !== null && $value !== ''; });
+                            ], function ($value) {
+                                return $value !== null && $value !== '';
+                            });
                             $modelData['identifying_information'][] = $docInfo;
                         }
                     }
@@ -393,15 +383,29 @@ class BusinessController extends Controller
 
     // --- API Endpoints for Frontend Data (Dropdowns etc.) ---
     // These remain the same as in your previous controller
-    public function getOccupations() { return response()->json(config('bridge_data.occupations')); }
-    public function getAccountPurposes() { return response()->json(config('bridge_data.account_purposes')); }
-    public function getSourceOfFunds() { return response()->json(config('bridge_data.source_of_funds')); }
-    public function getCountries() { return response()->json(config('bridge_data.countries')); }
-    public function getSubdivisions($countryCode) {
+    public function getOccupations()
+    {
+        return response()->json(config('bridge_data.occupations'));
+    }
+    public function getAccountPurposes()
+    {
+        return response()->json(config('bridge_data.account_purposes'));
+    }
+    public function getSourceOfFunds()
+    {
+        return response()->json(config('bridge_data.source_of_funds'));
+    }
+    public function getCountries()
+    {
+        return response()->json(config('bridge_data.countries'));
+    }
+    public function getSubdivisions($countryCode)
+    {
         $subdivisions = config('bridge_data.subdivisions_by_country');
         return response()->json($subdivisions[strtoupper($countryCode)] ?? []);
     }
-    public function getIdentificationTypesByCountry($countryCode) {
+    public function getIdentificationTypesByCountry($countryCode)
+    {
         $identificationTypesByCountry = config('bridge_data.identification_types_by_country');
         return response()->json($identificationTypesByCountry[strtoupper($countryCode)] ?? [['type' => 'other', 'description' => 'Please provide a description of the document being provided']]);
     }

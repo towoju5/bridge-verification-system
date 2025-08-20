@@ -3609,4 +3609,10 @@ return [
         "unemployed" => "unemployed",
     ],
 
+    'expected_monthly_payments_usd' => [
+        '0_4999',
+        '5000_9999',
+        '10000_49999',
+        '50000_plus'
+    ],
 ];

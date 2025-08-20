@@ -205,6 +205,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
             };
         });
     };
+    
 
     const addArrayItem = (arrayName: string) => {
         setFormData(prev => ({
@@ -302,7 +303,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
             case 2: return <AddressStep data={formData} onDataChange={handleInputChange} onNestedChange={handleNestedChange} countries={initialData.countries} />;
             case 3: return <IdentificationStep data={formData} onDataChange={handleInputChange} onArrayChange={handleArrayChange} addArrayItem={addArrayItem} removeArrayItem={removeArrayItem} countries={initialData.countries} idTypesByCountry={initialData.identificationTypesByCountry} />;
             case 4: return <EmploymentFinancesStep data={formData} onDataChange={handleInputChange} occupations={initialData.occupations} accountPurposes={initialData.accountPurposes} sourceOfFunds={initialData.sourceOfFunds} />;
-            case 5: return <DocumentsUploadStep data={formData} addArrayItem={addArrayItem} removeArrayItem={removeArrayItem} />;
+            case 5: return <DocumentsUploadStep data={formData} addArrayItem={addArrayItem} removeArrayItem={removeArrayItem} onArrayChange={handleArrayChange} />;
             case 6: return <ReviewStep data={formData} initialData={initialData} />;
             default: return <div>Invalid step</div>;
         }
@@ -830,22 +831,13 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
     </div>
 );
 
-const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeArrayItem, onArrayChange, setFormData }) => {
+const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeArrayItem, onArrayChange }) => {
     const docs = data.uploaded_documents || [];
 
     const handleDocChange = (index: number, field: string, value: string | File) => {
-        setFormData(prev => {
-            const newArray = [...prev.uploaded_documents];
-            const item = { ...newArray[index] };
-            if (field === 'file' && value instanceof File) {
-                item.file = value;
-                item.fileName = value.name;
-            } else if (field === 'type') {
-                item.type = value as string;
-            }
-            newArray[index] = item;
-            return { ...prev, uploaded_documents: newArray };
-        });
+        if (onArrayChange) {
+            onArrayChange('uploaded_documents', index, field, value as string);
+        }
     };
 
     return (
@@ -854,7 +846,6 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
             <p className="text-sm text-gray-600 mb-4">
                 Upload any supporting documents required for verification.
             </p>
-
             {docs.map((doc, index) => (
                 <div key={index} className="border border-gray-200 rounded-md p-4 mb-4 bg-white">
                     <div className="flex justify-between items-center mb-3">
@@ -872,7 +863,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
                             <label className="block text-sm font-medium text-gray-700 dark:text-white">Document Type</label>
                             <select
                                 value={doc.type || ''}
-                                onChange={(e) => handleDocChange(index, 'document_type', e.target.value)}
+                                onChange={(e) => handleDocChange(index, 'type', e.target.value)}
                                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
                                 <option value="">Select type</option>
@@ -902,7 +893,6 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
                     </div>
                 </div>
             ))}
-
             <button
                 type="button"
                 onClick={() => addArrayItem && addArrayItem('uploaded_documents')}

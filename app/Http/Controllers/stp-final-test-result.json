@@ -1,0 +1,99 @@
+// Clabe Deposit - Deposit Received 
+{
+    "id": 1804213439,
+    "fechaOperacion": 20250818,
+    "institucionOrdenante": 90710,
+    "institucionBeneficiaria": 90646,
+    "claveRastreo": "202508189071021090001044823647",
+    "monto": 1,
+    "nombreOrdenante": "Zee Technologies SPA",
+    "tipoCuentaOrdenante": 40,
+    "cuentaOrdenante": "710969000035509567",
+    "rfcCurpOrdenante": "ND",
+    "nombreBeneficiario": "Emmanuel Towoju",
+    "tipoCuentaBeneficiario": 40,
+    "cuentaBeneficiario": "646180610900000081",
+    "nombreBeneficiario2": "null",
+    "tipoCuentaBeneficiario2": "0",
+    "cuentaBeneficiario2": "null",
+    "rfcCurpBeneficiario": "nd",
+    "conceptoPago": "nd",
+    "referenciaNumerica": 1,
+    "empresa": "YATIVO",
+    "tipoPago": 1,
+    "tsLiquidacion": "1755524604365",
+    "folioCodi": null
+}
+
+// Payout Request: 
+{
+    "response": {
+        "resultado": {
+            "id": 1747702667
+        }
+    }
+}
+
+// payout webhook received:
+{
+    "data": {
+        "id": 1747702667,
+        "empresa": "YATIVO",
+        "claveRastreo": "YATIVO86484570",
+        "estado": "LQ",
+        "causaDevolucion": null,
+        "tsLiquidacion": "1755687612405"
+    }
+}
+// Balance check
+{
+    "cargosPendientes": 0,
+    "saldo": 1005
+}
+
+
+// History:
+{
+    "result": {
+        "mensaje": "Datos consultados correctamente",
+        "estado": 0,
+        "total": 1,
+        "pagina": 0,
+        "totalPaginas": 1,
+        "datos": [
+            {
+                "idEF": 1747702667,
+                "claveRastreo": "YATIVO86484570",
+                "claveRastreoDev": null,
+                "conceptoPago": "Prueba REST",
+                "cuentaBeneficiario": "710969000046530444",
+                "cuentaOrdenante": "646180610900000007",
+                "empresa": "YATIVO",
+                "estado": "Liquidado",
+                "tipoOrden": "E",
+                "fechaOperacion": 20250820,
+                "fechaNatural": 20250820,
+                "institucionContraparte": 90710,
+                "institucionOperante": 90646,
+                "medioEntrega": 3,
+                "monto": 5,
+                "nombreBeneficiario": "Emmanuel Adedayo Towoju",
+                "nombreOrdenante": "ZEE TECHNOLOGIES SPA",
+                "nombreCep": "Zee Technologies SPA",
+                "rfcCep": "ND",
+                "sello": "pMerCobvBbaOTIRnI76d3i2vym6ALeYwHSMRKilWcMkMq8yXFxAKMHR+57TZNhRSYN6qRNpY6WFKA4XdeEWPOQ==",
+                "referenciaNumerica": 734305,
+                "rfcCurpBeneficiario": "ND",
+                "rfcCurpOrdenante": "ZEE230712D59",
+                "tipoCuentaBeneficiario": 40,
+                "tipoCuentaOrdenante": 40,
+                "tipoPago": 1,
+                "tsCaptura": 1755682175002,
+                "tsLiquidacion": 1755687612405,
+                "causaDevolucion": null,
+                "urlCEP": "https://www.banxico.org.mx/cep/go?i=90646&s=20210302&d=waEZicibKSwmNYY89dbF%2BLwu08Y3O2rtlD%2BP%2FpqhLpSyMSD38qKGqSKuRPgYXmb26jhJw2G4QSjU3wOvDOScLg%3D%3D"
+            }
+        ],
+        "data": []
+    }
+}

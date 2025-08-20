@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BusinessCustomerController;
 use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -40,6 +41,24 @@ Route::prefix('api/data')->group(function () {
     Route::get('subdivisions/{countryCode}', [CustomerController::class, 'getSubdivisions'])->name('api.data.subdivisions');
     Route::get('identification-types/{countryCode}', [CustomerController::class, 'getIdentificationTypesByCountry'])->name('api.data.identification.types');
 });
+
+
+Route::prefix('api/business-customer')->group(function () {
+    Route::any('/step/1', [BusinessCustomerController::class, 'step1']);
+    Route::any('/step/2', [BusinessCustomerController::class, 'step2']);
+    Route::any('/step/3', [BusinessCustomerController::class, 'step3']);
+    Route::any('/step/4', [BusinessCustomerController::class, 'step4']);
+    Route::any('/step/5', [BusinessCustomerController::class, 'step5']);
+    Route::any('/step/6', [BusinessCustomerController::class, 'step6']);
+    Route::any('/step/7', [BusinessCustomerController::class, 'step7']);
+    Route::any('/submit', [BusinessCustomerController::class, 'submit']);
+});
+
+
+// Route::any('api/business-customer/step/{step}', function () {
+//     return response()->json(['message' => 'This is a placeholder for the business customer step API.']);
+// })->name('api.business.customer.step');
+
 
 // Catch-all route for Inertia
 Route::get('/{any}', function () {
