@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('business_customers', function (Blueprint $table) {
+        Schema::create('old_business_customers', function (Blueprint $table) {
             $table->id();
             $table->string('business_legal_name');
             $table->string('business_trade_name');

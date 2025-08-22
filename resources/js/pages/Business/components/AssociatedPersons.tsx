@@ -24,13 +24,18 @@ interface Person {
   is_director: boolean;
 }
 
+
+interface Country { code: string; name: string }
+
 interface Props {
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   setActiveTab: (tab: string) => void;
+  countries?: Country[];
 }
 
-export default function AssociatedPersons({ formData, setFormData, setActiveTab }: Props) {
+
+export default function AssociatedPersons({ formData, setFormData, setActiveTab, countries = [] }: Props) {
   const [persons, setPersons] = useState<Person[]>(formData.associated_persons || []);
 
   const blankPerson = (): Person => ({
@@ -222,12 +227,23 @@ export default function AssociatedPersons({ formData, setFormData, setActiveTab 
                 </div>
                 <div>
                   <label>Country *</label>
-                  <input
-                    value={p.residential_address.country}
-                    onChange={(e) => updateAddr(idx, 'country', e.target.value)}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-                    placeholder="3-letter code (e.g., USA)"
-                  />
+                  {(countries || []).length ? (
+                    <select
+                      value={p.residential_address.country}
+                      onChange={(e) => updateAddr(idx, 'country', e.target.value)}
+                      className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                    >
+                      <option value="">Select country</option>
+                      {(countries || []).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      value={p.residential_address.country}
+                      onChange={(e) => updateAddr(idx, 'country', e.target.value)}
+                      className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                      placeholder="3-letter code (e.g., USA)"
+                    />
+                  )}
                 </div>
               </div>
             </div>

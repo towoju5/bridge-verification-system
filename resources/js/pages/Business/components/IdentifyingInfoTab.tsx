@@ -15,10 +15,11 @@ interface Props {
 	formData: any;
 	setFormData: React.Dispatch<React.SetStateAction<any>>;
 	idTypes: string[];
+	setActiveTab: (tab: string) => void;
 	onComplete: () => void;
 }
 
-export default function IdentifyingInfoTab({ formData, setFormData, idTypes, onComplete }: Props) {
+export default function IdentifyingInfoTab({ formData, setFormData, setActiveTab, idTypes, onComplete }: Props) {
 	const [ids, setIds] = useState<IDInfo[]>(formData.identifying_information || []);
 
 	const add = () =>
@@ -33,10 +34,16 @@ export default function IdentifyingInfoTab({ formData, setFormData, idTypes, onC
 		setIds(copy);
 	};
 
-	const finish = async () => {
+	// const finish = async () => {
+	// 	await axios.post('/api/business-customer/step/7', { identifying_information: ids });
+	// 	setFormData((prev: any) => ({ ...prev, identifying_information: ids }));
+	// 	onComplete();
+	// };
+
+	const next = async () => {
 		await axios.post('/api/business-customer/step/7', { identifying_information: ids });
 		setFormData((prev: any) => ({ ...prev, identifying_information: ids }));
-		onComplete();
+		setActiveTab('review');
 	};
 
 	return (
@@ -122,10 +129,10 @@ export default function IdentifyingInfoTab({ formData, setFormData, idTypes, onC
 
 			<div className="mt-6 flex justify-end">
 				<button
-					onClick={finish}
+					onClick={next}
 					className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
 				>
-					Finish & Submit
+					Next
 				</button>
 			</div>
 		</div>

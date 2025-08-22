@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+
+
+interface Country { code: string; name: string }
+
 interface Props {
     formData: any;
     setFormData: React.Dispatch<React.SetStateAction<any>>;
     setActiveTab: (tab: string) => void;
+    countries?: Country[];
 }
 
-export default function Regulatory({ formData, setFormData, setActiveTab }: Props) {
+export default function Regulatory({ formData, setFormData, setActiveTab, countries = [] }: Props) {
     const [local, setLocal] = useState({
         regulated_activities_description: formData.regulated_activity?.regulated_activities_description || '',
         primary_regulatory_authority_country: formData.regulated_activity?.primary_regulatory_authority_country || '',
@@ -37,13 +42,24 @@ export default function Regulatory({ formData, setFormData, setActiveTab }: Prop
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Primary Regulatory Authority Country</label>
-                    <input
-                        value={local.primary_regulatory_authority_country}
-                        onChange={(e) => setLocal({ ...local, primary_regulatory_authority_country: e.target.value })}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-                        placeholder="3-letter code (e.g., USA)"
-                    />
+                    <label>Primary Regulatory Authority Country *</label>
+                    {(countries || []).length ? (
+                        <select
+                            value={local.primary_regulatory_authority_country}
+                            onChange={(e) => setLocal({ ...local, primary_regulatory_authority_country: e.target.value })}
+                            className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                        >
+                            <option value="">Select country</option>
+                            {(countries || []).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                        </select>
+                    ) : (
+                        <input
+                            value={local.primary_regulatory_authority_country}
+                            onChange={(e) => setLocal({ ...local, primary_regulatory_authority_country: e.target.value })}
+                            className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                            placeholder="3-letter code (e.g., USA)"
+                        />
+                    )}
                 </div>
 
                 <div>

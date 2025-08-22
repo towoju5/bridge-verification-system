@@ -3,7 +3,7 @@ import axios from 'axios';
 
 interface Document {
 	purposes: string[];
-	file: string;
+	file: File | null; // must hold actual File object
 	description: string;
 }
 
@@ -17,7 +17,7 @@ interface Props {
 export default function DocumentsTab({ formData, setFormData, setActiveTab, documentPurposes }: Props) {
 	const [docs, setDocs] = useState<Document[]>(formData.documents || []);
 
-	const add = () => setDocs([...docs, { purposes: [], file: '', description: '' }]);
+	const add = () => setDocs([...docs, { purposes: [], file: null, description: '' }]);
 	const remove = (idx: number) => setDocs(docs.filter((_, i) => i !== idx));
 	const update = (idx: number, field: keyof Document, val: any) => {
 		const copy = [...docs];
@@ -26,9 +26,33 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 	};
 
 	const next = async () => {
-		await axios.post('/api/business-customer/step/6', { documents: docs });
-		setFormData((prev: any) => ({ ...prev, documents: docs }));
-		setActiveTab('identifying_information');
+		try {
+			const formDataToSend = new FormData();
+
+			docs.forEach((doc, i) => {
+				// Append purposes
+				doc.purposes.forEach((p, j) => {
+					formDataToSend.append(`documents[${i}][purposes][${j}]`, p);
+				});
+
+				// Append file if selected
+				if (doc.file) {
+					formDataToSend.append(`documents[${i}][file]`, doc.file);
+				}
+
+				// Append description
+				formDataToSend.append(`documents[${i}][description]`, doc.description);
+			});
+
+			await axios.post('/api/business-customer/step/6', formDataToSend, {
+				headers: { 'Content-Type': 'multipart/form-data' }
+			});
+
+			setFormData((prev: any) => ({ ...prev, documents: docs }));
+			setActiveTab('identifying_information');
+		} catch (err) {
+			console.error('Upload error:', err);
+		}
 	};
 
 	return (
@@ -54,12 +78,14 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 						Remove
 					</button>
 
+					{/* Purposes */}
 					<label className="block text-sm font-medium mb-1">Purposes</label>
 					<select
-						multiple
 						className="w-full border rounded p-2"
 						value={doc.purposes}
-						onChange={(e) => update(idx, 'purposes', Array.from(e.target.selectedOptions, (o) => o.value))}
+						onChange={(e) =>
+							update(idx, 'purposes', Array.from(e.target.selectedOptions, (o) => o.value))
+						}
 					>
 						{documentPurposes.map((p) => (
 							<option key={p.value} value={p.value}>
@@ -68,13 +94,16 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 						))}
 					</select>
 
-					<label className="block mt-2 text-sm font-medium">File (URL / path)</label>
+					{/* File */}
+					<label className="block mt-2 text-sm font-medium">File</label>
 					<input
 						type="file"
 						className="w-full border rounded p-2"
-						onChange={(e) => update(idx, 'file', (e.target as any).files[0]?.name || '')}
+						accept=".pdf,.jpg,.jpeg,.png"
+						onChange={(e) => update(idx, 'file', (e.target as HTMLInputElement).files?.[0] || null)}
 					/>
 
+					{/* Description */}
 					<label className="block mt-2 text-sm font-medium">Description</label>
 					<input
 						type="text"

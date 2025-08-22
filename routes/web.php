@@ -51,6 +51,7 @@ Route::prefix('api/business-customer')->group(function () {
     Route::any('/step/5', [BusinessCustomerController::class, 'step5']);
     Route::any('/step/6', [BusinessCustomerController::class, 'step6']);
     Route::any('/step/7', [BusinessCustomerController::class, 'step7']);
+    Route::any('/step/8', [BusinessCustomerController::class, 'step8']);
     Route::any('/submit', [BusinessCustomerController::class, 'submit']);
 });
 
