@@ -5,6 +5,7 @@ use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,6 +60,15 @@ Route::prefix('api/business-customer')->group(function () {
 // Route::any('api/business-customer/step/{step}', function () {
 //     return response()->json(['message' => 'This is a placeholder for the business customer step API.']);
 // })->name('api.business.customer.step');
+
+
+Route::get('clear', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
+    Artisan::call('config:cache');
+    Artisan::call('view:clear');
+    return response()->json(['status' => 'success', 'message' => 'Cleared!']);
+});
 
 
 // Catch-all route for Inertia
