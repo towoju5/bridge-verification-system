@@ -134,7 +134,7 @@ export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props
         <AppLayout title="Business Account Registration">
             <Head title="Business Account Registration" />
             <div className="max-w-6xl mx-auto p-6">
-                <h1 className="text-2xl font-bold mb-6">Business Customer Creation</h1>
+                <h1 className="text-2xl font-bold mb-6">Business (K.Y.B)</h1>
 
                 <NavBar />
 
