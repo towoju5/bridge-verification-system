@@ -75,8 +75,8 @@ export default function Address({ formData, setFormData, setActiveTab, countries
 	};
 
 	return (
-		<div className="bg-white shadow sm:rounded-lg p-6">
-			<h2 className="text-lg font-medium text-gray-900 mb-4">Addresses</h2>
+		<div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+			<h2 className="text-xl font-medium text-gray-900 dark:text-white mb-4">Addresses</h2>
 
 			{(['registered_address', 'physical_address'] as const).map(addrType => (
 				<div key={addrType} className="mb-6">

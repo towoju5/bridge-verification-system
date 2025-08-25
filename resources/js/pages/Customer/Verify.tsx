@@ -205,7 +205,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
             };
         });
     };
-    
+
 
     const addArrayItem = (arrayName: string) => {
         setFormData(prev => ({
@@ -312,9 +312,11 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
     return (
         <AppLayout title={`Customer Verification - Step ${step}`}>
             <Head title={`Customer Verification - Step ${step}`} />
-            <div className="bg-gray-100 flex items-center justify-center py-10">
-                <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Customer Verification</h2>
+            <div className="bg-gray-100 dark:bg-gray-900 flex items-center justify-center py-10">
+                <div className="max-w-6xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-center">
+                        Customer Verification
+                    </h2>
 
                     {/* Progress Bar */}
                     <div className="mb-8">
@@ -328,17 +330,21 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                                         <button
                                             onClick={() => goToStep(stepNumber)}
                                             disabled={stepNumber > step}
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium focus:outline-none ${
-                                                isCompleted
+                                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium focus:outline-none ${isCompleted
                                                     ? 'bg-green-500 text-white'
                                                     : isCurrent
                                                         ? 'bg-blue-600 text-white border-2 border-blue-600'
-                                                        : 'bg-gray-200 text-gray-700 border-2 border-gray-300'
-                                            } ${stepNumber > step ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600'
+                                                } ${stepNumber > step ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                         >
                                             {stepNumber}
                                         </button>
-                                        <span className={`mt-2 hidden lg:block text-xs ${isCurrent ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                                        <span
+                                            className={`mt-2 hidden lg:block text-xs ${isCurrent
+                                                    ? 'font-semibold text-blue-600 dark:text-blue-400'
+                                                    : 'text-gray-500 dark:text-gray-400'
+                                                }`}
+                                        >
                                             {stepNumber === 1 && 'Personal'}
                                             {stepNumber === 2 && 'Address'}
                                             {stepNumber === 3 && 'ID'}
@@ -350,7 +356,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                                 );
                             })}
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                             <div
                                 className="bg-blue-600 h-2.5 rounded-full"
                                 style={{ width: `${(step / maxSteps) * 100}%` }}
@@ -359,7 +365,12 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                     </div>
 
                     {saveStatus.message && (
-                        <div className={`mb-4 p-3 rounded ${saveStatus.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <div
+                            className={`mb-4 p-3 rounded ${saveStatus.type === 'success'
+                                    ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200'
+                                    : 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200'
+                                }`}
+                        >
                             {saveStatus.message}
                         </div>
                     )}
@@ -371,11 +382,10 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                             type="button"
                             onClick={handlePrevious}
                             disabled={step === 1 || saving}
-                            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm ${
-                                step === 1 || saving
-                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                                    : 'text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                            }`}
+                            className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm ${step === 1 || saving
+                                    ? 'text-gray-400 bg-gray-100 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                                    : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                                }`}
                         >
                             Previous
                         </button>
@@ -390,6 +400,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                     </div>
                 </div>
             </div>
+
         </AppLayout>
     );
 }
@@ -408,7 +419,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="first_name"
                     value={data.first_name || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -419,7 +430,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="middle_name"
                     value={data.middle_name || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -430,7 +441,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="last_name"
                     value={data.last_name || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -441,7 +452,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="last_name_native"
                     value={data.last_name_native || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
                 <p className="mt-1 text-xs text-gray-500">Required if Last Name contains non-Latin characters.</p>
             </div>
@@ -453,7 +464,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="email"
                     value={data.email || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -465,7 +476,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     value={data.phone || ''}
                     onChange={onDataChange}
                     placeholder="+12223334444"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -476,7 +487,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="birth_date"
                     value={data.birth_date || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
             </div>
             <div>
@@ -486,7 +497,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     name="nationality"
                     value={data.nationality || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select Nationality</option>
                     {countries?.map(country => (
@@ -515,7 +526,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="street_line_1"
                         value={address.street_line_1 || ''}
                         onChange={(e) => handleAddressChange('street_line_1', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
                 <div className="md:col-span-2">
@@ -525,7 +536,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="street_line_2"
                         value={address.street_line_2 || ''}
                         onChange={(e) => handleAddressChange('street_line_2', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
                 <div>
@@ -535,7 +546,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="city"
                         value={address.city || ''}
                         onChange={(e) => handleAddressChange('city', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
                 <div>
@@ -545,7 +556,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="state"
                         value={address.state || ''}
                         onChange={(e) => handleAddressChange('state', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
                 <div>
@@ -555,7 +566,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="postal_code"
                         value={address.postal_code || ''}
                         onChange={(e) => handleAddressChange('postal_code', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
                 <div>
@@ -564,7 +575,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         id="country"
                         value={address.country || ''}
                         onChange={(e) => handleAddressChange('country', e.target.value)}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     >
                         <option value="">Select a country</option>
                         {countries.map(country => (
@@ -604,7 +615,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
         <div>
             <h3 className="text-xl font-semibold mb-4">Step 3: Identification Documents</h3>
             {docs.map((doc, index) => (
-                <div key={index} className="border border-gray-200 rounded-md p-4 mb-4 bg-white">
+                <div key={index} className="border border-gray-200 rounded-md p-4 mb-4">
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="text-lg font-medium">Document {index + 1}</h4>
                         <button
@@ -621,7 +632,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                             <select
                                 value={doc?.issuing_country || ''}
                                 onChange={(e) => handleDocChange(index, 'issuing_country', e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
                                 <option value="">Select country</option>
                                 {countries.map(country => (
@@ -634,7 +645,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                             <select
                                 value={doc?.type || ''}
                                 onChange={(e) => handleDocChange(index, 'type', e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
                                 <option value="">Select type</option>
                                 {(idTypesByCountry[doc?.issuing_country?.toUpperCase() || ''] || idTypesByCountry['USA'] || []).map(type => (
@@ -651,7 +662,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                                 type="text"
                                 value={doc?.number || ''}
                                 onChange={(e) => handleDocChange(index, 'number', e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             />
                         </div>
                         {(doc?.type === 'other' || !doc?.type) && (
@@ -661,7 +672,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                                     type="text"
                                     value={doc?.description || ''}
                                     onChange={(e) => handleDocChange(index, 'description', e.target.value)}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                 />
                             </div>
                         )}
@@ -671,7 +682,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                                 type="date"
                                 value={doc?.expiration_date || ''}
                                 onChange={(e) => handleDocChange(index, 'expiration_date', e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             />
                         </div>
 
@@ -731,7 +742,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     name="employment_status"
                     value={data.employment_status || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select status</option>
                     {employmentStatusOptions.map(opt => (
@@ -746,7 +757,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     name="most_recent_occupation_code"
                     value={data.most_recent_occupation_code || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select an occupation</option>
                     {occupations.map(occ => (
@@ -763,7 +774,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     name="expected_monthly_payments_usd"
                     value={data.expected_monthly_payments_usd || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select range</option>
                     {monthlyOptions.map(opt => (
@@ -778,7 +789,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     name="source_of_funds"
                     value={data.source_of_funds || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select source</option>
                     {sourceOfFunds.map(source => (
@@ -793,7 +804,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     name="account_purpose"
                     value={data.account_purpose || ''}
                     onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select purpose</option>
                     {accountPurposes.map(purpose => (
@@ -810,7 +821,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                         name="account_purpose_other"
                         value={data.account_purpose_other || ''}
                         onChange={onDataChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
             )}
@@ -847,7 +858,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
                 Upload any supporting documents required for verification.
             </p>
             {docs.map((doc, index) => (
-                <div key={index} className="border border-gray-200 rounded-md p-4 mb-4 bg-white">
+                <div key={index} className="border border-gray-200 rounded-md p-4 mb-4">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="text-md font-medium">Document {index + 1}</h4>
                         <button
@@ -864,7 +875,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
                             <select
                                 value={doc.type || ''}
                                 onChange={(e) => handleDocChange(index, 'type', e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
                                 <option value="">Select type</option>
                                 {documentTypes.map(t => (

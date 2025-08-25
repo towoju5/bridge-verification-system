@@ -81,9 +81,9 @@ export default function AssociatedPersons({ formData, setFormData, setActiveTab,
   };
 
   return (
-    <div className="bg-white shadow sm:rounded-lg p-6">
+    <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Associated Persons</h2>
+        <h2 className="text-xl font-medium text-gray-900 dark:text-white">Associated Persons</h2>
         <button
           type="button"
           onClick={add}

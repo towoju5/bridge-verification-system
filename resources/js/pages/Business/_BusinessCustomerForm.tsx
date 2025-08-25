@@ -1577,8 +1577,8 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {activeTab === 'business-info' && (
-                        <div className="bg-white shadow sm:rounded-lg p-6">
-                            <h2 className="text-lg font-medium text-gray-900 mb-4">Business Information</h2>
+                        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+                            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-4">Business Information</h2>
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
@@ -1718,8 +1718,8 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                     )}
 
                     {activeTab === 'addresses' && (
-                        <div className="bg-white shadow sm:rounded-lg p-6">
-                            <h2 className="text-lg font-medium text-gray-900 mb-4">Addresses</h2>
+                        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+                            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-4">Addresses</h2>
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
@@ -1918,9 +1918,9 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                     )}
 
                     {activeTab === 'persons' && (
-                        <div className="bg-white shadow sm:rounded-lg p-6">
+                        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
                             <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-lg font-medium text-gray-900">Associated Persons</h2>
+                                <h2 className="text-xl font-medium text-gray-900 dark:text-white">Associated Persons</h2>
                                 <button
                                     type="button"
                                     onClick={addAssociatedPerson}
@@ -2214,8 +2214,8 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                     )}
 
                     {activeTab === 'financial' && (
-                        <div className="bg-white shadow sm:rounded-lg p-6">
-                            <h2 className="text-lg font-medium text-gray-900 mb-6">Financial Information</h2>
+                        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+                            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">Financial Information</h2>
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
@@ -2486,8 +2486,8 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                     )}
 
                     {activeTab === 'regulatory' && (
-                        <div className="bg-white shadow sm:rounded-lg p-6">
-                            <h2 className="text-lg font-medium text-gray-900 mb-6">Regulatory Information</h2>
+                        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+                            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-6">Regulatory Information</h2>
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
