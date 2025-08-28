@@ -3,9 +3,11 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -18,6 +20,12 @@ class CustomerController extends Controller
 
     public function __construct()
     {
+        if(!Schema::hasColumn('customer_submissions', 'documents')) {
+            // Ensure 'documents' column is cast to array
+            Schema::table('customer_submissions', function (Blueprint $table) {
+                $table->json('uploaded_documents')->nullable();
+            });
+        }
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         $this->maxSteps     = 6;
