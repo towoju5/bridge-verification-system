@@ -20,7 +20,7 @@ class CustomerController extends Controller
 
     public function __construct()
     {
-        if(!Schema::hasColumn('customer_submissions', 'documents')) {
+        if(!Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
             // Ensure 'documents' column is cast to array
             Schema::table('customer_submissions', function (Blueprint $table) {
                 $table->json('uploaded_documents')->nullable();
@@ -43,6 +43,8 @@ class CustomerController extends Controller
         $customerSubmission = CustomerSubmission::create([
             'type'                => 'business',
             'signed_agreement_id' => $signedAgreementId,
+            'user_agent'          => $request->userAgent(),
+            'ip_address'          => $request->ip(),
         ]);
 
         session(['customer_submission_id' => $customerSubmission->id]);
@@ -125,6 +127,11 @@ class CustomerController extends Controller
             // redirect user to completion page
             session()->forget('customer_submission_id');
             $redirectUrl = session('redirect_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
+            if($step == $this->maxSteps){
+                $customerSubmission->status = 'submitted';
+                $customerSubmission->submitted_at = now();
+                $customerSubmission->save();
+            }
 
             return response()->json([
                 'success'       => true,
