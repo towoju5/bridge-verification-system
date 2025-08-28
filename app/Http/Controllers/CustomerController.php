@@ -423,9 +423,15 @@ class CustomerController extends Controller
                     $path = $file->store("customer_documents/{$submission->id}/ids", 'public');
                     $url  = Storage::url($path);
 
-                    $info                                      = $submission->identifying_information[$idx] ?? [];
-                    $info[str_replace('_file', '', $sideKey)]  = $url;
-                    $submission->identifying_information[$idx] = $info;
+                    // Work on the attribute as an array
+                    $data = $submission->identifying_information ?? [];
+                    $info = $data[$idx] ?? [];
+
+                    $info[str_replace('_file', '', $sideKey)] = $url;
+                    $data[$idx] = $info;
+
+                    // Reassign the whole array to trigger save
+                    $submission->identifying_information = $data;
                     $submission->save();
 
                     CustomerDocument::create([
@@ -443,6 +449,7 @@ class CustomerController extends Controller
             }
         }
     }
+
 
     private function uploadAdditionalDocuments(Request $request, CustomerSubmission $submission)
     {
