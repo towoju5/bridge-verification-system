@@ -91,7 +91,10 @@ interface CustomerData {
     bridge_response: any | null;
     created_at: string;
     updated_at: string;
-    uploaded_documents: UploadedDocument[];
+    uploaded_documents: {
+        file?: File | null;
+        type: string;
+    }[] | null;
 }
 
 // Select options
@@ -231,23 +234,40 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
 
         const formDataToSend = new FormData();
 
+        // const appendData = (obj: any, parentKey = '') => {
+        //     if (obj === null || obj === undefined) return;
+        //     if (typeof obj === 'object' && !(obj instanceof File)) {
+        //         Object.keys(obj).forEach(key => {
+        //             const val = obj[key];
+        //             if (val instanceof File) {
+        //                 formDataToSend.append(`${parentKey}${key}`, val);
+        //             } else if (typeof val === 'object') {
+        //                 appendData(val, `${parentKey}${key}.`);
+        //             } else {
+        //                 formDataToSend.append(`${parentKey}${key}`, String(val));
+        //             }
+        //         });
+        //     } else {
+        //         formDataToSend.append(parentKey, obj);
+        //     }
+        // };
         const appendData = (obj: any, parentKey = '') => {
             if (obj === null || obj === undefined) return;
-            if (typeof obj === 'object' && !(obj instanceof File)) {
-                Object.keys(obj).forEach(key => {
-                    const val = obj[key];
-                    if (val instanceof File) {
-                        formDataToSend.append(`${parentKey}${key}`, val);
-                    } else if (typeof val === 'object') {
-                        appendData(val, `${parentKey}${key}.`);
-                    } else {
-                        formDataToSend.append(`${parentKey}${key}`, String(val));
-                    }
+
+            if (Array.isArray(obj)) {
+                obj.forEach((item, index) => {
+                    // use bracket syntax for arrays
+                    appendData(item, `${parentKey}[${index}]`);
+                });
+            } else if (typeof obj === 'object' && !(obj instanceof File)) {
+                Object.entries(obj).forEach(([key, val]) => {
+                    appendData(val, parentKey ? `${parentKey}[${key}]` : key);
                 });
             } else {
                 formDataToSend.append(parentKey, obj);
             }
         };
+
 
         appendData(formData);
 
@@ -260,6 +280,9 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
 
             if (response.data.success) {
                 setSaveStatus({ message: response.data.message, type: 'success' });
+                if (response.data.redirect_url) {
+                    window.location.href = response.data.redirect_url;
+                }
                 if (response.data.customer_data) {
                     setFormData(response.data.customer_data);
                 }
@@ -312,7 +335,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
     return (
         <AppLayout title={`Customer Verification - Step ${step}`}>
             <Head title={`Customer Verification - Step ${step}`} />
-            <div className="bg-gray-100 dark:bg-gray-900 flex items-center justify-center py-10">
+            <div className="bg-gray-100 dark:bg-gray-800 flex items-center justify-center py-10">
                 <div className="max-w-6xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-center">
                         Customer Verification
@@ -847,9 +870,11 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
 
     const handleDocChange = (index: number, field: string, value: string | File) => {
         if (onArrayChange) {
-            onArrayChange('uploaded_documents', index, field, value as string);
+            onArrayChange('uploaded_documents', index, field, value);
         }
     };
+    
+    
 
     return (
         <div>
@@ -930,65 +955,79 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
 
     return (
         <div>
-            <h3 className="text-xl font-semibold mb-4">Step 6: Review Information</h3>
-            <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="font-medium text-gray-700 mb-2">Personal Information</h4>
-                <p><span className="font-semibold">Name:</span> {data.first_name} {data.middle_name} {data.last_name}</p>
-                <p><span className="font-semibold">Email:</span> {data.email || 'Not provided'}</p>
-                <p><span className="font-semibold">Phone:</span> {data.phone || 'Not provided'}</p>
-                <p><span className="font-semibold">Date of Birth:</span> {data.birth_date || 'Not provided'}</p>
+            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Step 6: Review Information</h3>
+
+            {/* Personal Info */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl">
+            <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Personal Information</h4>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Name:</span> {data.first_name} {data.middle_name} {data.last_name}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Email:</span> {data.email || 'Not provided'}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Phone:</span> {data.phone || 'Not provided'}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Date of Birth:</span> {data.birth_date || 'Not provided'}</p>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-md mt-4">
-                <h4 className="font-medium text-gray-700 mb-2">Address</h4>
-                <p>{getAddressString(data.residential_address)}</p>
-                {data.residential_address?.proof_of_address_url && (
-                    <a href={data.residential_address.proof_of_address_url} target="_blank" className="text-blue-600 text-sm mt-1 block">View Proof of Address</a>
-                )}
+            {/* Address */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
+            <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Address</h4>
+            <p className="text-gray-900 dark:text-gray-100">{getAddressString(data.residential_address)}</p>
+            {data.residential_address?.proof_of_address_url && (
+                <a href={data.residential_address.proof_of_address_url} target="_blank" className="text-blue-600 dark:text-blue-400 text-sm mt-1 block">View Proof of Address</a>
+            )}
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-md mt-4">
-                <h4 className="font-medium text-gray-700 mb-2">Identification</h4>
-                {data.identifying_information && data.identifying_information.length > 0 ? (
-                    data.identifying_information.map((doc, index) => (
-                        <div key={index} className="mb-2">
-                            <p><span className="font-semibold">Type:</span> {doc.type}</p>
-                            <p><span className="font-semibold">Country:</span> {doc.issuing_country}</p>
-                            <p><span className="font-semibold">Number:</span> {doc.number || 'N/A'}</p>
-                            {doc.image_front && !doc.image_front_file && <a href={doc.image_front} target="_blank" className="text-blue-600 text-sm">View Front</a>}
-                            {doc.image_back && !doc.image_back_file && <a href={doc.image_back} target="_blank" className="text-blue-600 text-sm ml-4">View Back</a>}
-                        </div>
-                    ))
-                ) : (
-                    <p>No documents provided.</p>
-                )}
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-md mt-4">
-                <h4 className="font-medium text-gray-700 mb-2">Employment & Finances</h4>
-                <p><span className="font-semibold">Employment Status:</span> {data.employment_status || 'Not provided'}</p>
-                <p><span className="font-semibold">Occupation:</span> {getOccupationLabel(data.most_recent_occupation_code)}</p>
-                <p><span className="font-semibold">Expected Payments:</span> {data.expected_monthly_payments_usd || 'Not provided'} USD</p>
-                <p><span className="font-semibold">Source of Funds:</span> {data.source_of_funds || 'Not provided'}</p>
-                <p><span className="font-semibold">Account Purpose:</span> {data.account_purpose}{data.account_purpose === 'other' ? ` (${data.account_purpose_other})` : ''}</p>
-                <p><span className="font-semibold">Intermediary:</span> {data.acting_as_intermediary ? 'Yes' : 'No'}</p>
-            </div>
-
-            {data.uploaded_documents && data.uploaded_documents.length > 0 && (
-                <div className="bg-gray-50 p-4 rounded-md mt-4">
-                    <h4 className="font-medium text-gray-700 mb-2">Additional Documents</h4>
-                    {data.uploaded_documents.map((doc, index) => (
-                        <div key={index} className="mb-2">
-                            <p><span className="font-semibold">{documentTypes.find(t => t.value === doc.type)?.label || doc.type}:</span> {doc.fileName || 'Uploaded'}</p>
-                            {doc.url && <a href={doc.url} target="_blank" className="text-blue-600 text-sm">View</a>}
-                        </div>
-                    ))}
+            {/* Identification */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
+            <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Identification</h4>
+            {data.identifying_information && data.identifying_information.length > 0 ? (
+                data.identifying_information.map((doc, index) => (
+                <div key={index} className="mb-2 text-gray-900 dark:text-gray-100">
+                    <p><span className="font-semibold">Type:</span> {doc.type}</p>
+                    <p><span className="font-semibold">Country:</span> {doc.issuing_country}</p>
+                    <p><span className="font-semibold">Number:</span> {doc.number || 'N/A'}</p>
+                    {doc.image_front && !doc.image_front_file && (
+                    <a href={doc.image_front} target="_blank" className="text-blue-600 dark:text-blue-400 text-sm">View Front</a>
+                    )}
+                    {doc.image_back && !doc.image_back_file && (
+                    <a href={doc.image_back} target="_blank" className="text-blue-600 dark:text-blue-400 text-sm ml-4">View Back</a>
+                    )}
                 </div>
+                ))
+            ) : (
+                <p className="text-gray-900 dark:text-gray-100">No documents provided.</p>
+            )}
+            </div>
+
+            {/* Employment & Finances */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
+            <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Employment & Finances</h4>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Employment Status:</span> {data.employment_status || 'Not provided'}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Occupation:</span> {getOccupationLabel(data.most_recent_occupation_code)}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Expected Payments:</span> {data.expected_monthly_payments_usd || 'Not provided'} USD</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Source of Funds:</span> {data.source_of_funds || 'Not provided'}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Account Purpose:</span> {data.account_purpose}{data.account_purpose === 'other' ? ` (${data.account_purpose_other})` : ''}</p>
+            <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Intermediary:</span> {data.acting_as_intermediary ? 'Yes' : 'No'}</p>
+            </div>
+
+            {/* Additional Documents */}
+            {data.uploaded_documents && data.uploaded_documents.length > 0 && (
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
+                <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Additional Documents</h4>
+                {data.uploaded_documents.map((doc, index) => (
+                <div key={index} className="mb-2 text-gray-900 dark:text-gray-100">
+                    <p><span className="font-semibold">{documentTypes.find(t => t.value === doc.type)?.label || doc.type}:</span> {doc.fileName || 'Uploaded'}</p>
+                    {doc.url && <a href={doc.url} target="_blank" className="text-blue-600 dark:text-blue-400 text-sm">View</a>}
+                </div>
+                ))}
+            </div>
             )}
 
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-blue-700">Please review all information carefully. Once you click "Finish", the data will be finalized.</p>
+            {/* Final Notice */}
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
+            <p className="text-blue-700 dark:text-blue-300">
+                Please review all information carefully. Once you click "Finish", the data will be finalized.
+            </p>
             </div>
         </div>
-    );
+        );
+
 };

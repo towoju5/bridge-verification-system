@@ -15,6 +15,8 @@ class CustomerSubmission extends Model
         'birth_date' => 'date',
         'submitted_at' => 'datetime',
         'verified_at' => 'datetime',
+        'documents' => 'array',
+        'uploaded_documents' => 'array',
     ];
 
     protected $fillable = [
@@ -46,10 +48,12 @@ class CustomerSubmission extends Model
         'submitted_at',
         'ip_address',
         'user_agent',
+        'documents',
+        'uploaded_documents'
     ];
 
-    public function documents(): HasMany
-    {
-        return $this->hasMany(CustomerDocument::class);
-    }
+    // public function documents(): HasMany
+    // {
+    //     return $this->hasMany(CustomerDocument::class);
+    // }
 }

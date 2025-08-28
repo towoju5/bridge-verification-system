@@ -14,12 +14,13 @@ use Inertia\Inertia;
 class CustomerController extends Controller
 {
     protected $bridgeApiKey;
-    protected $bridgeApiUrl;
+    protected $bridgeApiUrl, $maxSteps;
 
     public function __construct()
     {
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
+        $this->maxSteps     = 6;
     }
 
     public function showAccountTypeSelection()
@@ -95,7 +96,7 @@ class CustomerController extends Controller
     public function saveVerificationStep(Request $request, $step)
     {
         $step     = (int) $step;
-        $maxSteps = 6;
+        $maxSteps = $this->maxSteps;
 
         if ($step < 1 || $step > $maxSteps) {
             return response()->json(['success' => false, 'message' => 'Invalid step.'], 400);
@@ -112,12 +113,29 @@ class CustomerController extends Controller
             return response()->json(['success' => false, 'message' => 'Submission not found.'], 404);
         }
 
+        if ($step >= $this->maxSteps) {
+            // redirect user to completion page
+            session()->forget('customer_submission_id');
+            $redirectUrl = session('redirect_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
+
+            return response()->json([
+                'success'       => true,
+                'message'       => "KYC process completed successfully.",
+                'next_step'     => null,
+                'is_complete'   => true,
+                'redirect_url'  => $redirectUrl,
+                'customer_data' => $customerSubmission->fresh(),
+            ]);
+        }
+
         try {
             // 🔑 Normalize all dot-notated fields before validation
             $request = $this->normalizeRequest($request);
             // Validate the request data for the current step
             $validatedData = $this->validateStepData($request, $step);
             $stepData      = $this->mapStepDataToModel($validatedData, $step);
+
+            Log::debug("Step $step Data Mapped to Model", ['data' => $stepData]);
 
             // Handle file uploads
             $this->handleFileUploads($request, $customerSubmission);
@@ -207,7 +225,7 @@ class CustomerController extends Controller
                     'first_name'       => 'required|string|min:1|max:1024',
                     'middle_name'      => 'required|string|max:1024',
                     'last_name'        => 'required|string|min:1|max:1024',
-                    'last_name_native' => 'required|string|max:1024',
+                    'last_name_native' => 'sometimes|string|max:1024',
                     'email'            => 'required|email|max:1024',
                     'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
                     'birth_date'       => 'required|date|before:today',
@@ -227,7 +245,7 @@ class CustomerController extends Controller
                 break;
             case 3:
                 $rules = [
-                    'identifying_information'                    => 'array',
+                    'identifying_information'                    => 'array|required',
                     'identifying_information.*.type'             => 'required_with:identifying_information|string',
                     'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:3',
                     'identifying_information.*.number'           => 'required|string',
@@ -249,8 +267,9 @@ class CustomerController extends Controller
                 ];
                 break;
             case 5:
+                Log::info('Validating step 5 data', ['request_keys' => array_keys($request->all())]);
                 $rules = [
-                    'uploaded_documents'        => 'array',
+                    'uploaded_documents'        => 'array|required',
                     'uploaded_documents.*.type' => 'required_with:uploaded_documents|string',
                     'uploaded_documents.*.file' => 'required_with:uploaded_documents|file|mimes:pdf,jpg,jpeg,png|max:10240',
                 ];
@@ -328,11 +347,26 @@ class CustomerController extends Controller
                 ]);
                 break;
             case 5:
+                if (isset($validatedData['uploaded_documents'])) {
+                    $modelData['uploaded_documents'] = collect($validatedData['uploaded_documents'])->map(function ($doc, $index) {
+                        $cleaned = Arr::only($doc, ['type']); // keep metadata like type
+
+                        $fileUrl = $this->uploadFileIfExists("uploaded_documents.$index.file",
+                            'customer_documents/' . request()->signed_agreement_id);
+
+                        $cleaned['file'] = $fileUrl;
+
+                        return $cleaned;
+                    })->toArray();
+                } else {
+                    Log::info('No uploaded_documents found in validated data for step 5', ['validatedData' => $validatedData]);
+                }
+
                 if (! empty($validatedData['uploaded_documents'])) {
                     $modelData['documents'] = collect($validatedData['uploaded_documents'])->map(function ($doc, $index) {
                         $cleaned = Arr::only($doc, ['type']); // keep metadata like type
 
-                        $fileUrl = $this->uploadFileIfExists("uploaded_documents.$index.file", 
+                        $fileUrl = $this->uploadFileIfExists("uploaded_documents.$index.file",
                             'customer_documents/' . request()->signed_agreement_id);
 
                         $cleaned['file'] = $fileUrl;
@@ -341,9 +375,11 @@ class CustomerController extends Controller
                     })->toArray();
                 }
                 break;
+
+                break;
             default:
                 Log::warning('Unknown step in customer verification', ['step' => $step, 'submission_id' => session('customer_submission_id')]);
-                return response()->json(['success' => false, 'message' => 'Unknown step.'], 400);   
+                return response()->json(['success' => false, 'message' => 'Unknown step.'], 400);
 
         }
 
@@ -410,11 +446,26 @@ class CustomerController extends Controller
 
     private function uploadAdditionalDocuments(Request $request, CustomerSubmission $submission)
     {
-        foreach ($request->file('uploaded_documents', []) as $idx => $file) {
+        $documents = $submission->documents ?? [];
+
+        foreach ($request->file('uploaded_documents', []) as $idx => $doc) {
+            if (! isset($doc['file'])) {
+                continue;
+            }
+
+            $file = $doc['file']; // this is the actual UploadedFile
             $type = $request->input("uploaded_documents.{$idx}.type");
+
             $path = $file->store("customer_documents/{$submission->id}/additional", 'public');
             $url  = Storage::url($path);
 
+            // Save in documents column
+            $documents[] = [
+                'type' => $type ?: 'other',
+                'file' => $url,
+            ];
+
+            // Save in CustomerDocument table
             CustomerDocument::create([
                 'customer_submission_id' => $submission->id,
                 'document_type'          => $type ?: 'other',
@@ -424,7 +475,12 @@ class CustomerController extends Controller
                 'file_size'              => $file->getSize(),
             ]);
         }
+
+        // 🔑 Update the main submission's documents JSON column
+        $submission->documents = $documents;
+        $submission->save();
     }
+
 
     private function uploadFileIfExists(string $key, string $folder): ?string
     {
