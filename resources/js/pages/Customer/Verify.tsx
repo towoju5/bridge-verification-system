@@ -74,6 +74,7 @@ interface CustomerData {
     account_purpose: string | null;
     account_purpose_other: string | null;
     acting_as_intermediary: boolean | null;
+    submit_bridge_kyc: boolean | null;
     endorsements: string[] | null;
     identifying_information: {
         type: string;
@@ -327,7 +328,7 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
             case 3: return <IdentificationStep data={formData} onDataChange={handleInputChange} onArrayChange={handleArrayChange} addArrayItem={addArrayItem} removeArrayItem={removeArrayItem} countries={initialData.countries} idTypesByCountry={initialData.identificationTypesByCountry} />;
             case 4: return <EmploymentFinancesStep data={formData} onDataChange={handleInputChange} occupations={initialData.occupations} accountPurposes={initialData.accountPurposes} sourceOfFunds={initialData.sourceOfFunds} />;
             case 5: return <DocumentsUploadStep data={formData} addArrayItem={addArrayItem} removeArrayItem={removeArrayItem} onArrayChange={handleArrayChange} />;
-            case 6: return <ReviewStep data={formData} initialData={initialData} />;
+            case 6: return <ReviewStep data={formData} initialData={initialData} onDataChange={handleInputChange} />;
             default: return <div>Invalid step</div>;
         }
     };
@@ -857,7 +858,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     onChange={(e) => onDataChange({ ...e, target: { ...e.target, name: 'acting_as_intermediary', type: 'checkbox' } })}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="acting_as_intermediary" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="acting_as_intermediary" className="ml-2 block text-sm text-gray-900 dark:text-white"> 
                     Acting as intermediary?
                 </label>
             </div>
@@ -940,7 +941,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeAr
     );
 };
 
-const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = ({ data, initialData }) => {
+const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = ({ data, initialData, onDataChange }) => {
     const getOccupationLabel = (code: string | null) => {
         if (!code) return 'Not specified';
         const occ = initialData.occupations.find(o => o.code === code);
@@ -958,6 +959,25 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
             <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Step 6: Review Information</h3>
 
             {/* Personal Info */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mb-3">
+                <div className="flex items-center pt-4">
+                    <input
+                        id="submit_bridge_kyc"
+                        name="submit_bridge_kyc"
+                        type="checkbox"
+                        checked={!!data.submit_bridge_kyc}
+                        onChange={(e) => onDataChange({ ...e, target: { ...e.target, name: 'submit_bridge_kyc', type: 'checkbox' } })}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="submit_bridge_kyc" className="ml-2 block text-sm text-gray-900 dark:text-white">
+                        Enable USD and EUR Payout?
+                    </label>
+                </div>
+            </div>
+
+
+
+            {/* Personal Info */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl">
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Personal Information</h4>
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Name:</span> {data.first_name} {data.middle_name} {data.last_name}</p>
@@ -965,6 +985,7 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Phone:</span> {data.phone || 'Not provided'}</p>
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Date of Birth:</span> {data.birth_date || 'Not provided'}</p>
             </div>
+
 
             {/* Address */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">

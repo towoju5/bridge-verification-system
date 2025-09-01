@@ -114,7 +114,12 @@ class CustomerController extends Controller
 
         $submissionId = session('customer_submission_id');
         if (! $submissionId) {
-            return response()->json(['success' => false, 'message' => 'Session expired.'], 400);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Session expired.',
+                'debug'   => 'Session expired.',
+            ], 400);
         }
 
         $customerSubmission = CustomerSubmission::find($submissionId);
@@ -125,13 +130,16 @@ class CustomerController extends Controller
 
         if ($step >= $this->maxSteps) {
             // redirect user to completion page
-            session()->forget('customer_submission_id');
-            $redirectUrl = session('redirect_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
+            if($request->has('submit_bridge_kyc')) {
+                $customerSubmission->update(['submit_bridge_kyc' => (bool)$request->submit_bridge_kyc]);
+            }
             if($step == $this->maxSteps){
                 $customerSubmission->status = 'submitted';
                 $customerSubmission->submitted_at = now();
                 $customerSubmission->save();
             }
+            session()->forget('customer_submission_id');
+            $redirectUrl = session('redirect_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
 
             return response()->json([
                 'success'       => true,

@@ -46,6 +46,8 @@ return new class extends Migration
             $table->text('account_purpose_other')->nullable();
             $table->boolean('acting_as_intermediary')->nullable();
 
+            $table->boolean('submit_bridge_kyc')->default(false);
+
             // Endorsements
             $table->json('endorsements')->nullable();
             $table->json('documents')->nullable();

@@ -17,6 +17,7 @@ class CustomerSubmission extends Model
         'verified_at' => 'datetime',
         'documents' => 'array',
         'uploaded_documents' => 'array',
+        'submit_bridge_kyc' => 'boolean'
     ];
 
     protected $fillable = [
@@ -49,7 +50,8 @@ class CustomerSubmission extends Model
         'ip_address',
         'user_agent',
         'documents',
-        'uploaded_documents'
+        'uploaded_documents',
+        'submit_bridge_kyc'
     ];
 
     // public function documents(): HasMany
