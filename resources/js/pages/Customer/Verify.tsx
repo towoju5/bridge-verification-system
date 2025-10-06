@@ -234,24 +234,6 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
         setSaveStatus({ message: '', type: '' });
 
         const formDataToSend = new FormData();
-
-        // const appendData = (obj: any, parentKey = '') => {
-        //     if (obj === null || obj === undefined) return;
-        //     if (typeof obj === 'object' && !(obj instanceof File)) {
-        //         Object.keys(obj).forEach(key => {
-        //             const val = obj[key];
-        //             if (val instanceof File) {
-        //                 formDataToSend.append(`${parentKey}${key}`, val);
-        //             } else if (typeof val === 'object') {
-        //                 appendData(val, `${parentKey}${key}.`);
-        //             } else {
-        //                 formDataToSend.append(`${parentKey}${key}`, String(val));
-        //             }
-        //         });
-        //     } else {
-        //         formDataToSend.append(parentKey, obj);
-        //     }
-        // };
         const appendData = (obj: any, parentKey = '') => {
             if (obj === null || obj === undefined) return;
 

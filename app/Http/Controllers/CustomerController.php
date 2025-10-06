@@ -26,6 +26,12 @@ class CustomerController extends Controller
                 $table->json('uploaded_documents')->nullable();
             });
         }
+        if(!Schema::hasColumn('customer_submissions', 'submit_bridge_kyc')) {
+            // Ensure 'documents' column is cast to array
+            Schema::table('customer_submissions', function (Blueprint $table) {
+                $table->boolean('submit_bridge_kyc')->default(false);
+            });
+        }
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         $this->maxSteps     = 6;
