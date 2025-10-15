@@ -5,10 +5,12 @@ use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -20,18 +22,19 @@ class CustomerController extends Controller
 
     public function __construct()
     {
-        if(!Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
+        if (! Schema::hasColumns('customer_submissions', ['uploaded_documents', 'submit_bridge_kyc'])) {
             // Ensure 'documents' column is cast to array
             Schema::table('customer_submissions', function (Blueprint $table) {
                 $table->json('uploaded_documents')->nullable();
-            });
-        }
-        if(!Schema::hasColumn('customer_submissions', 'submit_bridge_kyc')) {
-            // Ensure 'documents' column is cast to array
-            Schema::table('customer_submissions', function (Blueprint $table) {
                 $table->boolean('submit_bridge_kyc')->default(false);
             });
         }
+        // if(!Schema::hasColumn('customer_submissions', 'xoxo')) {
+        //     // Ensure 'documents' column is cast to array
+        //     Schema::table('customer_submissions', function (Blueprint $table) {
+        //         $table->string('yativo_customer_id');
+        //     });
+        // }
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         $this->maxSteps     = 6;
@@ -39,6 +42,11 @@ class CustomerController extends Controller
 
     public function showAccountTypeSelection()
     {
+        $submissionId = session('customer_submission_id', request()->customer_id);
+        // if (! $submissionId) {
+        //     return redirect()->back();
+        //     return redirect()->route('account.type')->with('error', 'Session expired');
+        // }
         return Inertia::render('Customer/AccountTypeSelection');
     }
 
@@ -136,11 +144,11 @@ class CustomerController extends Controller
 
         if ($step >= $this->maxSteps) {
             // redirect user to completion page
-            if($request->has('submit_bridge_kyc')) {
-                $customerSubmission->update(['submit_bridge_kyc' => (bool)$request->submit_bridge_kyc]);
+            if ($request->has('submit_bridge_kyc')) {
+                $customerSubmission->update(['submit_bridge_kyc' => (bool) $request->submit_bridge_kyc]);
             }
-            if($step == $this->maxSteps){
-                $customerSubmission->status = 'submitted';
+            if ($step == $this->maxSteps) {
+                $customerSubmission->status       = 'submitted';
                 $customerSubmission->submitted_at = now();
                 $customerSubmission->save();
             }
@@ -258,7 +266,7 @@ class CustomerController extends Controller
                     'email'            => 'required|email|max:1024',
                     'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
                     'birth_date'       => 'required|date|before:today',
-                    'nationality'      => 'required|string|size:3',
+                    'nationality'      => 'required|string|size:2',
                 ];
                 break;
             case 2:
@@ -273,11 +281,12 @@ class CustomerController extends Controller
                 ];
                 break;
             case 3:
-                $rules = [
+                $rules = [ 
                     'identifying_information'                    => 'array|required',
                     'identifying_information.*.type'             => 'required_with:identifying_information|string',
-                    'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:3',
+                    'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:2',
                     'identifying_information.*.number'           => 'required|string',
+                    'identifying_information.*.date_issued'      => 'required|date|before:today',
                     'identifying_information.*.expiration_date'  => 'required|date|after:today',
                     'identifying_information.*.image_front_file' => 'required_with:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:10240',
                     'identifying_information.*.image_back_file'  => 'sometimes:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:10240',
@@ -286,11 +295,11 @@ class CustomerController extends Controller
             case 4:
                 $request->merge(['acting_as_intermediary' => (bool) $request->input('acting_as_intermediary')]);
                 $rules = [
-                    'employment_status'             => ['required', Rule::in(config('bridge_data.employment_status'))],
+                    'employment_status'             => ['required'],
                     'most_recent_occupation_code'   => 'required|string',
                     'expected_monthly_payments_usd' => ['required', Rule::in(config('bridge_data.expected_monthly_payments_usd'))],
                     'source_of_funds'               => ['required', Rule::in(config('bridge_data.source_of_funds'))],
-                    'account_purpose'               => ['required', Rule::in(config('bridge_data.account_purposes'))],
+                    'account_purpose'               => ['required'],
                     'account_purpose_other'         => 'required_if:account_purpose,other',
                     'acting_as_intermediary'        => 'sometimes|boolean',
                 ];
@@ -457,7 +466,7 @@ class CustomerController extends Controller
                     $info = $data[$idx] ?? [];
 
                     $info[str_replace('_file', '', $sideKey)] = $url;
-                    $data[$idx] = $info;
+                    $data[$idx]                               = $info;
 
                     // Reassign the whole array to trigger save
                     $submission->identifying_information = $data;
@@ -468,17 +477,16 @@ class CustomerController extends Controller
                         'document_type'          => 'identification',
                         'side'                   => str_replace('image_', '', $sideKey),
                         'reference_field'        => "identifying_information.{$idx}.{$sideKey}",
-                        'file_path'              => $path,
-                        'file_name'              => $file->getClientOriginalName(),
-                        'mime_type'              => $file->getMimeType(),
-                        'file_size'              => $file->getSize(),
-                        'issuing_country'        => $info['issuing_country'] ?? null,
+                        'file_path'       => $path,
+                        'file_name'       => $file->getClientOriginalName(),
+                        'mime_type'       => $file->getMimeType(),
+                        'file_size'       => $file->getSize(),
+                        'issuing_country' => $info['issuing_country'] ?? null,
                     ]);
                 }
             }
         }
     }
-
 
     private function uploadAdditionalDocuments(Request $request, CustomerSubmission $submission)
     {
@@ -516,7 +524,6 @@ class CustomerController extends Controller
         $submission->documents = $documents;
         $submission->save();
     }
-
 
     private function uploadFileIfExists(string $key, string $folder): ?string
     {
@@ -563,6 +570,31 @@ class CustomerController extends Controller
         }
 
         return $result;
+    }
+
+    public function fetchCustomerKycData(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'customer_id'   => 'required|string',
+                'customer_type' => 'required|in:business,individual',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['error' => $validator->errors()->toArray()]);
+            }
+
+            // retrieve record using the submission ID as the customer ID
+            $submissionId = session('customer_submission_id');
+            $kyc_data     = CustomerSubmission::findorfail($submissionId);
+            if ($kyc_data) {
+                return response()->json(['data' => $kyc_data], 200);
+            }
+
+            return response()->json(['error' => "Record not found"], Response::HTTP_NOT_FOUND);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     // API Endpoints

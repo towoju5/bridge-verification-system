@@ -83,6 +83,7 @@ interface CustomerData {
         description?: string | null;
         image_front?: string | null;
         image_back?: string | null;
+        date_issued?: string | null;
         expiration_date?: string | null;
         image_front_file?: File | null;
         image_back_file?: File | null;
@@ -107,12 +108,12 @@ const monthlyOptions = [
 ];
 
 const employmentStatusOptions = [
-    { value: 'employed', label: 'Employed' },
-    { value: 'homemaker', label: 'Homemaker' },
-    { value: 'retired', label: 'Retired' },
-    { value: 'self_employed', label: 'Self Employed' },
-    { value: 'student', label: 'Student' },
-    { value: 'unemployed', label: 'Unemployed' },
+    { value: 'Employed', label: 'Employed' },
+    { value: 'Homemaker', label: 'Homemaker' },
+    { value: 'Retired', label: 'Retired' },
+    { value: 'SelfEmployed', label: 'Self Employed' },
+    { value: 'Student', label: 'Student' },
+    { value: 'Unemployed', label: 'Unemployed' },
 ];
 
 const documentTypes = [
@@ -683,6 +684,15 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                             </div>
                         )}
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-white">Date Issued</label>
+                            <input
+                                type="date"
+                                value={doc?.date_issued || ''}
+                                onChange={(e) => handleDocChange(index, 'date_issued', e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            />
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-white">Expiration Date</label>
                             <input
                                 type="date"
@@ -798,8 +808,8 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select source</option>
-                    {sourceOfFunds.map(source => (
-                        <option key={source} value={source}>{source.replace(/_/g, ' ')}</option>
+                    {Object.entries(sourceOfFunds).map(([key, value]) => (
+                        <option key={key} value={key}>{value.replace(/_/g, ' ')}</option>
                     ))}
                 </select>
             </div>
@@ -813,8 +823,8 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
                     <option value="">Select purpose</option>
-                    {accountPurposes.map(purpose => (
-                        <option key={purpose} value={purpose}>{purpose.replace(/_/g, ' ')}</option>
+                    {Object.entries(accountPurposes).map(([key, value]) => (
+                        <option key={key} value={key}>{value.replace(/_/g, ' ')}</option>
                     ))}
                 </select>
             </div>

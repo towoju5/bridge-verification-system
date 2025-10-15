@@ -19,7 +19,13 @@ use Illuminate\Support\Facades\Artisan;
 */
 
 
-Route::get('/', [CustomerController::class, 'showAccountTypeSelection'])->name('home');
+Route::get('/', function(){
+    // if(!request()->has('customer_id')) {
+    //     return back()->with('error', 'customer ID is required');
+    // }
+    session()->put('customer_submission_id', request()->customer_id);
+    return redirect()->to(route('account.type'));
+})->name('home');
 Route::get('/account-type', [CustomerController::class, 'showAccountTypeSelection'])->name('account.type');
 
 // Business user Verification Routes
