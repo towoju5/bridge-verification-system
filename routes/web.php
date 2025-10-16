@@ -47,6 +47,7 @@ Route::prefix('api/data')->group(function () {
     Route::get('countries', [CustomerController::class, 'getCountries'])->name('api.data.countries');
     Route::get('subdivisions/{countryCode}', [CustomerController::class, 'getSubdivisions'])->name('api.data.subdivisions');
     Route::get('identification-types/{countryCode}', [CustomerController::class, 'getIdentificationTypesByCountry'])->name('api.data.identification.types');
+    Route::post('get-customer', [CustomerController::class, 'fetchUserData']);
 });
 
 

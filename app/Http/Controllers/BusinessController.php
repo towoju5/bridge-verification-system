@@ -259,7 +259,7 @@ class BusinessController extends Controller
                     'residential_address.city'          => ['required', 'string', 'between:1,256'],
                     'residential_address.state'         => ['required', 'string'],
                     'residential_address.postal_code'   => ['required', 'string', 'between:1,16'],
-                    'residential_address.country'       => ['required', 'string', 'size:3'],
+                    'residential_address.country'       => ['required', 'string', 'size:2'],
                     // Transliterated address rules would be similar if needed
                 ];
                 break;
@@ -267,7 +267,7 @@ class BusinessController extends Controller
                 $rules = [
                     'identifying_information'                   => ['required', 'array'],
                     'identifying_information.*.type'            => ['required_with:identifying_information', 'string'],
-                    'identifying_information.*.issuing_country' => ['required_with:identifying_information', 'string', 'size:3'],
+                    'identifying_information.*.issuing_country' => ['required_with:identifying_information', 'string', 'size:2'],
                     'identifying_information.*.number'          => ['required', 'string'],
                     'identifying_information.*.description'     => ['sometimes', 'string'],
                     // 'identifying_information.*.image_front' => ['required', 'string'],

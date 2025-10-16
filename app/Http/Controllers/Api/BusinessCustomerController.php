@@ -46,12 +46,12 @@ class BusinessCustomerController extends Controller
         $validated = $request->validate([
             'registered_address.street_line_1'         => 'required|string',
             'registered_address.city'                  => 'required|string',
-            'registered_address.country'               => 'required|string|size:3',
+            'registered_address.country'               => 'required|string|size:2',
             'registered_address.proof_of_address_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
 
             'physical_address.street_line_1'           => 'required|string',
             'physical_address.city'                    => 'required|string',
-            'physical_address.country'                 => 'required|string|size:3',
+            'physical_address.country'                 => 'required|string|size:2',
             'physical_address.proof_of_address_file'   => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
 
@@ -100,7 +100,7 @@ class BusinessCustomerController extends Controller
             'associated_persons.*.email'                             => 'required|email',
             'associated_persons.*.residential_address.street_line_1' => 'required|string',
             'associated_persons.*.residential_address.city'          => 'required|string',
-            'associated_persons.*.residential_address.country'       => 'required|string|size:3',
+            'associated_persons.*.residential_address.country'       => 'required|string|size:2',
         ]);
 
         $customer = $this->getCustomerBySession($request);
@@ -141,7 +141,7 @@ class BusinessCustomerController extends Controller
     {
         $validated = $request->validate([
             'regulated_activity.regulated_activities_description'     => 'nullable|string',
-            'regulated_activity.primary_regulatory_authority_country' => 'nullable|string|size:3',
+            'regulated_activity.primary_regulatory_authority_country' => 'nullable|string|size:2',
             'regulated_activity.primary_regulatory_authority_name'    => 'nullable|string',
             'regulated_activity.license_number'                       => 'nullable|string',
         ]);
@@ -200,7 +200,7 @@ class BusinessCustomerController extends Controller
         $validated = $request->validate([
             'identifying_information'                   => 'array',
             'identifying_information.*.type'            => 'required|string',
-            'identifying_information.*.issuing_country' => 'required|string|size:3',
+            'identifying_information.*.issuing_country' => 'required|string|size:2',
             'identifying_information.*.number'          => 'required|string',
             'identifying_information.*.expiration'      => 'nullable|date',
             'identifying_information.*.file'            => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',

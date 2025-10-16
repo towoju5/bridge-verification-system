@@ -614,6 +614,33 @@ class CustomerController extends Controller
     {
         return response()->json(config('bridge_data.countries'));
     }
+
+
+    public function fetchUserData(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'customer_id' => 'required',
+                'customer_type' => 'required|in:individual,business'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json($validator->errors()->toArray(), 422);
+            }
+            $validated = $validator->validated();
+            // Fetch the customer data from the submission using the customer ID and customer Type
+            $customer = CustomerSubmission::query()
+                        ->where('submission_id', $validated['customer_id'])
+                        ->where('customer_type', $validated['customer_type'])
+                        ->first();
+
+            return response()->json($customer, 200);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage() ?? "Server Error"], 400);
+        }
+    }
+
+
     public function getSubdivisions($countryCode)
     { /* ... */
     }

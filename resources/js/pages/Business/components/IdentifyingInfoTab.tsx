@@ -11,34 +11,51 @@ interface IDInfo {
 	image_back: string;
 }
 
+interface Country {
+	code: string;
+	name: string;
+}
+
 interface Props {
 	formData: any;
 	setFormData: React.Dispatch<React.SetStateAction<any>>;
 	idTypes: string[];
 	setActiveTab: (tab: string) => void;
 	onComplete: () => void;
+	countries?: Country[];
 }
 
-export default function IdentifyingInfoTab({ formData, setFormData, setActiveTab, idTypes, onComplete }: Props) {
+export default function IdentifyingInfoTab({
+	formData,
+	setFormData,
+	setActiveTab,
+	idTypes,
+	countries = [],
+	onComplete,
+}: Props) {
 	const [ids, setIds] = useState<IDInfo[]>(formData.identifying_information || []);
 
 	const add = () =>
 		setIds([
 			...ids,
-			{ type: '', issuing_country: '', number: '', description: '', expiration: '', image_front: '', image_back: '' },
+			{
+				type: '',
+				issuing_country: '',
+				number: '',
+				description: '',
+				expiration: '',
+				image_front: '',
+				image_back: '',
+			},
 		]);
+
 	const remove = (idx: number) => setIds(ids.filter((_, i) => i !== idx));
+
 	const change = (idx: number, field: keyof IDInfo, val: string) => {
 		const copy = [...ids];
-		(copy[idx] as any)[field] = val;
+		copy[idx][field] = val;
 		setIds(copy);
 	};
-
-	// const finish = async () => {
-	// 	await axios.post('/api/business-customer/step/7', { identifying_information: ids });
-	// 	setFormData((prev: any) => ({ ...prev, identifying_information: ids }));
-	// 	onComplete();
-	// };
 
 	const next = async () => {
 		await axios.post('/api/business-customer/step/7', { identifying_information: ids });
@@ -75,11 +92,27 @@ export default function IdentifyingInfoTab({ formData, setFormData, setActiveTab
 					</select>
 
 					<label className="block mt-2 text-sm font-medium">Issuing Country</label>
-					<input
-						className="w-full border rounded p-2"
-						value={info.issuing_country}
-						onChange={(e) => change(idx, 'issuing_country', e.target.value)}
-					/>
+					{countries.length > 0 ? (
+						<select
+							className="w-full border rounded p-2"
+							value={info.issuing_country}
+							onChange={(e) => change(idx, 'issuing_country', e.target.value)}
+						>
+							<option value="">Select country</option>
+							{countries.map((c) => (
+								<option key={c.code} value={c.code}>
+									{c.name}
+								</option>
+							))}
+						</select>
+					) : (
+						<input
+							className="w-full border rounded p-2"
+							placeholder="Enter country code (e.g., USA)"
+							value={info.issuing_country}
+							onChange={(e) => change(idx, 'issuing_country', e.target.value)}
+						/>
+					)}
 
 					<label className="block mt-2 text-sm font-medium">Number</label>
 					<input
@@ -107,14 +140,14 @@ export default function IdentifyingInfoTab({ formData, setFormData, setActiveTab
 					<input
 						type="file"
 						className="w-full border rounded p-2"
-						onChange={(e) => change(idx, 'image_front', (e.target as any).files[0]?.name || '')}
+						onChange={(e) => change(idx, 'image_front', (e.target.files?.[0]?.name || ''))}
 					/>
 
 					<label className="block mt-2 text-sm font-medium">Back Image (file)</label>
 					<input
 						type="file"
 						className="w-full border rounded p-2"
-						onChange={(e) => change(idx, 'image_back', (e.target as any).files[0]?.name || '')}
+						onChange={(e) => change(idx, 'image_back', (e.target.files?.[0]?.name || ''))}
 					/>
 				</div>
 			))}
