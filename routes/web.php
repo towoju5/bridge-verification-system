@@ -47,12 +47,12 @@ Route::prefix('api/data')->group(function () {
     Route::get('countries', [CustomerController::class, 'getCountries'])->name('api.data.countries');
     Route::get('subdivisions/{countryCode}', [CustomerController::class, 'getSubdivisions'])->name('api.data.subdivisions');
     Route::get('identification-types/{countryCode}', [CustomerController::class, 'getIdentificationTypesByCountry'])->name('api.data.identification.types');
-    Route::post('get-customer', [CustomerController::class, 'fetchUserData']);
+    Route::get('get-customer', [CustomerController::class, 'fetchUserData']);
 });
 
 
 Route::prefix('api/business-customer')->group(function () {
-    Route::any('/step/1', [BusinessCustomerController::class, 'step1']);
+    Route::any('/step/1', [BusinessCustomerController::class, 'step1'])->name('business.init');
     Route::any('/step/2', [BusinessCustomerController::class, 'step2']);
     Route::any('/step/3', [BusinessCustomerController::class, 'step3']);
     Route::any('/step/4', [BusinessCustomerController::class, 'step4']);

@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\BusinessCustomer;
 use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
 use Illuminate\Database\Schema\Blueprint;
@@ -40,14 +41,81 @@ class CustomerController extends Controller
         $this->maxSteps     = 6;
     }
 
-    public function showAccountTypeSelection()
+    // public function showAccountTypeSelection(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'customer_id'   => 'required',
+    //         'customer_type' => 'required',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return view('errors', compact([
+    //             'errors' => $validator->errors()->toArray()
+    //         ]));
+    //     }
+
+    //     $submissionId = session('customer_submission_id', request()->customer_id);
+    //     if (! $submissionId) {
+    //         return redirect()->away(request('return_url') ?? 'https://app.yativo.com');
+    //     }
+    //     session('return_url', request('return_url'));
+    //     // return Inertia::render('Customer/AccountTypeSelection');
+    //     if ($request->customer_type == 'individual') {
+    //         // redirect to the Individual KYC page
+    //         return redirect()->away(to_route('customer.verify.step', [
+    //             'customer_type' => $request->customer_type,
+    //             'customer_id'   => $request->customer_id,
+    //         ]));
+    //     } elseif ($request->customer_type == 'business') {
+    //         // redirect to the Business KYC page
+    //         return redirect()->away(to_route('business.init', [
+    //             'customer_type' => $request->customer_type,
+    //             'customer_id'   => $request->customer_id,
+    //         ]));
+    //     }
+    // }
+
+    public function showAccountTypeSelection(Request $request)
     {
-        $submissionId = session('customer_submission_id', request()->customer_id);
-        // if (! $submissionId) {
-        //     return redirect()->back();
-        //     return redirect()->route('account.type')->with('error', 'Session expired');
-        // }
-        return Inertia::render('Customer/AccountTypeSelection');
+        // Validate input
+        $validator = Validator::make($request->all(), [
+            'customer_id'   => 'required',
+            'customer_type' => 'required|in:individual,business',
+        ]);
+
+        if ($validator->fails()) {
+            return view('errors', [
+                'errors' => $validator->errors()->toArray(),
+            ]);
+        }
+
+        // Prefer request() helper over session fallback unless necessary
+        $submissionId = session('customer_submission_id', $request->customer_id);
+
+        if (! $submissionId) {
+            return redirect()->away($request->input('return_url', 'https://app.yativo.com'));
+        }
+
+        // Store return URL for next steps
+        session(['return_url' => $request->input('return_url')]);
+
+        // Redirect based on customer type
+        if ($request->customer_type === 'individual') {
+            return redirect()->route('customer.verify.step', [
+                'customer_type' => $request->customer_type,
+                'customer_id'   => $request->customer_id,
+            ]);
+        }
+
+        if ($request->customer_type === 'business') {
+            return redirect()->route('business.init', [
+                'customer_type' => $request->customer_type,
+                'customer_id'   => $request->customer_id,
+            ]);
+        }
+
+        // Fallback — if somehow type is invalid (should not happen due to validation)
+        abort(400, 'Invalid customer type.');
     }
 
     public function startBusinessVerification(Request $request)
@@ -281,7 +349,7 @@ class CustomerController extends Controller
                 ];
                 break;
             case 3:
-                $rules = [ 
+                $rules = [
                     'identifying_information'                    => 'array|required',
                     'identifying_information.*.type'             => 'required_with:identifying_information|string',
                     'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:2',
@@ -615,31 +683,45 @@ class CustomerController extends Controller
         return response()->json(config('bridge_data.countries'));
     }
 
-
     public function fetchUserData(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'customer_id' => 'required',
-                'customer_type' => 'required|in:individual,business'
+                'customer_id'   => 'required',
+                'customer_type' => 'required|in:individual,business',
             ]);
 
-            if($validator->fails()) {
+            if ($validator->fails()) {
                 return response()->json($validator->errors()->toArray(), 422);
             }
             $validated = $validator->validated();
             // Fetch the customer data from the submission using the customer ID and customer Type
-            $customer = CustomerSubmission::query()
+
+            switch ($request->customer_type) {
+                case 'individual':
+                    $customer = CustomerSubmission::query()
                         ->where('submission_id', $validated['customer_id'])
                         ->where('customer_type', $validated['customer_type'])
-                        ->first();
+                        ->first()->toArray();
+                    break;
+
+                case 'business':
+                    $customer = BusinessCustomer::query()
+                        ->where('session_id', $validated['customer_id'])
+                        ->where('customer_type', $validated['customer_type'])
+                        ->first()->toArray();
+                    break;
+
+                default:
+                    $customer = ['error' => 'Unknown customer type provided'];
+                    break;
+            }
 
             return response()->json($customer, 200);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage() ?? "Server Error"], 400);
         }
     }
-
 
     public function getSubdivisions($countryCode)
     { /* ... */

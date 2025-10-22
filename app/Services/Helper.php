@@ -35,4 +35,19 @@ class Helper
         }
         return null;
     }
+
+    public static function sendToBorderless($customer_id) 
+    {
+        //
+    }
+
+    public static function sendToNoah()
+    {
+        //
+    }
+
+    public static function sendToBitnob()
+    {
+        //
+    }
 }

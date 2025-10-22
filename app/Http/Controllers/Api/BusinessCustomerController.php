@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessCustomer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class BusinessCustomerController extends Controller
 {
@@ -29,9 +28,10 @@ class BusinessCustomerController extends Controller
             'primary_website'      => 'nullable|url',
             'is_dao'               => 'boolean',
             'business_industry'    => 'required|string',
+            'customer_id'          => 'required|string',
         ]);
 
-        $sessionId = (string) Str::uuid();
+        $sessionId = $request->customer_id;
         session(['business_customer_session_id' => $sessionId]);
 
         BusinessCustomer::create(array_merge($validated, [
@@ -238,7 +238,6 @@ class BusinessCustomerController extends Controller
         }
 
         $data = BusinessCustomer::where('session_id', $customer->session_id)->first();
-
 
         $arr = [
             'occupations'                  => config('bridge_data.occupations'),
