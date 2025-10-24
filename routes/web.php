@@ -5,6 +5,7 @@ use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use App\Models\CustomerSubmission;
 use Illuminate\Support\Facades\Artisan;
 
 /*
@@ -20,12 +21,13 @@ use Illuminate\Support\Facades\Artisan;
 
 
 Route::get('/', function(){
-    // if(!request()->has('customer_id')) {
-    //     return back()->with('error', 'customer ID is required');
-    // }
+    if(!request()->has('customer_id')) {
+        return back()->with('error', 'customer ID is required');
+    }
     session()->put('customer_submission_id', request()->customer_id);
-    return redirect()->to(route('account.type'));
+    // return redirect()->to(route('account.type'));
 })->name('home');
+
 Route::get('/account-type', [CustomerController::class, 'showAccountTypeSelection'])->name('account.type');
 
 // Business user Verification Routes
@@ -74,11 +76,15 @@ Route::get('clear', function () {
     Artisan::call('config:clear');
     Artisan::call('config:cache');
     Artisan::call('view:clear');
+    Artisan::call('route:clear');
     return response()->json(['status' => 'success', 'message' => 'Cleared!']);
 });
 
 
 // Catch-all route for Inertia
+Route::get('/{accountType}/{customerId}', [CustomerController::class, 'showAccountTypeSelection'])->name('customer.verify.start.specific');
+
+
 Route::get('/{any}', function () {
     // return Inertia::render('welcome');
     var_dump('Catch-all route hit'); // For debugging

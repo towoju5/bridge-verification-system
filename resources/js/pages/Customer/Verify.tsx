@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import axios from 'axios';
@@ -8,12 +8,10 @@ interface Occupation {
     occupation: string;
     code: string;
 }
-
 interface Country {
     code: string;
     name: string;
 }
-
 interface StepProps {
     data: any;
     addArrayItem?: (field: string) => void;
@@ -21,12 +19,10 @@ interface StepProps {
     onArrayChange?: (field: string, value: any[]) => void;
     setFormData?: React.Dispatch<React.SetStateAction<any>>;
 }
-
 interface IdentificationType {
     type: string;
     description: string;
 }
-
 interface InitialData {
     occupations: Occupation[];
     accountPurposes: string[];
@@ -34,7 +30,6 @@ interface InitialData {
     countries: Country[];
     identificationTypesByCountry: Record<string, IdentificationType[]>;
 }
-
 interface UploadedDocument {
     id?: number;
     type: string;
@@ -42,7 +37,6 @@ interface UploadedDocument {
     fileName: string;
     url?: string | null;
 }
-
 interface CustomerData {
     id: number;
     uuid: string;
@@ -55,6 +49,7 @@ interface CustomerData {
     phone: string | null;
     nationality: string | null;
     birth_date: string | null;
+    gender: string | null;
     signed_agreement_id: string;
     residential_address: {
         street_line_1?: string | null;
@@ -106,7 +101,6 @@ const monthlyOptions = [
     { value: '10000_49999', label: '$10,000 – $49,999' },
     { value: '50000_plus', label: '$50,000+' }
 ];
-
 const employmentStatusOptions = [
     { value: 'Employed', label: 'Employed' },
     { value: 'Homemaker', label: 'Homemaker' },
@@ -115,7 +109,6 @@ const employmentStatusOptions = [
     { value: 'Student', label: 'Student' },
     { value: 'Unemployed', label: 'Unemployed' },
 ];
-
 const documentTypes = [
     { value: "aml_audit", label: "AML Audit" },
     { value: "aml_comfort_letter", label: "AML Comfort Letter" },
@@ -211,7 +204,6 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
         });
     };
 
-
     const addArrayItem = (arrayName: string) => {
         setFormData(prev => ({
             ...prev,
@@ -233,14 +225,11 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
     const saveStep = async (nextStep?: number) => {
         setSaving(true);
         setSaveStatus({ message: '', type: '' });
-
         const formDataToSend = new FormData();
         const appendData = (obj: any, parentKey = '') => {
             if (obj === null || obj === undefined) return;
-
             if (Array.isArray(obj)) {
                 obj.forEach((item, index) => {
-                    // use bracket syntax for arrays
                     appendData(item, `${parentKey}[${index}]`);
                 });
             } else if (typeof obj === 'object' && !(obj instanceof File)) {
@@ -251,8 +240,6 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                 formDataToSend.append(parentKey, obj);
             }
         };
-
-
         appendData(formData);
 
         try {
@@ -261,7 +248,6 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                     'Content-Type': 'multipart/form-data',
                 },
             });
-
             if (response.data.success) {
                 setSaveStatus({ message: response.data.message, type: 'success' });
                 if (response.data.redirect_url) {
@@ -324,7 +310,6 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-center">
                         Customer Verification
                     </h2>
-
                     {/* Progress Bar */}
                     <div className="mb-8">
                         <div className="flex justify-between mb-2">
@@ -338,18 +323,18 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                                             onClick={() => goToStep(stepNumber)}
                                             disabled={stepNumber > step}
                                             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium focus:outline-none ${isCompleted
-                                                    ? 'bg-green-500 text-white'
-                                                    : isCurrent
-                                                        ? 'bg-blue-600 text-white border-2 border-blue-600'
-                                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600'
+                                                ? 'bg-green-500 text-white'
+                                                : isCurrent
+                                                    ? 'bg-blue-600 text-white border-2 border-blue-600'
+                                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600'
                                                 } ${stepNumber > step ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                         >
                                             {stepNumber}
                                         </button>
                                         <span
                                             className={`mt-2 hidden lg:block text-xs ${isCurrent
-                                                    ? 'font-semibold text-blue-600 dark:text-blue-400'
-                                                    : 'text-gray-500 dark:text-gray-400'
+                                                ? 'font-semibold text-blue-600 dark:text-blue-400'
+                                                : 'text-gray-500 dark:text-gray-400'
                                                 }`}
                                         >
                                             {stepNumber === 1 && 'Personal'}
@@ -370,28 +355,25 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                             ></div>
                         </div>
                     </div>
-
                     {saveStatus.message && (
                         <div
                             className={`mb-4 p-3 rounded ${saveStatus.type === 'success'
-                                    ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200'
-                                    : 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200'
+                                ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200'
+                                : 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200'
                                 }`}
                         >
                             {saveStatus.message}
                         </div>
                     )}
-
                     <form>{renderStep()}</form>
-
                     <div className="flex items-center justify-between mt-8">
                         <button
                             type="button"
                             onClick={handlePrevious}
                             disabled={step === 1 || saving}
                             className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm ${step === 1 || saving
-                                    ? 'text-gray-400 bg-gray-100 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
-                                    : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                                ? 'text-gray-400 bg-gray-100 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                                : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                                 }`}
                         >
                             Previous
@@ -407,13 +389,11 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
                     </div>
                 </div>
             </div>
-
         </AppLayout>
     );
 }
 
 // --- Step Components ---
-
 const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }) => (
     <div>
         <h3 className="text-xl font-semibold mb-4">Step 1: Personal Information</h3>
@@ -512,15 +492,101 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     ))}
                 </select>
             </div>
+            <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-white">Select Gender</label>
+                <select
+                    id="gender"
+                    name="gender"
+                    value={data.gender || ''}
+                    onChange={onDataChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                    <option value="">Select Gender</option>
+                    {Object.entries({
+                        male: 'Male',
+                        female: 'Female',
+                        other: 'Other',
+                    }).map(([key, value]) => (
+                        <option key={key} value={key}>
+                            {value.replace(/_/g, ' ')}
+                        </option>
+                    ))}
+                </select>
+            </div>
         </div>
     </div>
 );
 
 const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, countries = [] }) => {
     const address = data.residential_address || {};
+    const streetInputRef = useRef<HTMLInputElement>(null);
+    const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
     const handleAddressChange = (field: string, value: string | File | null) => {
         if (onNestedChange) onNestedChange('residential_address', field, value);
     };
+
+    useEffect(() => {
+        if (!window.google || !window.google.maps || !window.google.maps.places) {
+            console.warn('Google Maps Places library not loaded');
+            return;
+        }
+
+        if (streetInputRef.current) {
+            const autocomplete = new window.google.maps.places.Autocomplete(streetInputRef.current, {
+                types: ['address'],
+                fields: ['address_components', 'formatted_address'],
+            });
+            autocompleteRef.current = autocomplete;
+
+            const handlePlaceSelect = () => {
+                const place = autocomplete.getPlace();
+                if (!place.address_components) return;
+
+                let street1 = '';
+                let street2 = '';
+                let city = '';
+                let state = '';
+                let postalCode = '';
+                let country = '';
+
+                for (const component of place.address_components) {
+                    const types = component.types;
+                    if (types.includes('street_number')) {
+                        street1 = component.long_name;
+                    } else if (types.includes('route')) {
+                        street1 = street1 ? `${street1} ${component.long_name}` : component.long_name;
+                    } else if (types.includes('subpremise')) {
+                        street2 = component.long_name;
+                    } else if (types.includes('locality')) {
+                        city = component.long_name;
+                    } else if (types.includes('administrative_area_level_1')) {
+                        state = component.short_name;
+                    } else if (types.includes('postal_code')) {
+                        postalCode = component.long_name;
+                    } else if (types.includes('country')) {
+                        country = component.short_name;
+                    }
+                }
+
+                // Update form fields
+                handleAddressChange('street_line_1', street1);
+                handleAddressChange('street_line_2', street2);
+                handleAddressChange('city', city);
+                handleAddressChange('state', state);
+                handleAddressChange('postal_code', postalCode);
+                handleAddressChange('country', country);
+            };
+
+            autocomplete.addListener('place_changed', handlePlaceSelect);
+
+            return () => {
+                if (autocompleteRef.current) {
+                    google.maps.event.clearInstanceListeners(autocompleteRef.current);
+                }
+            };
+        }
+    }, []);
 
     return (
         <div>
@@ -531,9 +597,11 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     <input
                         type="text"
                         id="street_line_1"
+                        ref={streetInputRef}
                         value={address.street_line_1 || ''}
                         onChange={(e) => handleAddressChange('street_line_1', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="Start typing your address..."
                     />
                 </div>
                 <div className="md:col-span-2">
@@ -590,7 +658,6 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                         ))}
                     </select>
                 </div>
-
                 <div className="md:col-span-2">
                     <label htmlFor="proof_of_address" className="block text-sm font-medium text-gray-700 dark:text-white">Proof of Address</label>
                     <input
@@ -613,11 +680,9 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
 
 const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArrayItem, removeArrayItem, countries = [], idTypesByCountry = {} }) => {
     const docs = data.identifying_information || [];
-
     const handleDocChange = (index: number, field: string, value: string | File | null) => {
         if (onArrayChange) onArrayChange('identifying_information', index, field, value as string);
     };
-
     return (
         <div>
             <h3 className="text-xl font-semibold mb-4">Step 3: Identification Documents</h3>
@@ -701,7 +766,6 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                                 className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             />
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-white">Front of Document</label>
                             <input
@@ -717,7 +781,6 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onArrayChange, addArray
                                 <p className="text-sm text-green-600 mt-1">✓ {doc.image_front_file.name} selected</p>
                             )}
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-white">Back of Document</label>
                             <input
@@ -828,7 +891,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     ))}
                 </select>
             </div>
-            {data.account_purpose === 'other' && (
+            {data.account_purpose === 'other' || data.account_purpose === 'Other' && (
                 <div>
                     <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700 dark:text-white">Account Purpose (Other)</label>
                     <input
@@ -850,7 +913,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     onChange={(e) => onDataChange({ ...e, target: { ...e.target, name: 'acting_as_intermediary', type: 'checkbox' } })}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="acting_as_intermediary" className="ml-2 block text-sm text-gray-900 dark:text-white"> 
+                <label htmlFor="acting_as_intermediary" className="ml-2 block text-sm text-gray-900 dark:text-white">
                     Acting as intermediary?
                 </label>
             </div>
@@ -860,15 +923,11 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
 
 const DocumentsUploadStep: React.FC<StepProps> = ({ data, addArrayItem, removeArrayItem, onArrayChange }) => {
     const docs = data.uploaded_documents || [];
-
     const handleDocChange = (index: number, field: string, value: string | File) => {
         if (onArrayChange) {
             onArrayChange('uploaded_documents', index, field, value);
         }
     };
-    
-    
-
     return (
         <div>
             <h3 className="text-xl font-semibold mb-4">Step 5: Additional Document Uploads</h3>
@@ -939,17 +998,14 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
         const occ = initialData.occupations.find(o => o.code === code);
         return occ ? occ.occupation : code;
     };
-
     const getAddressString = (address: any) => {
         if (!address) return 'Not provided';
         return [address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country]
             .filter(Boolean).join(', ') || 'Not provided';
     };
-
     return (
         <div>
             <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Step 6: Review Information</h3>
-
             {/* Personal Info */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mb-3">
                 <div className="flex items-center pt-4">
@@ -966,9 +1022,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                     </label>
                 </div>
             </div>
-
-
-
             {/* Personal Info */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl">
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Personal Information</h4>
@@ -977,8 +1030,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Phone:</span> {data.phone || 'Not provided'}</p>
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Date of Birth:</span> {data.birth_date || 'Not provided'}</p>
             </div>
-
-
             {/* Address */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Address</h4>
@@ -987,7 +1038,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                     <a href={data.residential_address.proof_of_address_file} target="_blank" className="text-blue-600 dark:text-blue-400 text-sm mt-1 block">View Proof of Address</a>
                 )}
             </div>
-
             {/* Identification */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Identification</h4>
@@ -1009,7 +1059,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                     <p className="text-gray-900 dark:text-gray-100">No documents provided.</p>
                 )}
             </div>
-
             {/* Employment & Finances */}
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
                 <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-2">Employment & Finances</h4>
@@ -1020,7 +1069,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Account Purpose:</span> {data.account_purpose}{data.account_purpose === 'other' ? ` (${data.account_purpose_other})` : ''}</p>
                 <p className="text-gray-900 dark:text-gray-100"><span className="font-semibold">Intermediary:</span> {data.acting_as_intermediary ? 'Yes' : 'No'}</p>
             </div>
-
             {/* Additional Documents */}
             {data.uploaded_documents && data.uploaded_documents.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md shadow-xl mt-4">
@@ -1033,7 +1081,6 @@ const ReviewStep: React.FC<{ data: CustomerData; initialData: InitialData }> = (
                     ))}
                 </div>
             )}
-
             {/* Final Notice */}
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
                 <p className="text-blue-700 dark:text-blue-300">

@@ -38,9 +38,9 @@ class BusinessController extends Controller
      */
     public function startBusinessVerification(Request $request)
     {
-                                                                           // Create a new, empty submission record for 'individual'
-                                                                           // signed_agreement_id should ideally come from the frontend or be pre-defined
-                                                                           // For now, we generate a placeholder or you can set a default/config value
+        // Create a new, empty submission record for 'individual'
+        // signed_agreement_id should ideally come from the frontend or be pre-defined
+        // For now, we generate a placeholder or you can set a default/config value
         $signedAgreementId = $request->signed_agreement_id ?? Str::uuid(); // Or a predefined ID
 
         $customerSubmission = CustomerSubmission::create([

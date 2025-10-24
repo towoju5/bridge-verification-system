@@ -51,7 +51,9 @@ class CustomerSubmission extends Model
         'user_agent',
         'documents',
         'uploaded_documents',
-        'submit_bridge_kyc'
+        'submit_bridge_kyc',
+        'gender',
+        'customer_id'
     ];
 
     // public function documents(): HasMany

@@ -43,6 +43,8 @@ return new class extends Migration
             $table->string('expected_monthly_payments_usd', 20)->nullable();
             $table->string('source_of_funds', 50)->nullable();
             $table->string('account_purpose', 50)->nullable();
+            $table->string('gender', 50)->nullable();
+            $table->string('customer_id', 50)->nullable();
             $table->text('account_purpose_other')->nullable();
             $table->boolean('acting_as_intermediary')->nullable();
 

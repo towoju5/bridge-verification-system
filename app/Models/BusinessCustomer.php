@@ -30,7 +30,7 @@ class BusinessCustomer extends Model
         'regulated_activity',
         'documents',
         'identifying_information',
-
+        'customer_id',
         'is_submitted',
     ];
 

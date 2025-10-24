@@ -35,7 +35,12 @@ class BusinessCustomerController extends Controller
         session(['business_customer_session_id' => $sessionId]);
 
         BusinessCustomer::create(array_merge($validated, [
-            'session_id' => $sessionId,
+            'session_id'          => $sessionId,
+            'type'                => 'business',
+            'signed_agreement_id' => session('customer_submission_id'),
+            'user_agent'          => $request->userAgent(),
+            'ip_address'          => $request->ip(),
+            'customer_id'         => session('customer_submission_id'),
         ]));
 
         return response()->json(['success' => true, 'session_id' => $sessionId]);
@@ -265,6 +270,163 @@ class BusinessCustomerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Business customer created successfully.',
+        ]);
+    }
+
+    public function submitAll(Request $request)
+    {
+        // Validate all fields across all steps
+        $validated = $request->validate([
+            // Step 1
+            'business_legal_name'                                     => 'required|string|max:1024',
+            'business_trade_name'                                     => 'required|string|max:1024',
+            'business_description'                                    => 'required|string|max:1024',
+            'email'                                                   => 'required|email',
+            'business_type'                                           => 'required|string',
+            'primary_website'                                         => 'nullable|url',
+            'is_dao'                                                  => 'boolean',
+            'business_industry'                                       => 'required|string',
+            'customer_id'                                             => 'required|string', // used as session_id
+
+            // Step 2
+            'registered_address.street_line_1'                        => 'required|string',
+            'registered_address.city'                                 => 'required|string',
+            'registered_address.country'                              => 'required|string|size:2',
+            'registered_address.proof_of_address_file'                => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
+            'physical_address.street_line_1'                          => 'required|string',
+            'physical_address.city'                                   => 'required|string',
+            'physical_address.country'                                => 'required|string|size:2',
+            'physical_address.proof_of_address_file'                  => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
+            // Step 3
+            'associated_persons'                                      => 'required|array',
+            'associated_persons.*.first_name'                         => 'required|string',
+            'associated_persons.*.last_name'                          => 'required|string',
+            'associated_persons.*.email'                              => 'required|email',
+            'associated_persons.*.residential_address.street_line_1'  => 'required|string',
+            'associated_persons.*.residential_address.city'           => 'required|string',
+            'associated_persons.*.residential_address.country'        => 'required|string|size:2',
+
+            // Step 4
+            'account_purpose'                                         => 'required|string',
+            'source_of_funds'                                         => 'required|string',
+            'high_risk_activities'                                    => 'required|array',
+            'estimated_annual_revenue_usd'                            => 'nullable|string',
+            'expected_monthly_payments_usd'                           => 'nullable|integer|min:0',
+
+            // Step 5
+            'regulated_activity.regulated_activities_description'     => 'nullable|string',
+            'regulated_activity.primary_regulatory_authority_country' => 'nullable|string|size:2',
+            'regulated_activity.primary_regulatory_authority_name'    => 'nullable|string',
+            'regulated_activity.license_number'                       => 'nullable|string',
+
+            // Step 6
+            'documents'                                               => 'array|required',
+            'documents.*.purposes'                                    => 'array|required',
+            'documents.*.file'                                        => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'documents.*.description'                                 => 'required|string',
+
+            // Step 7
+            'identifying_information'                                 => 'array',
+            'identifying_information.*.type'                          => 'required|string',
+            'identifying_information.*.issuing_country'               => 'required|string|size:2',
+            'identifying_information.*.number'                        => 'required|string',
+            'identifying_information.*.expiration'                    => 'nullable|date',
+            'identifying_information.*.file'                          => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $sessionId = $validated['customer_id'];
+
+        // Find or create customer
+        $customer = BusinessCustomer::firstOrNew(['session_id' => $sessionId]);
+
+        // Step 1 data
+        $customer->fill([
+            'business_legal_name'  => $validated['business_legal_name'],
+            'business_trade_name'  => $validated['business_trade_name'],
+            'business_description' => $validated['business_description'],
+            'email'                => $validated['email'],
+            'business_type'        => $validated['business_type'],
+            'primary_website'      => $validated['primary_website'] ?? null,
+            'is_dao'               => $validated['is_dao'] ?? false,
+            'business_industry'    => $validated['business_industry'],
+            'session_id'           => $sessionId,
+        ]);
+
+        // Step 2: Handle address files
+        $registered = $validated['registered_address'];
+        $physical   = $validated['physical_address'];
+
+        if ($request->hasFile('registered_address.proof_of_address_file')) {
+            $registered['proof_of_address_file'] = $request->file('registered_address.proof_of_address_file')
+                ->store('proof_of_address/registered', 'public');
+        } else {
+            $registered['proof_of_address_file'] = null;
+        }
+
+        if ($request->hasFile('physical_address.proof_of_address_file')) {
+            $physical['proof_of_address_file'] = $request->file('physical_address.proof_of_address_file')
+                ->store('proof_of_address/physical', 'public');
+        } else {
+            $physical['proof_of_address_file'] = null;
+        }
+
+        $customer->registered_address = $registered;
+        $customer->physical_address   = $physical;
+
+        // Step 3
+        $customer->associated_persons = $validated['associated_persons'];
+
+        // Step 4
+        $customer->account_information = [
+            'account_purpose'               => $validated['account_purpose'],
+            'source_of_funds'               => $validated['source_of_funds'],
+            'high_risk_activities'          => $validated['high_risk_activities'],
+            'estimated_annual_revenue_usd'  => $validated['estimated_annual_revenue_usd'] ?? null,
+            'expected_monthly_payments_usd' => $validated['expected_monthly_payments_usd'] ?? null,
+        ];
+
+        // Step 5
+        $customer->regulated_activity = $validated['regulated_activity'] ?? null;
+
+        // Step 6: Documents with files
+        $documents = [];
+        foreach ($validated['documents'] as $index => $doc) {
+            $filePath = null;
+            if ($request->hasFile("documents.$index.file")) {
+                $filePath = $request->file("documents.$index.file")->store('business_documents', 'public');
+            }
+            $documents[] = [
+                'purposes'    => $doc['purposes'],
+                'file'        => $filePath,
+                'description' => $doc['description'],
+            ];
+        }
+        $customer->documents = $documents;
+
+        // Step 7: Identifying info with files
+        $identifyingInfo = [];
+        foreach ($validated['identifying_information'] as $index => $info) {
+            $filePath = null;
+            if ($request->hasFile("identifying_information.$index.file")) {
+                $filePath = $request->file("identifying_information.$index.file")
+                    ->store('identifying_information', 'public');
+            }
+            $identifyingInfo[] = array_merge($info, ['file' => $filePath]);
+        }
+        $customer->identifying_information = $identifyingInfo;
+
+        // Mark as submitted
+        $customer->is_submitted = true;
+
+        // Save
+        $customer->save();
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Business KYC submitted successfully.',
+            'session_id' => $sessionId,
         ]);
     }
 }
