@@ -2,28 +2,45 @@ name: Deploy to Server
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy to server
+      - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: 34.176.150.125
           username: uprisingsynergyltd
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e  # stop on error
+
+            echo "==> Pulling latest code from GitHub..."
             cd /var/repo/kyc_yativo_com.git
             git fetch origin main
+
+            echo "==> Checking out to live directory..."
             git --work-tree=/var/www/kyc.yativo.com --git-dir=/var/repo/kyc_yativo_com.git checkout -f main
+
+            echo "==> Setting correct permissions..."
+            sudo chown -R uprisingsynergyltd:www-data /var/www/kyc.yativo.com
+            sudo chmod -R 775 /var/www/kyc.yativo.com/storage /var/www/kyc.yativo.com/bootstrap/cache
+
+            echo "==> Installing dependencies..."
             cd /var/www/kyc.yativo.com
-            composer install --no-interaction --prefer-dist --optimize-autoloader
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+            /usr/bin/php /usr/local/bin/composer install --no-interaction --prefer-dist --optimize-autoloader
+
+            echo "==> Running Laravel optimizations..."
+            /usr/bin/php artisan migrate --force
+            /usr/bin/php artisan config:cache
+            /usr/bin/php artisan route:cache
+            /usr/bin/php artisan view:cache
+
+            echo "✅ Deployment completed successfully."
