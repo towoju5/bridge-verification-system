@@ -5,6 +5,7 @@ declare (strict_types = 1);
 namespace App\Http\Controllers;
 
 use App\Models\BusinessCustomer;
+use App\Models\Customer;
 use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
 use Illuminate\Http\Request;
@@ -40,11 +41,11 @@ class CustomerController extends Controller
     {
         $submissionId = session('customer_submission_id', $customerId);
 
-        // $customer = Customer::whereCustomerId($customerId);
+        $customer = Customer::whereCustomerId($customerId);
 
-        // if (! $customer->exists()) {
-        //     abort(404, "Customer with provided ID {$customerId} not found.");
-        // }
+        if (! $customer->exists()) {
+            abort(404, "Customer with provided ID {$customerId} not found.");
+        }
 
         if (! $submissionId) {
             $returnUrl = $this->sanitizeRedirectUrl(request()->input('return_url'));
@@ -81,17 +82,23 @@ class CustomerController extends Controller
     public function startBusinessVerification(Request $request)
     {
         $signedAgreementId = $request->signed_agreement_id ?? Str::uuid();
+        $customerId        = $request->customer_id;
+        $customer          = Customer::whereCustomerId($customerId);
+
+        if (! $customer->exists()) {
+            abort(404, "Customer with provided ID {$customerId} not found.");
+        }
 
         session([
             'type'                   => 'business',
             'signed_agreement_id'    => $signedAgreementId,
             'user_agent'             => $request->userAgent(),
             'ip_address'             => $request->ip(),
-            'customer_id'            => $request->customer_id,
-            'customer_submission_id' => $request->customer_id,
+            'customer_id'            => $customerId,
+            'customer_submission_id' => $customerId,
         ]);
         // var_dump('Starting business verification...');
-        $url = route('business.verify.start', ['step' => 1, 'customer_id' => $request->customer_id]);
+        $url = route('business.verify.start', ['step' => 1, 'customer_id' => $customerId]);
         return $url;
     }
 

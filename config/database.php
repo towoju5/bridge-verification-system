@@ -65,7 +65,7 @@ return [
         'mysql_second' => [
             'driver'         => 'mysql',
             'url'            => env('DB_URL'),
-            'host'           => env('DB_HOST', '127.0.0.1'),
+            'host'           => env('SECOND_DB_HOST', '127.0.0.1'),
             'port'           => env('SECOND_DB_PORT', '3306'),
             'database'       => env('SECOND_DB_DATABASE', 'laravel'),
             'username'       => env('SECOND_DB_USERNAME', 'root'),

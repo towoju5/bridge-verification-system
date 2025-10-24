@@ -5,5 +5,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
 {
-    // protected $connection = 'mysql_second';
+    protected $connection = 'mysql_second';
 }
