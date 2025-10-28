@@ -38,7 +38,7 @@ class CustomerController extends Controller
         // var_dump('Bridge API Key:', env('BRIDGE_API_KEY')); exit;
         $this->maxSteps = self::MAX_STEPS;
 
-        if(!Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
+        if (! Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
             Schema::table('customer_submissions', function ($table) {
                 $table->json('uploaded_documents')->nullable()->after('documents');
             });
@@ -191,6 +191,8 @@ class CustomerController extends Controller
                 $customerSubmission->status       = 'submitted';
                 $customerSubmission->submitted_at = now();
                 $customerSubmission->save();
+                // initiate the third-party KYC job process
+                dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
             }
             session()->forget('customer_submission_id');
             $redirectUrl = session('return_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
