@@ -28,7 +28,7 @@ class BusinessCustomerController extends Controller
             'primary_website'      => 'nullable|url',
             'is_dao'               => 'boolean',
             'business_industry'    => 'required|string',
-            'customer_id'          => 'required|string',
+            'customer_id'          => 'nullable|string',
         ]);
 
         $sessionId = $request->customer_id;

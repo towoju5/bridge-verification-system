@@ -9,30 +9,32 @@ class BusinessCustomer extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'session_id',
+    // protected $fillable = [
+    //     'session_id',
 
-        // Step 1
-        'business_legal_name',
-        'business_trade_name',
-        'business_description',
-        'email',
-        'business_type',
-        'primary_website',
-        'is_dao',
-        'business_industry',
+    //     // Step 1
+    //     'business_legal_name',
+    //     'business_trade_name',
+    //     'business_description',
+    //     'email',
+    //     'business_type',
+    //     'primary_website',
+    //     'is_dao',
+    //     'business_industry',
 
-        // Step 2+
-        'registered_address',
-        'physical_address',
-        'associated_persons',
-        'account_information',
-        'regulated_activity',
-        'documents',
-        'identifying_information',
-        'customer_id',
-        'is_submitted',
-    ];
+    //     // Step 2+
+    //     'registered_address',
+    //     'physical_address',
+    //     'associated_persons',
+    //     'account_information',
+    //     'regulated_activity',
+    //     'documents',
+    //     'identifying_information',
+    //     'customer_id',
+    //     'is_submitted',
+    // ];
+
+    protected $guarded = [];
 
     protected $casts = [
         'is_dao' => 'boolean',

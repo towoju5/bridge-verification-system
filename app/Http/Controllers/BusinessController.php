@@ -140,7 +140,6 @@ class BusinessController extends Controller
             'sourceOfFunds'                => config('bridge_data.source_of_funds'),
             'countries'                    => config('bridge_data.countries'),
             'identificationTypesByCountry' => config('bridge_data.identification_types_by_country'),
-            // Add subdivisions if needed dynamically or via API
         ];
 
         // Pass current step data to the view

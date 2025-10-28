@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Artisan;
 
 
 Route::get('/', function(){
+    $user = CustomerSubmission::first();
+    return response()->json($user);
     if(!request()->has('customer_id')) {
         return back()->with('error', 'customer ID is required');
     }

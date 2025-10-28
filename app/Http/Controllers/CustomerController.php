@@ -97,6 +97,7 @@ class CustomerController extends Controller
             'customer_id'            => $customerId,
             'customer_submission_id' => $customerId,
         ]);
+        
         // var_dump('Starting business verification...');
         $url = route('business.verify.start', ['step' => 1, 'customer_id' => $customerId]);
         return $url;

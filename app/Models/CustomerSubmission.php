@@ -60,4 +60,18 @@ class CustomerSubmission extends Model
     // {
     //     return $this->hasMany(CustomerDocument::class);
     // }
+
+    protected static function booted()
+    {
+        static::created(function ($customerSubmission) {
+            if($customerSubmission->submitted_at != null && $customerSubmission->status === 'submitted') {
+                // initiate all job queues to submit to all third party services.
+                
+            }
+        });
+
+        static::updating(function ($customerSubmission) {
+            // You can add any logic that needs to happen before updating a record
+        });
+    }
 }
