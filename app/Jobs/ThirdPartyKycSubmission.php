@@ -340,9 +340,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             if ($response->successful()) {
                 $customer->update(['is_noah_registered' => true]);
-
                 // proceed to submit KYC documents for customer
-                //
                 Log::info('Noah KYC submitted', [
                     'customer_id' => $customer->customer_id,
                     'response'    => $response->json(),
