@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -35,6 +36,12 @@ class CustomerController extends Controller
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         // var_dump('Bridge API Key:', env('BRIDGE_API_KEY')); exit;
         $this->maxSteps = self::MAX_STEPS;
+
+        if(!Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
+            Schema::table('customer_submissions', function ($table) {
+                $table->json('uploaded_documents')->nullable()->after('documents');
+            });
+        }
     }
 
     public function showAccountTypeSelection($accountType = null, $customerId = null)
