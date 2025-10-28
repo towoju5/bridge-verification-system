@@ -31,7 +31,6 @@ Route::get('/', function(){
 });
 
 
-
 Route::get('/', function(){
     $user = CustomerSubmission::first();
     return response()->json($user);
