@@ -672,14 +672,14 @@ class CustomerController extends Controller
             switch ($request->customer_type) {
                 case 'individual':
                     $customer = CustomerSubmission::query()
-                        ->where('signed_agreement_id', $validated['customer_id'])
+                        ->whereCustomerId($validated['customer_id'])
                         ->where('type', 'individual')
-                        ->first()?->toArray();
+                        ->latest()->first()?->toArray();
                     break;
                 case 'business':
                     $customer = BusinessCustomer::query()
-                        ->where('session_id', $validated['customer_id'])
-                        ->where('customer_type', 'business')
+                        ->whereCustomerId($validated['customer_id'])
+                        ->where('type', 'business')
                         ->first()?->toArray();
                     break;
                 default:
