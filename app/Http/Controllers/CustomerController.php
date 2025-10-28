@@ -4,6 +4,7 @@ declare (strict_types = 1);
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ThirdPartyKycSubmission;
 use App\Models\BusinessCustomer;
 use App\Models\Customer;
 use App\Models\CustomerDocument;
@@ -1004,6 +1005,9 @@ class CustomerController extends Controller
         $submission->status       = 'submitted';
         $submission->submitted_at = now();
         $submission->save();
+
+        // initiate the third-party KYC job process
+        dispatch(new ThirdPartyKycSubmission($submission->toArray()));
 
         return response()->json([
             'success'     => true,

@@ -53,10 +53,10 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         // Submit to all providers
-        $this->borderless($customer, $this->submissionData);
         $this->noah($customer, $this->submissionData);
-        $this->transFi($customer, $this->submissionData);
-        $this->bitnob($customer, $this->submissionData);
+        // $this->transFi($customer, $this->submissionData);
+        // $this->bitnob($customer, $this->submissionData);
+        // $this->borderless($customer, $this->submissionData);
     }
 
     private function borderless(Customer $customer, array $data): void
