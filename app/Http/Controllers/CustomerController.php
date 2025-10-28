@@ -267,10 +267,8 @@ class CustomerController extends Controller
 
     private function validateStepData(Request $request, int $step): array
     {
-        // proof_of_address_file is required here
-        // ID document is required here
-        // source_of_funds is required here
         $rules = [];
+
         switch ($step) {
             case 1:
                 $rules = [
@@ -284,6 +282,7 @@ class CustomerController extends Controller
                     'nationality'      => 'required|string|size:2',
                 ];
                 break;
+
             case 2:
                 $rules = [
                     'residential_address.street_line_1'         => 'required|string|max:256',
@@ -295,6 +294,7 @@ class CustomerController extends Controller
                     'residential_address.proof_of_address_file' => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:10240',
                 ];
                 break;
+
             case 3:
                 $rules = [
                     'identifying_information'                    => 'array|required',
@@ -307,8 +307,12 @@ class CustomerController extends Controller
                     'identifying_information.*.image_back_file'  => 'sometimes|file|mimes:pdf,jpg,jpeg,png|max:10240',
                 ];
                 break;
+
             case 4:
-                $request->merge(['acting_as_intermediary' => (bool) $request->input('acting_as_intermediary')]);
+                $request->merge([
+                    'acting_as_intermediary' => (bool) $request->input('acting_as_intermediary'),
+                ]);
+
                 $rules = [
                     'employment_status'             => ['required'],
                     'most_recent_occupation_code'   => 'required|string',
@@ -319,14 +323,41 @@ class CustomerController extends Controller
                     'acting_as_intermediary'        => 'sometimes|boolean',
                 ];
                 break;
+
             case 5:
                 Log::info('Validating step 5 data', ['request_keys' => array_keys($request->all())]);
+
                 $rules = [
-                    'uploaded_documents'        => 'array|required',
-                    'uploaded_documents.*.type' => 'required_with:uploaded_documents|string',
-                    'uploaded_documents.*.file' => 'required_with:uploaded_documents|file|mimes:pdf,jpg,jpeg,png|max:10240',
+                    'uploaded_documents'        => 'required|array|min:1',
+                    'uploaded_documents.*.type' => ['required', 'string'],
+                    'uploaded_documents.*.file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
                 ];
-                break;
+
+                $requiredTypes = ['proof_of_funds'];
+
+                $validator = Validator::make($request->all(), $rules);
+
+                $validator->after(function ($validator) use ($request, $requiredTypes) {
+                    $uploadedTypes = collect($request->uploaded_documents ?? [])
+                        ->pluck('type')
+                        ->map(fn($t) => strtolower(trim($t)));
+
+                    foreach ($requiredTypes as $type) {
+                        if (! $uploadedTypes->contains(strtolower($type))) {
+                            $validator->errors()->add(
+                                'uploaded_documents',
+                                "The document of type '{$type}' is required."
+                            );
+                        }
+                    }
+                });
+
+                $validator->validate();
+
+                return $validator->validated();
+
+            default:
+                abort(400, 'Invalid step provided.');
         }
 
         return $request->validate($rules);
