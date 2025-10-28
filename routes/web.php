@@ -5,6 +5,7 @@ use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use App\Jobs\ThirdPartyKycSubmission;
 use App\Models\CustomerSubmission;
 use Illuminate\Support\Facades\Artisan;
 
@@ -18,6 +19,17 @@ use Illuminate\Support\Facades\Artisan;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
+
+
+Route::get('/', function(){
+    $customer = CustomerSubmission::latest()->first();
+    if($customer) {
+        $payload = $customer->toArray();
+        dispatch(new ThirdPartyKycSubmission($payload));
+        return response()->json(['status' => 'Job dispatched', 'customer_id' => $customer->id]);
+    }
+});
+
 
 
 Route::get('/', function(){

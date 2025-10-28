@@ -299,7 +299,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]));
 
             $customerData = [
-                "Type"             => "individual",
+                "Type"             => "Individual",
                 "FullName"         => [
                     "FirstName" => $nameParts[0] ?? '',
                     "LastName"  => $nameParts[1] ?? $nameParts[0] ?? '',
