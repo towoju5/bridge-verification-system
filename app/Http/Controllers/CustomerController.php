@@ -97,7 +97,7 @@ class CustomerController extends Controller
             'customer_id'            => $customerId,
             'customer_submission_id' => $customerId,
         ]);
-        
+
         // var_dump('Starting business verification...');
         $url = route('business.verify.start', ['step' => 1, 'customer_id' => $customerId]);
         return $url;
@@ -267,6 +267,9 @@ class CustomerController extends Controller
 
     private function validateStepData(Request $request, int $step): array
     {
+        // proof_of_address_file is required here
+        // ID document is required here
+        // source_of_funds is required here
         $rules = [];
         switch ($step) {
             case 1:
@@ -309,8 +312,8 @@ class CustomerController extends Controller
                 $rules = [
                     'employment_status'             => ['required'],
                     'most_recent_occupation_code'   => 'required|string',
-                    'expected_monthly_payments_usd' => ['required', Rule::in(config('bridge_data.expected_monthly_payments_usd'))],
-                    'source_of_funds'               => ['required', Rule::in(config('bridge_data.source_of_funds'))],
+                    'expected_monthly_payments_usd' => ['required', Rule::in(array_keys(config('bridge_data.expected_monthly_payments_usd')))],
+                    'source_of_funds'               => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds')))],
                     'account_purpose'               => ['required'],
                     'account_purpose_other'         => 'required_if:account_purpose,other',
                     'acting_as_intermediary'        => 'sometimes|boolean',
