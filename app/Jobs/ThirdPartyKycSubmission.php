@@ -281,6 +281,87 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
+    // private function noah(Customer $customer, array $data): void
+    // {
+    //     try {
+    //         if ($customer->is_noah_registered) {
+    //             Log::info('Noah skipped: already registered', ['customer_id' => $customer->customer_id]);
+    //             return;
+    //         }
+
+    //         $idInfo  = $data['identifying_information'][0] ?? [];
+    //         $address = (array) $data['residential_address'];
+
+    //         $nameParts = array_values(array_filter([
+    //             $data['first_name'] ?? '',
+    //             $data['middle_name'] ?? '',
+    //             $data['last_name'] ?? '',
+    //         ]));
+
+    //         $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
+
+    //         $customerData = [
+    //             "Type"             => "Individual",
+    //             "FullName"         => [
+    //                 "FirstName" => $nameParts[0] ?? '',
+    //                 "LastName"  => $nameParts[1] ?? $nameParts[0] ?? '',
+    //             ],
+    //             "DateOfBirth"      => $data['birth_date'] ? substr($data['birth_date'], 0, 10) : '1990-01-01',
+    //             "Email"            => $customer->customer_kyc_email ?? $customer->customer_email,
+    //             "PhoneNumber"      => $customer->customer_phone,
+    //             "PrimaryResidence" => [
+    //                 "Street"   => $address['street'] ?? '',
+    //                 "City"     => $address['city'] ?? '',
+    //                 "PostCode" => $address['zipcode'] ?? '',
+    //                 "State"    => $address['state'] ?? '',
+    //                 "Country"  => $address['country'] ?? $customer->customer_country ?? '',
+    //             ],
+    //             "Identities"       => [
+    //                 [
+    //                     'IssuingCountry' => $idInfo['issuingCountry'],
+    //                     'IDNumber'       => $idInfo['idNumber'],
+    //                     'IssuedDate'     => $idInfo['issuedDate'],
+    //                     'ExpiryDate'     => $idInfo['expiryDate'],
+    //                     'IDType'         => $idInfo['type'],
+    //                 ],
+    //             ],
+    //         ];
+
+    //         $apiKey  = config('services.noah.api_key');
+    //         $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
+
+    //         if (empty($apiKey)) {
+    //             throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
+    //         }
+
+    //         $response = Http::withHeaders([
+    //             'X-Api-Key'    => $apiKey,
+    //             'Accept'       => 'application/json',
+    //             'Content-Type' => 'application/json',
+    //         ])->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
+
+    //         if ($response->successful()) {
+    //             $customer->update(['is_noah_registered' => true]);
+    //             // proceed to submit KYC documents for customer
+    //             Log::info('Noah KYC submitted', [
+    //                 'customer_id' => $customer->customer_id,
+    //                 'response'    => $response->json(),
+    //             ]);
+    //         } else {
+    //             Log::error('Noah KYC failed', [
+    //                 'customer_id' => $customer->customer_id,
+    //                 'status'      => $response->status(),
+    //                 'body'        => $response->body(),
+    //             ]);
+    //         }
+
+    //     } catch (Throwable $e) {
+    //         Log::error('Noah KYC error', [
+    //             'customer_id' => $customer->customer_id,
+    //             'error'       => $e->getMessage(),
+    //         ]);
+    //     }
+    // }
     private function noah(Customer $customer, array $data): void
     {
         try {
@@ -290,13 +371,23 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             $idInfo  = $data['identifying_information'][0] ?? [];
-            $address = $customer->customer_address ?? [];
+            $address = (array) $data['residential_address'];
 
             $nameParts = array_values(array_filter([
                 $data['first_name'] ?? '',
                 $data['middle_name'] ?? '',
                 $data['last_name'] ?? '',
             ]));
+
+            // Map internal ID type to Noah-compatible type
+            $internalIdType = $idInfo['type'] ?? 'national_id';
+            $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
+
+            // Enforce Noah's allowed types (safety net)
+            $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
+            if (! in_array($noahIdType, $supportedIdTypes, true)) {
+                $noahIdType = 'NationalIDCard';
+            }
 
             $customerData = [
                 "Type"             => "Individual",
@@ -316,14 +407,19 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
                 "Identities"       => [
                     [
-                        'IssuingCountry' => $idInfo['issuingCountry'] ?? 'NG',
-                        'IDNumber'       => $idInfo['idNumber'] ?? 'N/A',
-                        'IssuedDate'     => $idInfo['issuedDate'] ?? '2020-01-01',
-                        'ExpiryDate'     => $idInfo['expiryDate'] ?? '2030-01-01',
-                        'IDType'         => $idInfo['type'] ?? 'NationalId',
+                        'IssuingCountry' => $idInfo['issuingCountry'] ?? '',
+                        'IDNumber'       => $idInfo['idNumber'] ?? '',
+                        'IssuedDate'     => $idInfo['issuedDate'] ?? '',
+                        'ExpiryDate'     => $idInfo['expiryDate'] ?? '',
+                        'IDType'         => $noahIdType, // ← MAPPED VALUE
                     ],
                 ],
             ];
+
+            Log::info('Noah KYC data prepared', [
+                'customer_id'   => $customer->customer_id,
+                'customer_data' => $customerData,
+            ]);
 
             $apiKey  = config('services.noah.api_key');
             $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
@@ -352,7 +448,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'body'        => $response->body(),
                 ]);
             }
-
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
                 'customer_id' => $customer->customer_id,
@@ -370,5 +465,95 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         // This function can be implemented to submit KYC documents to Noah
         // after the customer has been registered successfully.
+    }
+
+    /**
+     * Maps internal ID types to Noah-supported ID types.
+     */
+    private function mapIdTypeToNoah(string $internalType): string
+    {
+        $noahIdTypeMap = [
+            // Passports
+            'passport'    => 'Passport',
+
+            // National IDs (explicit or country-specific)
+            'national_id' => 'NationalIDCard',
+            'bvn'         => 'NationalIDCard',
+            'nin'         => 'NationalIDCard',
+            'emirates_id' => 'NationalIDCard',
+            'qatar_id'    => 'NationalIDCard',
+            'hkid'        => 'NationalIDCard',
+            'nric'        => 'NationalIDCard',
+            'fin'         => 'NationalIDCard',
+            'rrn'         => 'NationalIDCard',
+            'jmbg'        => 'NationalIDCard',
+            'oib'         => 'NationalIDCard',
+            'cnp'         => 'NationalIDCard',
+            'idnp'        => 'NationalIDCard',
+            'nic'         => 'NationalIDCard',
+            'nicn'        => 'NationalIDCard',
+            'tckn'        => 'NationalIDCard',
+            'mn'          => 'NationalIDCard',
+            'hetu'        => 'NationalIDCard',
+            'pesel'       => 'NationalIDCard',
+            'ppsn'        => 'NationalIDCard',
+            'nino'        => 'NationalIDCard',
+            'cpr'         => 'NationalIDCard',
+            'nrn'         => 'NationalIDCard',
+            'ucn'         => 'NationalIDCard',
+            'cdi'         => 'NationalIDCard',
+            'curp'        => 'NationalIDCard',
+            'ine'         => 'NationalIDCard',
+            'ak'          => 'NationalIDCard',
+            'pk'          => 'NationalIDCard',
+            'rc'          => 'NationalIDCard',
+            'ik'          => 'NationalIDCard',
+            'aom'         => 'NationalIDCard',
+            'matricule'   => 'NationalIDCard',
+            'embg'        => 'NationalIDCard',
+            'fn'          => 'NationalIDCard',
+            'bsn'         => 'NationalIDCard',
+
+            // Tax IDs
+            'tin'         => 'TaxID',
+            'nif'         => 'TaxID',
+            'nit'         => 'TaxID',
+            'cpf'         => 'TaxID',
+            'pan'         => 'TaxID',
+            'ssn'         => 'TaxID',
+            'itin'        => 'TaxID',
+            'ruc'         => 'TaxID',
+            'rif'         => 'TaxID',
+            'mst'         => 'TaxID',
+            'voen'        => 'TaxID',
+            'npwp'        => 'TaxID',
+            'nuit'        => 'TaxID',
+            'tpin'        => 'TaxID',
+            'itr'         => 'TaxID',
+            'ird'         => 'TaxID',
+            'steuer_id'   => 'TaxID',
+            'cf'          => 'TaxID',
+            'rut'         => 'TaxID',
+            'rfc'         => 'TaxID',
+            'rnokpp'      => 'TaxID',
+            'iin'         => 'TaxID',
+            'inn'         => 'TaxID',
+            'si'          => 'TaxID',
+            'avs'         => 'TaxID',
+            'ahv'         => 'TaxID',
+            'tfn'         => 'TaxID',
+            'sin'         => 'TaxID',
+            'utr'         => 'TaxID',
+            'crib'        => 'TaxID',
+            'crc'         => 'TaxID',
+            'bir'         => 'TaxID',
+            'mf'          => 'TaxID',
+            'ntn'         => 'TaxID',
+            'trn'         => 'TaxID',
+            'rtn'         => 'TaxID',
+            'pin'         => 'TaxID', // Kenya: often used as tax ID
+        ];
+
+        return $noahIdTypeMap[$internalType] ?? 'NationalIDCard';
     }
 }
