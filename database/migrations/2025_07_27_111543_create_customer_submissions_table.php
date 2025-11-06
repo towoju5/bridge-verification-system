@@ -30,11 +30,11 @@ return new class extends Migration
             $table->string('nationality', 3)->nullable(); // ISO 3166-1 alpha-3
             $table->date('birth_date')->nullable();
 
-            // Address
+                                                             // Address
             $table->json('residential_address')->nullable(); // includes proof_of_address_url
             $table->json('transliterated_residential_address')->nullable();
 
-            // Identification
+                                                                 // Identification
             $table->json('identifying_information')->nullable(); // with image_front/image_back URLs
 
             // Employment & Finance
@@ -49,7 +49,9 @@ return new class extends Migration
             $table->boolean('acting_as_intermediary')->nullable();
 
             $table->boolean('submit_bridge_kyc')->default(false);
+            $table->string('taxId')->nullable();
 
+            $table->string('second_last_name')->nullable();
             // Endorsements
             $table->json('endorsements')->nullable();
             $table->json('documents')->nullable();

@@ -27,6 +27,8 @@ class CustomerSubmission extends Model
         'first_name',
         'middle_name',
         'last_name',
+        'taxId',
+        'second_last_name',
         'last_name_native',
         'transliterated_first_name',
         'transliterated_middle_name',
