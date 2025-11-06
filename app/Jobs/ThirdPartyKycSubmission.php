@@ -5,6 +5,7 @@ use App\Models\Customer;
 use App\Models\Endorsement;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable as FoundationQueueable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -15,6 +16,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
     public int $tries   = 3;
     public int $backoff = 15;
+    public $borderlessBaseUrl;
 
     protected array $submissionData;
 
@@ -24,6 +26,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         $this->submissionData = $submissionData;
         $this->noah_api_key   = config('services.noah.api_key');
+        $this->borderlessBaseUrl = "https://sandbox-api.borderless.xyz/v1";
     }
 
     public function handle(): void
@@ -62,22 +65,63 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
+    /**
+     * Generate and cache API access token for borderless
+     */
+    public function generateAccessToken(): ?array
+    {
+        if (Cache::has('borderless_access_token')) {
+            return ['accessToken' => Cache::get('borderless_access_token')];
+        }
+
+        $url     = 'auth/m2m/token';
+        $payload = [
+            'clientId'     => $this->clientId,
+            'clientSecret' => $this->clientSecret,
+        ];
+
+        $response = Http::post($this->borderlessBaseUrl . $url, $payload);
+
+        if ($response->successful()) {
+            $result = $response->json();
+            if (! isset($result['accessToken'])) {
+                Log::error('Borderless token response missing accessToken', ['body' => $result]);
+                return ['error' => 'Invalid token response'];
+            }
+
+            $token = $result['accessToken'];
+
+            Cache::put('borderless_access_token', $token, now()->addHours(23));
+
+            return ['accessToken' => $token];
+        }
+
+        Log::error('Failed to generate Borderless API token', [
+            'status' => $response->status(),
+            'body'   => $response->body(),
+        ]);
+
+        return ['error' => 'Failed to generate access token'];
+    }
+
     private function borderless(Customer $customer, array $data): void
     {
         try {
             if (! $customer->borderless_identity_id) {
-                Log::info('Borderless skipped: not enrolled', ['customer_id' => $customer->customer_id]);
+                Log::info('Borderless skipped: customer not enrolled', ['customer_id' => $customer->customer_id]);
                 return;
             }
 
-            $addr = $data['residential_address'] ?? [];
+            $addr   = $data['residential_address'] ?? [];
+            $idInfo = $data['identifying_information'][0] ?? null;
 
+            // --- Step 1: Submit base KYC ---
             $customerData = [
                 "firstName"      => $data['first_name'] ?? '',
                 "lastName"       => $data['last_name'] ?? '',
                 "secondLastName" => $data['second_last_name'] ?? null,
                 "middleName"     => $data['middle_name'] ?? '',
-                "taxId"          => $data['taxId'] ?? '', // ✅ Correct field name
+                "taxId"          => $data['taxId'] ?? '',
                 "dateOfBirth"    => substr($data['birth_date'], 0, 10) ?? '',
                 "email"          => $data['email'] ?? '',
                 "phone"          => $data['phone'] ?? '',
@@ -92,30 +136,174 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
             ];
 
-            $baseUrl  = rtrim(config('services.borderless.base_url', 'https://sandbox-api.borderless.xyz/v1'), '/');
+            $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
+            $endpoint = "identities/personal";
+
             $response = Http::timeout(15)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . config('services.borderless.api_key'),
+                    'Authorization' => 'Bearer ' . $this->generateAccessToken(),
                     'Accept'        => 'application/json',
                 ])
-                ->post("{$baseUrl}/identities/personal", $customerData);
+                ->post("{$baseUrl}/{$endpoint}", $customerData);
 
-            if ($response->successful()) {
-                Log::info('Borderless KYC submitted', ['customer_id' => $customer->customer_id]);
-                // No endorsement for Borderless (per requirement)
-            } else {
+            if (! $response->successful()) {
                 Log::error('Borderless KYC failed', [
                     'customer_id' => $customer->customer_id,
                     'status'      => $response->status(),
                     'body'        => $response->body(),
                 ]);
+                return;
             }
+
+            $responseData = $response->json();
+            $identityId   = $responseData['id'] ?? null;
+
+            if (! $identityId) {
+                Log::error('Borderless: identity_id not returned', ['customer_id' => $customer->customer_id]);
+                return;
+            }
+
+            Log::info('Borderless KYC submitted', ['customer_id' => $customer->customer_id, 'identity_id' => $identityId]);
+
+            // --- Step 2: Upload Documents ---
+            $this->uploadBorderlessDocuments($identityId, $idInfo, $addr, $data['customer_id']);
+
         } catch (Throwable $e) {
             Log::error('Borderless KYC exception', [
                 'customer_id' => $customer->customer_id,
                 'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
             ]);
         }
+    }
+
+    private function uploadBorderlessDocuments(string $identityId, ?array $idInfo, array $address, string $customerId): void
+    {
+        $baseUrl = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
+        $headers = [
+            'Authorization' => 'Bearer ' . $this->generateAccessToken(),
+            'Accept'        => 'application/json',
+            'Content-Type'  => 'application/json',
+        ];
+
+        // 1. Handle PRIMARY ID (NationalId/Passport/etc.)
+        $primaryDocUploaded = false;
+        if ($idInfo && ! empty($idInfo['image_front_file'])) {
+            // Map internal type to Borderless-supported type
+            $internalType      = strtolower($idInfo['type'] ?? '');
+            $borderlessDocType = match ($internalType) {
+                'passport' => 'Passport',
+                'driver_license', 'drivers_license', 'driverlicense' => 'DriverLicense',
+                'residence_permit', 'residencepermit' => 'ResidencePermit',
+                default    => 'NationalId',
+            };
+
+            $imageFront = $this->downloadAndEncodeForBorderless($idInfo['image_front_file']);
+            $imageBack  = null; // You don't have image_back_file in your DB
+
+            if ($imageFront) {
+                $docPayload = [
+                    "issuingCountry" => $idInfo['issuing_country'] ?? 'NG',
+                    "type"           => $borderlessDocType,
+                    "idNumber"       => $idInfo['number'] ?? '',
+                    "issuedDate"     => $idInfo['date_issued'] ?? '',
+                    "expiryDate"     => $idInfo['expiration_date'] ?? '',
+                    "imageFront"     => $imageFront,
+                ];
+
+                // Only include imageBack if present (not in your current data)
+                if ($imageBack) {
+                    $docPayload['imageBack'] = $imageBack;
+                }
+
+                $response = Http::timeout(20)
+                    ->withHeaders($headers)
+                    ->put("{$baseUrl}/identities/{$identityId}/documents", $docPayload);
+
+                if ($response->successful()) {
+                    Log::info('Borderless primary ID uploaded', [
+                        'customer_id' => $customerId,
+                        'type'        => $borderlessDocType,
+                    ]);
+                    $primaryDocUploaded = true;
+                } else {
+                    Log::error('Borderless primary ID upload failed', [
+                        'customer_id' => $customerId,
+                        'status'      => $response->status(),
+                        'body'        => $response->body(),
+                    ]);
+                }
+            }
+        }
+
+        // 2. Handle PROOF OF ADDRESS (mandatory)
+        $proofOfAddressUrl = $address['proof_of_address_file'] ?? null;
+        if ($proofOfAddressUrl) {
+            $proofImage = $this->downloadAndEncodeForBorderless($proofOfAddressUrl);
+            if ($proofImage) {
+                $proofPayload = [
+                    "issuingCountry" => $address['country'] ?? 'NG',
+                    "type"           => "ProofOfAddress",
+                    "idNumber"       => "", // Not required for PoA
+                    "issuedDate"     => now()->format('Y-m-d'),
+                    "expiryDate"     => "", // Optional
+                    "imageFront"     => $proofImage,
+                ];
+
+                $response = Http::timeout(20)
+                    ->withHeaders($headers)
+                    ->put("{$baseUrl}/identities/{$identityId}/documents", $proofPayload);
+
+                if ($response->successful()) {
+                    Log::info('Borderless ProofOfAddress uploaded', ['customer_id' => $customerId]);
+                } else {
+                    Log::error('Borderless ProofOfAddress upload failed', [
+                        'customer_id' => $customerId,
+                        'status'      => $response->status(),
+                        'body'        => $response->body(),
+                    ]);
+                }
+            } else {
+                Log::warning('Borderless: failed to encode ProofOfAddress', ['customer_id' => $customerId]);
+            }
+        } else {
+            Log::warning('Borderless: ProofOfAddress file missing', ['customer_id' => $customerId]);
+        }
+    }
+
+    private function downloadAndEncodeForBorderless(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(10)->withOptions(['verify' => false])->get($url);
+            if ($response->successful()) {
+                $mimeType = $response->header('Content-Type') ?? 'image/png';
+                // Normalize common MIME types
+                $mimeMap = [
+                    'image/jpg'       => 'image/jpeg',
+                    'image/heic'      => 'image/heic',
+                    'image/tiff'      => 'image/tiff',
+                    'application/pdf' => 'application/pdf',
+                ];
+
+                $baseMime = match (true) {
+                    str_starts_with($mimeType, 'image/jpeg')      => 'image/jpeg',
+                    str_starts_with($mimeType, 'image/png')       => 'image/png',
+                    str_starts_with($mimeType, 'image/heic')      => 'image/heic',
+                    str_starts_with($mimeType, 'image/tiff')      => 'image/tiff',
+                    str_starts_with($mimeType, 'application/pdf') => 'application/pdf',
+                    default                                       => 'image/jpeg',
+                };
+
+                return "data:{$baseMime};base64," . base64_encode($response->body());
+            }
+        } catch (Throwable $e) {
+            Log::warning('Failed to download/encode Borderless doc', ['url' => $url, 'error' => $e->getMessage()]);
+        }
+        return null;
     }
 
     private function transFi(Customer $customer, array $data, $docs): void
