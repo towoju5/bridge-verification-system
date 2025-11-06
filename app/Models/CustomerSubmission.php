@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\ThirdPartyKycSubmission;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -64,9 +65,9 @@ class CustomerSubmission extends Model
     protected static function booted()
     {
         static::created(function ($customerSubmission) {
-            if($customerSubmission->submitted_at != null && $customerSubmission->status === 'submitted') {
+            if($customerSubmission->submitted_at != null && $customerSubmission->status == 'submitted') {
                 // initiate all job queues to submit to all third party services.
-                
+                dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
             }
         });
 

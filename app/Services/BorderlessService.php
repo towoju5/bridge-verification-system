@@ -1,15 +1,14 @@
 <?php
 namespace App\Services;
 
-use App\Http\Controllers\CryptoYativoController;
-use App\Http\Requests\BorderlessPaymentInstruction;
+use App\Models\Customer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
-use Modules\Beneficiary\app\Models\BeneficiaryPaymentMethod;
-use Modules\Customer\app\Models\Customer;
+use Illuminate\Support\Str;
+
 
 class BorderlessService
 {
@@ -20,9 +19,9 @@ class BorderlessService
     public const DEFAULT_ASSET = 'USDT_SOLANA';
 
     public function __construct(
-        string $baseUrl = null,
-        string $clientId = null,
-        string $clientSecret = null
+        $baseUrl = null,
+        $clientId = null,
+        $clientSecret = null
     ) {
         $this->baseUrl      = $baseUrl ?? config('services.borderless.base_url');
         $this->clientId     = $clientId ?? config('services.borderless.client_id');
@@ -55,7 +54,7 @@ class BorderlessService
 
             $token = $result['accessToken'];
 
-            Cache::put('borderless_access_token', $token, now()->addHours(23));
+            Cache::put('borderless_access_token', $token, now()->addHours(12));
 
             return ['accessToken' => $token];
         }
@@ -203,7 +202,7 @@ class BorderlessService
 
         $response = Http::withHeaders([
             'Content-Type'    => 'application/json',
-            'Idempotency-Key' => \Str::uuid(),
+            'Idempotency-Key' => Str::uuid(),
         ])->withToken($token['accessToken'])->send(strtolower($method), $endpoint, ['json' => $payload]);
 
         if ($response->successful()) {

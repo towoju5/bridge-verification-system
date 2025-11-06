@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\Artisan;
 */
 
 
-Route::get('/', function(){
-    $customer = CustomerSubmission::latest()->first();
+Route::get('ccu', function(){
+    $customer = CustomerSubmission::whereId(12)->first();
     if($customer) {
         $payload = $customer->toArray();
         dispatch(new ThirdPartyKycSubmission($payload));
@@ -41,7 +41,10 @@ Route::get('/', function(){
     // return redirect()->to(route('account.type'));
 })->name('home');
 
-Route::get('/account-type', [CustomerController::class, 'showAccountTypeSelection'])->name('account.type');
+Route::get('/account-type', function () {
+    // [CustomerController::class, 'showAccountTypeSelection']
+    abort(404, "Invalid URI or Expired session");
+})->name('account.type');
 
 // Business user Verification Routes
 Route::match(['get', 'post'], 'business/verify/individual/start', [BusinessController::class, 'startBusinessVerification'])->name('business.verify.start');

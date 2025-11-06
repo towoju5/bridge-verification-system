@@ -18,8 +18,8 @@
                 </svg>
             </div>
 
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Validation Error</h1>
-            <p class="text-gray-500 dark:text-gray-400 text-sm">Please check the following issues:</p>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ $message ? 'Oops!' : 'Validation Error' }}</h1>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">{{ $message ?? "Please check the following issues:" }}</p>
 
             <!-- Error List -->
             @if (!empty($errors))

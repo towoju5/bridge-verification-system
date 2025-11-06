@@ -444,6 +444,17 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 <p className="mt-1 text-xs text-gray-500">Required if Last Name contains non-Latin characters.</p>
             </div>
             <div>
+                <label htmlFor="taxId" className="block text-sm font-medium text-gray-700 dark:text-white">Tax ID</label>
+                <input
+                    type="text"
+                    id="taxId"
+                    name="taxId"
+                    value={data.taxId || ''}
+                    onChange={onDataChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+            </div>
+            <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-white">Email Address</label>
                 <input
                     type="email"
@@ -493,6 +504,18 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 </select>
             </div>
             <div>
+                <label htmlFor="second_last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Second Last Name</label>
+                <input
+                    type="text"
+                    id="second_last_name"
+                    name="second_last_name"
+                    value={data.second_last_name || ''}
+                    onChange={onDataChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">Required for Latams.</p>
+            </div>
+            <div>
                 <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-white">Select Gender</label>
                 <select
                     id="gender"
@@ -505,7 +528,6 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     {Object.entries({
                         male: 'Male',
                         female: 'Female',
-                        other: 'Other',
                     }).map(([key, value]) => (
                         <option key={key} value={key}>
                             {value.replace(/_/g, ' ')}
@@ -625,10 +647,10 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 dark:text-white">State/Province</label>
+                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 dark:text-white">State/Province(ISO-3166) </label>
                     <input
-                        type="text"
-                        id="state"
+                        type="text" id="state"
+                        minLength={2} maxLength={2}
                         value={address.state || ''}
                         onChange={(e) => handleAddressChange('state', e.target.value)}
                         className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"

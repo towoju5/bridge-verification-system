@@ -47,44 +47,52 @@ class CustomerController extends Controller
 
     public function showAccountTypeSelection($accountType = null, $customerId = null)
     {
-        $submissionId = session('customer_submission_id', $customerId);
+        try {
+            $submissionId = session('customer_submission_id', $customerId);
 
-        $customer = Customer::whereCustomerId($customerId);
+            $customer = Customer::whereCustomerId($customerId);
 
-        if (! $customer->exists()) {
-            abort(404, "Customer with provided ID {$customerId} not found.");
-        }
+            if (! $customer->exists()) {
+                abort(404, "Customer with provided ID {$customerId} not found.");
+            }
 
-        if (! $submissionId) {
+            if (! $submissionId) {
+                $returnUrl = $this->sanitizeRedirectUrl(request()->input('return_url'));
+                return redirect()->away($returnUrl);
+            }
+
             $returnUrl = $this->sanitizeRedirectUrl(request()->input('return_url'));
-            return redirect()->away($returnUrl);
-        }
+            session(['return_url' => $returnUrl]);
+            session(['customer_id' => $customerId]);
 
-        $returnUrl = $this->sanitizeRedirectUrl(request()->input('return_url'));
-        session(['return_url' => $returnUrl]);
+            $customer_type = $accountType ?? request()->input('customer_type');
+            $customer_id   = $customerId ?? request()->input('customer_id');
 
-        $customer_type = $accountType ?? request()->input('customer_type');
-        $customer_id   = $customerId ?? request()->input('customer_id');
-
-        if ($customer_type == 'individual') {
-            $url = $this->startIndividualVerification(request()->merge(['customer_id' => $customer_id]));
-            // if a valid url was returned then redirect customer to the URI
-            if (filter_var($url, FILTER_VALIDATE_URL)) {
-                return redirect()->to($url);
+            if ($customer_type == 'individual') {
+                $url = $this->startIndividualVerification(request()->merge(['customer_id' => $customer_id]));
+                // if a valid url was returned then redirect customer to the URI
+                if (filter_var($url, FILTER_VALIDATE_URL)) {
+                    return redirect()->to($url);
+                }
             }
-        }
 
-        if ($customer_type == 'business') {
-            $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
-            // if a valid url was returned then redirect customer to the URI
-            if (filter_var($url, FILTER_VALIDATE_URL)) {
-                return redirect()->to($url);
+            if ($customer_type == 'business') {
+                $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
+                // if a valid url was returned then redirect customer to the URI
+                if (filter_var($url, FILTER_VALIDATE_URL)) {
+                    return redirect()->to($url);
+                }
             }
+
+            // Removed: var_dump($customer_type);
+
+            abort(400, "Invalid customer type. {$customer_type} provided.");
+        } catch (\Throwable $th) {
+            return view('errors', [
+                'message' => "Error Encountered, Please contact support",
+                'code'    => $th->getCode(),
+            ]);
         }
-
-        // Removed: var_dump($customer_type);
-
-        abort(400, "Invalid customer type. {$customer_type} provided.");
     }
 
     public function startBusinessVerification(Request $request)
@@ -134,10 +142,16 @@ class CustomerController extends Controller
         }
 
         $submissionId = session('customer_submission_id');
+
         if (! $submissionId) {
             return redirect()->route('account.type')->with('error', 'Session expired');
         }
 
+        if (! null == session('customer_id')) {
+            $customerSubmission = CustomerSubmission::whereCustomerId(session('customer_id'))->first();
+        } else {
+            $customerSubmission = CustomerSubmission::find($submissionId);
+        }
         $customerSubmission = CustomerSubmission::find($submissionId);
         if (! $customerSubmission || $customerSubmission->type !== 'individual') {
             session()->forget('customer_submission_id');
@@ -290,6 +304,8 @@ class CustomerController extends Controller
                     'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
                     'birth_date'       => 'required|date|before:today',
                     'nationality'      => 'required|string|size:2',
+                    'gender'           => 'required|in:Male,Female,male,female',
+                    'taxId'            => 'required|string|max:100',
                 ];
                 break;
 
@@ -301,20 +317,20 @@ class CustomerController extends Controller
                     'residential_address.state'                 => 'required|string|max:256',
                     'residential_address.postal_code'           => 'required|string|max:256',
                     'residential_address.country'               => 'required|string|size:2',
-                    'residential_address.proof_of_address_file' => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:10240',
+                    'residential_address.proof_of_address_file' => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
                 ];
                 break;
 
             case 3:
                 $rules = [
-                    'identifying_information'                    => 'array|required',
+                    'identifying_information'                    => 'array|required|min:2',
                     'identifying_information.*.type'             => 'required_with:identifying_information|string',
                     'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:2',
                     'identifying_information.*.number'           => 'required|string',
                     'identifying_information.*.date_issued'      => 'required|date|before:today',
                     'identifying_information.*.expiration_date'  => 'required|date|after:today',
-                    'identifying_information.*.image_front_file' => 'required_with:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:10240',
-                    'identifying_information.*.image_back_file'  => 'sometimes|file|mimes:pdf,jpg,jpeg,png|max:10240',
+                    'identifying_information.*.image_front_file' => 'required_with:identifying_information|file|mimes:pdf,jpg,jpeg,png|max:5120',
+                    'identifying_information.*.image_back_file'  => 'sometimes|file|mimes:pdf,jpg,jpeg,png|max:5120',
                 ];
                 break;
 
@@ -340,7 +356,7 @@ class CustomerController extends Controller
                 $rules = [
                     'uploaded_documents'        => 'required|array|min:1',
                     'uploaded_documents.*.type' => ['required', 'string'],
-                    'uploaded_documents.*.file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+                    'uploaded_documents.*.file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
                 ];
 
                 $requiredTypes = ['proof_of_funds'];
@@ -717,6 +733,8 @@ class CustomerController extends Controller
             'last_name'                                  => 'required|string|min:1|max:1024',
             'last_name_native'                           => 'nullable|string|max:1024',
             'email'                                      => 'required|email|max:1024',
+            'gender'                                     => 'required|in:Male,Female,male,female',
+            'taxId'                                      => 'required|string|max:100',
             'phone'                                      => 'required|string|regex:/^\+\d{1,15}$/',
             'birth_date'                                 => 'required|date|before:today',
             'nationality'                                => 'required|string|size:2',
@@ -726,15 +744,15 @@ class CustomerController extends Controller
             'residential_address.state'                  => 'required|string|max:256',
             'residential_address.postal_code'            => 'required|string|max:256',
             'residential_address.country'                => 'required|string|size:2',
-            'residential_address.proof_of_address_file'  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:10240',
+            'residential_address.proof_of_address_file'  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
             'identifying_information'                    => 'required|array',
             'identifying_information.*.type'             => 'required|string',
             'identifying_information.*.issuing_country'  => 'required|string|size:2',
             'identifying_information.*.number'           => 'required|string',
             'identifying_information.*.date_issued'      => 'required|date|before:today',
             'identifying_information.*.expiration_date'  => 'required|date|after:today',
-            'identifying_information.*.image_front_file' => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'identifying_information.*.image_back_file'  => $isJson ? 'nullable' : 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'identifying_information.*.image_front_file' => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'identifying_information.*.image_back_file'  => $isJson ? 'nullable' : 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             'employment_status'                          => 'required',
             'most_recent_occupation_code'                => 'required|string',
             'expected_monthly_payments_usd'              => ['required', Rule::in(config('bridge_data.expected_monthly_payments_usd'))],
@@ -744,7 +762,7 @@ class CustomerController extends Controller
             'acting_as_intermediary'                     => 'nullable|boolean',
             'uploaded_documents'                         => 'required|array',
             'uploaded_documents.*.type'                  => 'required|string',
-            'uploaded_documents.*.file'                  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'uploaded_documents.*.file'                  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ];
 
         $validated  = $request->validate($rules);
@@ -771,7 +789,7 @@ class CustomerController extends Controller
             'birth_date',
             'nationality',
         ]));
-        $submission->endorsements = ['spei', 'base', 'sepa'];
+        $submission->endorsements = ['spei', 'base', 'sepa', 'asian'];
 
         $transliterated = app(\App\Services\TransliterationService::class);
         foreach (['first_name', 'middle_name', 'last_name'] as $field) {
