@@ -406,7 +406,8 @@ class CustomerController extends Controller
                     'birth_date',
                     'nationality',
                     'taxId',
-                    'second_last_name'
+                    'second_last_name',
+                    'gender'
                 ]);
                 $modelData['endorsements'] = ['spei', 'base', 'sepa'];
                 foreach (['first_name', 'middle_name', 'last_name'] as $field) {
