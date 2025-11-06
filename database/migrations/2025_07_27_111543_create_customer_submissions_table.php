@@ -50,7 +50,6 @@ return new class extends Migration
 
             $table->boolean('submit_bridge_kyc')->default(false);
             $table->string('taxId')->nullable();
-
             $table->string('second_last_name')->nullable();
             // Endorsements
             $table->json('endorsements')->nullable();
