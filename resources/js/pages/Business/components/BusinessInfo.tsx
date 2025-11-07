@@ -1,3 +1,4 @@
+// businessInfo.tsx
 import React, { useState } from 'react';
 import axios from 'axios';
 
@@ -25,6 +26,12 @@ export default function BusinessInfo({
         primary_website: formData.primary_website || '',
         is_dao: formData.is_dao || false,
         business_industry: formData.business_industry || '',
+        registration_number: formData.registration_number || '',
+        incorporation_date: formData.incorporation_date || '',
+        tax_id: formData.tax_id || '',
+        statement_descriptor: formData.statement_descriptor || '',
+        phone_calling_code: formData.phone_calling_code || '+234', // default for Nigeria
+        phone_number: formData.phone_number || '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -37,7 +44,10 @@ export default function BusinessInfo({
         if (!local.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(local.email))
             e.email = 'Valid email required';
         if (!local.business_type) e.business_type = 'Required';
-        if (!local.business_industry.length) e.business_industry = 'At least one required';
+        if (!local.registration_number.trim()) e.registration_number = 'Required';
+        if (!local.incorporation_date) e.incorporation_date = 'Required';
+        if (!local.tax_id.trim()) e.tax_id = 'Required';
+        if (!local.phone_number.trim()) e.phone_number = 'Required';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -52,7 +62,6 @@ export default function BusinessInfo({
     return (
         <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
             <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-4">Business Information</h2>
-
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Business Legal Name *</label>
@@ -63,7 +72,6 @@ export default function BusinessInfo({
                     />
                     {errors.business_legal_name && <p className="text-sm text-red-600">{errors.business_legal_name}</p>}
                 </div>
-
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Business Trade Name (DBA) *</label>
                     <input
@@ -73,7 +81,6 @@ export default function BusinessInfo({
                     />
                     {errors.business_trade_name && <p className="text-sm text-red-600">{errors.business_trade_name}</p>}
                 </div>
-
                 <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Business Description *</label>
                     <textarea
@@ -84,7 +91,6 @@ export default function BusinessInfo({
                     />
                     {errors.business_description && <p className="text-sm text-red-600">{errors.business_description}</p>}
                 </div>
-
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Business Email *</label>
                     <input
@@ -95,9 +101,8 @@ export default function BusinessInfo({
                     />
                     {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
                 </div>
-
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Primary Website</label>
+                    <label className="block text-sm font-medium text-gray-700">Website</label>
                     <input
                         type="url"
                         value={local.primary_website}
@@ -105,7 +110,6 @@ export default function BusinessInfo({
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
                     />
                 </div>
-
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Business Type *</label>
                     <select
@@ -122,7 +126,61 @@ export default function BusinessInfo({
                     </select>
                     {errors.business_type && <p className="text-sm text-red-600">{errors.business_type}</p>}
                 </div>
-
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Registration Number *</label>
+                    <input
+                        value={local.registration_number}
+                        onChange={(e) => setLocal({ ...local, registration_number: e.target.value })}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.registration_number ? 'border-red-300' : 'border-gray-300'}`}
+                    />
+                    {errors.registration_number && <p className="text-sm text-red-600">{errors.registration_number}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Incorporation Date *</label>
+                    <input
+                        type="date"
+                        value={local.incorporation_date}
+                        onChange={(e) => setLocal({ ...local, incorporation_date: e.target.value })}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.incorporation_date ? 'border-red-300' : 'border-gray-300'}`}
+                    />
+                    {errors.incorporation_date && <p className="text-sm text-red-600">{errors.incorporation_date}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Tax ID (e.g., IRD) *</label>
+                    <input
+                        value={local.tax_id}
+                        onChange={(e) => setLocal({ ...local, tax_id: e.target.value })}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.tax_id ? 'border-red-300' : 'border-gray-300'}`}
+                    />
+                    {errors.tax_id && <p className="text-sm text-red-600">{errors.tax_id}</p>}
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Statement Descriptor</label>
+                    <input
+                        value={local.statement_descriptor}
+                        onChange={(e) => setLocal({ ...local, statement_descriptor: e.target.value })}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                        placeholder="e.g., TECHSOLUTIONS"
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Business Phone *</label>
+                    <div className="flex space-x-2">
+                        <input
+                            value={local.phone_calling_code}
+                            onChange={(e) => setLocal({ ...local, phone_calling_code: e.target.value })}
+                            className="w-24 border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                            placeholder="+234"
+                        />
+                        <input
+                            value={local.phone_number}
+                            onChange={(e) => setLocal({ ...local, phone_number: e.target.value })}
+                            className={`flex-1 border rounded-md shadow-sm py-2 px-3 ${errors.phone_number ? 'border-red-300' : 'border-gray-300'}`}
+                            placeholder="8039395114"
+                        />
+                    </div>
+                    {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number}</p>}
+                </div>
                 <div className="sm:col-span-2">
                     <label className="flex items-center">
                         <input
@@ -134,7 +192,6 @@ export default function BusinessInfo({
                         <span className="ml-2 block text-sm text-gray-700">This business is a DAO</span>
                     </label>
                 </div>
-
                 <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700">Business Industry *</label>
                     <select
@@ -151,7 +208,6 @@ export default function BusinessInfo({
                     {errors.business_industry && <p className="text-sm text-red-600">{errors.business_industry}</p>}
                 </div>
             </div>
-
             <div className="mt-6 flex justify-end">
                 <button
                     onClick={next}

@@ -20,13 +20,15 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
     protected array $submissionData;
 
-    public $noah_api_key;
+    public $noah_api_key, $clientId, $clientSecret;
 
     public function __construct(array $submissionData)
     {
         $this->submissionData = $submissionData;
         $this->noah_api_key   = config('services.noah.api_key');
         $this->borderlessBaseUrl = "https://sandbox-api.borderless.xyz/v1";
+        $this->clientId          = config('services.borderless.client_id');
+        $this->clientSecret      = config('services.borderless.client_secret');
     }
 
     public function handle(): void
@@ -152,6 +154,10 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'status'      => $response->status(),
                     'body'        => $response->body(),
                 ]);
+                Endorsement::updateOrCreate(
+                    ['customer_id' => $customer->customer_id, 'service' => 'pending'],
+                    ['status' => 'approved']
+                );
                 return;
             }
 

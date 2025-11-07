@@ -8,6 +8,7 @@ interface Person {
   email: string;
   phone: string;
   title: string;
+  nationality: string; 
   ownership_percentage: number;
   relationship_established_at: string;
   residential_address: {
@@ -46,6 +47,7 @@ export default function AssociatedPersons({ formData, setFormData, setActiveTab,
     phone: '',
     title: '',
     ownership_percentage: 0,
+    nationality: '', 
     relationship_established_at: '',
     residential_address: {
       street_line_1: '',
@@ -242,6 +244,27 @@ export default function AssociatedPersons({ formData, setFormData, setActiveTab,
                       onChange={(e) => updateAddr(idx, 'country', e.target.value)}
                       className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
                       placeholder="3-letter code (e.g., USA)"
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label>Nationality *</label>
+                  {(countries || []).length ? (
+                    <select
+                      value={p.nationality}
+                      onChange={(e) => update(idx, 'nationality', e.target.value)}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                    >
+                      <option value="">Select nationality</option>
+                      {(countries || []).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      value={p.nationality}
+                      onChange={(e) => update(idx, 'nationality', e.target.value)}
+                      className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3"
+                      placeholder="Country code (e.g., NG)"
                     />
                   )}
                 </div>
