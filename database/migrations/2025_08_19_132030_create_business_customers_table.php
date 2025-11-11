@@ -10,17 +10,19 @@ return new class extends Migration
     {
         Schema::create('business_customers', function (Blueprint $table) {
             $table->id();
+            $table->string('session_id')->nullable();
+            $table->string('customer_id')->nullable();
             $table->string('type')->default('business');
             $table->string('signed_agreement_id')->nullable()->index();
 
             // === Business Entity Info (Tazapay, Borderless, Noah, Transfi) ===
-            $table->string('business_legal_name');
+            $table->string('business_legal_name')->nullable();
             $table->string('business_trade_name')->nullable();
-            $table->text('business_description');
-            $table->string('email');
-            $table->string('business_type'); // e.g., 'llc', 'sole_prop'
-            $table->string('registration_number');
-            $table->date('incorporation_date');
+            $table->text('business_description')->nullable();
+            $table->string('email')->nullable();
+            $table->string('business_type')->nullable(); // e.g., 'llc', 'sole_prop'
+            $table->string('registration_number')->nullable();
+            $table->date('incorporation_date')->nullable();
             $table->string('tax_id')->nullable();
             $table->string('statement_descriptor')->nullable();
             $table->string('phone_calling_code')->nullable(); // e.g., '+234'
@@ -31,7 +33,7 @@ return new class extends Migration
             $table->boolean('has_material_intermediary_ownership')->default(false);
 
             // === Addresses (JSON) ===
-            $table->json('registered_address'); // { street_line_1, city, state, postal_code, country }
+            $table->json('registered_address')->nullable(); // { street_line_1, city, state, postal_code, country }
             $table->json('physical_address')->nullable(); // operating address
 
             // === Associated Persons (UBOs/Reps) — JSON array ===
@@ -61,6 +63,8 @@ return new class extends Migration
 
             // === Status & Metadata ===
             $table->string('status')->default('in_progress'); // in_progress, completed, rejected
+            $table->string('user_agent')->nullable();
+            $table->string('ip_address')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

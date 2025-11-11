@@ -24,19 +24,4 @@ class BusinessCustomer extends Model
         'has_material_intermediary_ownership' => 'boolean',
         'conducts_money_services' => 'boolean',
     ];
-
-    // protected $guarded = [];
-
-    // protected $casts = [
-    //     'is_dao' => 'boolean',
-    //     'is_submitted' => 'boolean',
-
-    //     'registered_address' => 'array',
-    //     'physical_address' => 'array',
-    //     'associated_persons' => 'array',
-    //     'account_information' => 'array',
-    //     'regulated_activity' => 'array',
-    //     'documents' => 'array',
-    //     'identifying_information' => 'array',
-    // ];
 }

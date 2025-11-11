@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Jobs;
 
 use App\Models\Customer;
@@ -173,7 +174,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             // --- Step 2: Upload Documents ---
             $this->uploadBorderlessDocuments($identityId, $idInfo, $addr, $data['customer_id']);
-
         } catch (Throwable $e) {
             Log::error('Borderless KYC exception', [
                 'customer_id' => $customer->customer_id,
@@ -544,6 +544,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
                         ['status' => 'approved']
                     );
                 }
+
+                $documents = $data['identifying_information']; // ['identifying_information' => $data['identifying_information']];
+                $this->submitNoahDocument($customer->customer_id, $documents);
             } else {
                 Log::error('Noah KYC failed', [
                     'customer_id' => $customer->customer_id,
@@ -671,5 +674,116 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function getCustomer(string $customerId): ?Customer
     {
         return Customer::where('customer_id', $customerId)->first();
+    }
+
+    private function submitNoahDocument(string $customerId, array $documents): void
+    {
+        foreach ($documents as $doc) {
+
+            $documentType  = $doc['type'] ?? $doc['document_type']  ?? null;   // e.g. NationalIDCard, Passport
+            $countryCode   = $doc['country_code']   ?? 'NG';
+            $associateId   = $doc['number'] ?? $doc['associate_id']   ?? null;
+            $frontPath     = $doc['image_front_file'] ?? null;   // full file path
+            $backPath      = $doc['image_back_file'] ?? null;
+
+            if (! $documentType || ! $frontPath) {
+                Log::warning('Document skipped (missing required fields)', [
+                    'customer_id' => $customerId,
+                    'doc' => $doc
+                ]);
+                continue;
+            }
+
+            // Upload FRONT side
+            $this->uploadSingleSide(
+                customerId: $customerId,
+                documentType: $documentType,
+                countryCode: $countryCode,
+                side: 'Front',
+                filePath: $frontPath,
+                associateId: $associateId
+            );
+
+            // Upload BACK side if available
+            if ($backPath) {
+                $this->uploadSingleSide(
+                    customerId: $customerId,
+                    documentType: $documentType,
+                    countryCode: $countryCode,
+                    side: 'Back',
+                    filePath: $backPath,
+                    associateId: $associateId
+                );
+            }
+        }
+    }
+
+    private function uploadSingleSide(
+        string $customerId,
+        string $documentType,
+        string $countryCode,
+        string $side,
+        string $filePath,
+        ?string $associateId = null
+    ): void {
+        if (! file_exists($filePath)) {
+            Log::error('Noah Document file missing', ['path' => $filePath]);
+            return;
+        }
+
+        // Step 1: Get Upload URL
+        $query = [
+            'Type'        => $documentType,
+            'CountryCode' => $countryCode,
+            'Side'        => $side,
+        ];
+
+        if ($associateId) {
+            $query['AssociateID'] = $associateId;
+        }
+
+        $response = Http::withHeaders([
+            'Accept'    => 'application/json',
+            'X-Api-Key' => $this->noah_api_key,
+        ])->get("https://api.sandbox.noah.com/v1/onboarding/{$customerId}/prefill/documents/upload-url", $query);
+
+        if (! $response->successful()) {
+            Log::error('Noah Upload URL request failed', [
+                'customer_id' => $customerId,
+                'status'      => $response->status(),
+                'body'        => $response->body(),
+            ]);
+            return;
+        }
+
+        $payload = $response->json();
+        $url     = $payload['PresignedURL'] ?? null;
+
+        if (! $url) {
+            Log::error('Noah Upload URL missing', ['response' => $payload]);
+            return;
+        }
+
+        // Step 2: Upload file using PUT
+        $uploadResponse = Http::withHeaders([
+            'Content-Type' => 'image/png',
+        ])->withBody(
+            file_get_contents($filePath),
+            'image/png'
+        )->put($url);
+
+        if ($uploadResponse->successful()) {
+            Log::info('Noah document upload completed', [
+                'customer_id' => $customerId,
+                'document'    => $documentType,
+                'side'        => $side
+            ]);
+        } else {
+            Log::error('Noah document upload failed', [
+                'customer_id' => $customerId,
+                'status'      => $uploadResponse->status(),
+                'body'        => $uploadResponse->body(),
+            ]);
+        }
     }
 }

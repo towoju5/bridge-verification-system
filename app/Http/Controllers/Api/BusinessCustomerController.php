@@ -2,6 +2,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SubmitBusinessToBorderless;
+use App\Jobs\SubmitBusinessToNoah;
+use App\Jobs\SubmitBusinessToTazapay;
+use App\Jobs\SubmitUBODocumentsToBorderless;
 use App\Models\BusinessCustomer;
 use Illuminate\Http\Request;
 
@@ -31,10 +35,10 @@ class BusinessCustomerController extends Controller
             'customer_id'          => 'nullable|string',
         ]);
 
-        $sessionId = $request->customer_id;
+        $sessionId = $request->customer_id ?? \Str::uuid();
         session(['business_customer_session_id' => $sessionId]);
 
-        BusinessCustomer::create(array_merge($validated, [
+        BusinessCustomer::firstOrCreate(array_merge($validated, [
             'session_id'          => $sessionId,
             'type'                => 'business',
             'signed_agreement_id' => session('customer_submission_id'),
@@ -62,7 +66,7 @@ class BusinessCustomerController extends Controller
 
         $customer = $this->getCustomerBySession($request);
         if (! $customer) {
-            return response()->json(['error' => 'Invalid session'], 400);
+            return response()->json(['error' => 'Invalid session', 'session_id' => session('business_customer_session_id')], 400);
         }
 
         $registered = $request->input('registered_address', []);
@@ -267,9 +271,13 @@ class BusinessCustomerController extends Controller
 
         $customer->update(['is_submitted' => true]);
 
+        dispatch(new SubmitBusinessToNoah($customer))->afterResponse();
+        dispatch(new SubmitBusinessToBorderless($customer))->afterResponse();
+        dispatch(new SubmitBusinessToTazapay($customer))->afterResponse();
+
         return response()->json([
             'success' => true,
-            'message' => 'Business customer created successfully.',
+            'message' => 'KYB submitted successfully.',
         ]);
     }
 

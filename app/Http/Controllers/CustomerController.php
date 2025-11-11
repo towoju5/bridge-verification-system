@@ -1,6 +1,6 @@
 <?php
 
-declare (strict_types = 1);
+declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
@@ -45,6 +45,11 @@ class CustomerController extends Controller
         }
     }
 
+    public function debugShowAccountTypeSelection()
+    {
+        return Inertia::render('Customer/AccountTypeSelection');
+    }
+
     public function showAccountTypeSelection($accountType = null, $customerId = null)
     {
         try {
@@ -79,6 +84,22 @@ class CustomerController extends Controller
             if ($customer_type == 'business') {
                 $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
                 // if a valid url was returned then redirect customer to the URI
+
+                session([
+                    'type'                   => 'business',
+                    'signed_agreement_id'    => $customer_id,
+                    'user_agent'             => request()->userAgent(),
+                    'ip_address'             => request()->ip(),
+                    'customer_id'            => $customerId,
+                    'customer_submission_id' => $customerId,
+                    'business_customer_session_id' => $customerId,
+                ]);
+
+                BusinessCustomer::firstOrCreate([
+                    'session_id' => $customer_id,
+                    'customer_id' => $customer_id
+                ]);
+
                 if (filter_var($url, FILTER_VALIDATE_URL)) {
                     return redirect()->to($url);
                 }
@@ -104,15 +125,6 @@ class CustomerController extends Controller
         if (! $customer->exists()) {
             abort(404, "Customer with provided ID {$customerId} not found.");
         }
-
-        session([
-            'type'                   => 'business',
-            'signed_agreement_id'    => $signedAgreementId,
-            'user_agent'             => $request->userAgent(),
-            'ip_address'             => $request->ip(),
-            'customer_id'            => $customerId,
-            'customer_submission_id' => $customerId,
-        ]);
 
         // var_dump('Starting business verification...');
         $url = route('business.verify.start', ['step' => 1, 'customer_id' => $customerId]);
@@ -407,7 +419,7 @@ class CustomerController extends Controller
                     'nationality',
                     'taxId',
                     'second_last_name',
-                    'gender'
+                    'gender',
                 ]);
                 $modelData['endorsements'] = ['spei', 'base', 'sepa'];
                 foreach (['first_name', 'middle_name', 'last_name'] as $field) {

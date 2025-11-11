@@ -39,5 +39,16 @@ return [
         'api_key' => env('NOAH_API_KEY'),
         'base_url' => env('NOAH_BASE_URL', 'https://api.sandbox.noah.com/v1'),
     ],
-
+    'tazapay' => [
+        'base_url' => env('TAZAPAY_BASE_URL'),
+        'secret_key' => env('TAZAPAY_SECRET_KEY'),
+    ],
+    'borderless' => [
+        'base_url' => env('BORDERLESS_BASE_URL'),
+        'api_key' => env('BORDERLESS_API_KEY'),
+    ],
+    'transfi' => [
+        'base_url' => env('TRANSFI_BASE_URL'),
+        'api_key' => env('TRANSFI_API_KEY'),
+    ],
 ];
