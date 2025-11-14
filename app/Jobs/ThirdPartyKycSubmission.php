@@ -27,9 +27,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         $this->submissionData = $submissionData;
         $this->noah_api_key   = config('services.noah.api_key');
-        $this->borderlessBaseUrl = "https://sandbox-api.borderless.xyz/v1";
-        $this->clientId          = config('services.borderless.client_id');
-        $this->clientSecret      = config('services.borderless.client_secret');
+        $this->borderlessBaseUrl = env('BORDERLESS_BASE_URL', "https://sandbox-api.borderless.xyz/v1");
+        $this->clientId          = env('BORDERLESS_CLIENT_ID'); //config('services.borderless.client_id');
+        $this->clientSecret      = env('BORDERLESS_CLIENT_SECRET'); //config('services.borderless.client_secret');
     }
 
     public function handle(): void
