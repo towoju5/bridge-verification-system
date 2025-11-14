@@ -78,7 +78,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
-        $url     = '/auth/m2m/token';
+        $url     = 'auth/m2m/token';
         
         $payload = [
             'clientId'     => $this->clientId,
