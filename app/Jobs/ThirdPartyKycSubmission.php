@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Jobs;
 
 use App\Models\Customer;
@@ -25,10 +24,10 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
     public function __construct(array $submissionData)
     {
-        $this->submissionData = $submissionData;
-        $this->noah_api_key   = config('services.noah.api_key');
+        $this->submissionData    = $submissionData;
+        $this->noah_api_key      = config('services.noah.api_key');
         $this->borderlessBaseUrl = env('BORDERLESS_BASE_URL', "https://sandbox-api.borderless.xyz/v1");
-        $this->clientId          = env('BORDERLESS_CLIENT_ID'); //config('services.borderless.client_id');
+        $this->clientId          = env('BORDERLESS_CLIENT_ID');     //config('services.borderless.client_id');
         $this->clientSecret      = env('BORDERLESS_CLIENT_SECRET'); //config('services.borderless.client_secret');
     }
 
@@ -78,8 +77,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
-        $endpoint     = 'auth/m2m/token';
-        
+        $endpoint = 'auth/m2m/token';
+
         $payload = [
             'clientId'     => $this->clientId,
             'clientSecret' => $this->clientSecret,
@@ -100,7 +99,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             Cache::put('borderless_access_token', $token, now()->addHours(23));
 
-            return $token;
+            return ['accessToken' => $token];
         }
 
         Log::error('Failed to generate Borderless API token', [
@@ -146,12 +145,17 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
             $endpoint = "identities/personal";
 
-            $token = $this->generateAccessToken();
+            $token_arr = $this->generateAccessToken();
+            if (! is_array($token_arr) || ! isset($token_arr['accessToken'])) {
+                logger('Error generating access token', ['result' => $token_arr]);
+            }
+            $token = $token_arr['accessToken'];
+
             Log::info("The generated accesstoken is: ", ['token' => $token]);
             $response = Http::timeout(15)
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
-                    'Accept'        => 'application/json',
+                    'Accept' => 'application/json',
                 ])
                 ->post("{$baseUrl}/{$endpoint}", $customerData);
 
@@ -191,11 +195,19 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
     private function uploadBorderlessDocuments(string $identityId, ?array $idInfo, array $address, string $customerId): void
     {
+        $token_arr = $this->generateAccessToken();
+        if (! is_array($token_arr) || ! isset($token_arr['accessToken'])) {
+            logger('Error generating access token', ['result' => $token_arr]);
+        }
+        $token = $token_arr['accessToken'];
+
+        Log::info("The generated accesstoken is: ", ['token' => $token]);
+
         $baseUrl = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
         $headers = [
-            'Authorization' => 'Bearer ' . $this->generateAccessToken(),
-            'Accept'        => 'application/json',
-            'Content-Type'  => 'application/json',
+            'Authorization' => "Bearer {$token}",
+            'Accept'       => 'application/json',
+            'Content-Type' => 'application/json',
         ];
 
         // 1. Handle PRIMARY ID (NationalId/Passport/etc.)
@@ -571,7 +583,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     /**
      * Full mapping from internal ID types to Noah-supported types.
      * Preserves all original mappings from your initial implementation.
-     */ 
+     */
     private function mapIdTypeToNoah(string $internalType): string
     {
         $noahIdTypeMap = [
@@ -686,16 +698,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         foreach ($documents as $doc) {
 
-            $documentType  = $doc['type'] ?? $doc['document_type']  ?? null;   // e.g. NationalIDCard, Passport
-            $countryCode   = $doc['country_code']   ?? 'NG';
-            $associateId   = $doc['number'] ?? $doc['associate_id']   ?? null;
-            $frontPath     = $doc['image_front_file'] ?? null;   // full file path
-            $backPath      = $doc['image_back_file'] ?? null;
+            $documentType = $doc['type'] ?? $doc['document_type'] ?? null; // e.g. NationalIDCard, Passport
+            $countryCode  = $doc['country_code'] ?? 'NG';
+            $associateId  = $doc['number'] ?? $doc['associate_id'] ?? null;
+            $frontPath    = $doc['image_front_file'] ?? null; // full file path
+            $backPath     = $doc['image_back_file'] ?? null;
 
             if (! $documentType || ! $frontPath) {
                 Log::warning('Document skipped (missing required fields)', [
                     'customer_id' => $customerId,
-                    'doc' => $doc
+                    'doc'         => $doc,
                 ]);
                 continue;
             }
@@ -748,7 +760,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $query['AssociateID'] = $associateId;
         }
 
-        $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
+        $baseUrl  = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
         $response = Http::withHeaders([
             'Accept'    => 'application/json',
             'X-Api-Key' => $this->noah_api_key,
@@ -783,7 +795,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             Log::info('Noah document upload completed', [
                 'customer_id' => $customerId,
                 'document'    => $documentType,
-                'side'        => $side
+                'side'        => $side,
             ]);
         } else {
             Log::error('Noah document upload failed', [
