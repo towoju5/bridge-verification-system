@@ -100,7 +100,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             Cache::put('borderless_access_token', $token, now()->addHours(23));
 
-            return ['accessToken' => $token];
+            return $token;
         }
 
         Log::error('Failed to generate Borderless API token', [
@@ -146,9 +146,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
             $endpoint = "identities/personal";
 
-            $token = $this->generateAccessToken()?->accessToken;
+            $token = $this->generateAccessToken();
             Log::info("The generated accesstoken is: ", ['token' => $token]);
-            
             $response = Http::timeout(15)
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
