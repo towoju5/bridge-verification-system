@@ -21,6 +21,12 @@ use Illuminate\Support\Facades\Artisan;
 */
 
 
+Route::get('un', function() {
+    $customerSubmission = CustomerSubmission::latest()->first();
+    dispatch(new \App\Jobs\ThirdPartyKycSubmission($customerSubmission->toArray()));
+});
+
+
 Route::get('ccu', function(){
     $customer = CustomerSubmission::whereId(12)->first();
     if($customer) {

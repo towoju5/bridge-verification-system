@@ -85,7 +85,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
             'clientSecret' => $this->clientSecret,
         ];
 
-        $response = Http::post("{$baseUrl}/{$url}", $payload);
+        $fullUrl = "{$baseUrl}/{$url}";
+        logger("full access token URL is {$fullUrl}");
+        $response = Http::post($fullUrl, $payload);
 
         if ($response->successful()) {
             $result = $response->json();
