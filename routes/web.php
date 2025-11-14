@@ -72,15 +72,15 @@ Route::prefix('api/data')->group(function () {
 
 
 Route::prefix('api/business-customer')->group(function () {
-    Route::any('/step/1', [BusinessCustomerController::class, 'step1'])->name('business.init');
-    Route::any('/step/2', [BusinessCustomerController::class, 'step2']);
-    Route::any('/step/3', [BusinessCustomerController::class, 'step3']);
-    Route::any('/step/4', [BusinessCustomerController::class, 'step4']);
-    Route::any('/step/5', [BusinessCustomerController::class, 'step5']);
-    Route::any('/step/6', [BusinessCustomerController::class, 'step6']);
-    Route::any('/step/7', [BusinessCustomerController::class, 'step7']);
-    Route::any('/step/8', [BusinessCustomerController::class, 'step8']);
-    Route::any('/submit', [BusinessCustomerController::class, 'submit']);
+    Route::any('step/{stepId}', [BusinessController::class, 'saveBusinessVerificationStep']);
+    // Route::any('/step/1', [BusinessCustomerController::class, 'step1'])->name('business.init');
+    // Route::any('/step/3', [BusinessCustomerController::class, 'step3']);
+    // Route::any('/step/4', [BusinessCustomerController::class, 'step4']);
+    // Route::any('/step/5', [BusinessCustomerController::class, 'step5']);
+    // Route::any('/step/6', [BusinessCustomerController::class, 'step6']);
+    // Route::any('/step/7', [BusinessCustomerController::class, 'step7']);
+    // Route::any('/step/8', [BusinessCustomerController::class, 'step8']);
+    // Route::any('/submit', [BusinessCustomerController::class, 'submit']);
 });
 
 

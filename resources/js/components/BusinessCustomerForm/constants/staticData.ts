@@ -48,11 +48,19 @@ export const sourceOfFunds = [
 
 // 4. Account purpose choices
 export const accountPurposes = [
-    'receive_payments_for_goods_and_services',
-    'charitable_donations',
-    'payroll',
-    'other',
+  { code: 'CharitableDonations', description: 'Charitable Donations' },
+  { code: 'EcommerceRetailPayments', description: 'Ecommerce Retail Payments' },
+  { code: 'InvestmentPurposes', description: 'Investment Purposes' },
+  { code: 'OperatingACompany', description: 'Operating a Company' },
+  { code: 'Other', description: 'Other' },
+  { code: 'PaymentsToFriendsOrFamilyAbroad', description: 'Payments To Friends Or Family Abroad' },
+  { code: 'PersonalOrLivingExpenses', description: 'Personal Or Living Expenses' },
+  { code: 'ProtectWealth', description: 'Protect Wealth' },
+  { code: 'PurchaseGoodsAndServices', description: 'Purchase Goods and Services' },
+  { code: 'ReceivePaymentForFreelancing', description: 'Receive Payment for Freelancing' },
+  { code: 'ReceiveSalary', description: 'Receive Salary' }
 ] as const;
+
 
 // 5. Sample industry codes (first 50 for brevity – extend as needed)
 export const industryCodes = [

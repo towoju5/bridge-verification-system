@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
-
 /* ----------  import existing step components  ---------- */
 import BusinessInfo from './components/BusinessInfo';
 import Address from './components/Address';
@@ -13,15 +12,12 @@ import Regulatory from './components/Regulatory';
 import DocumentsTab from './components/DocumentsTab';
 import IdentifyingInfoTab from './components/IdentifyingInfoTab';
 import ReviewStep from './components/ReviewStep';
-
 /* ----------  types  ---------- */
 interface Country { code: string; name: string }
-
 interface Props {
     onSubmit: (data: any) => void;
     countries?: Country[];
 }
-
 /* ----------  constants  ---------- */
 const businessTypes = ['cooperative', 'corporation', 'llc', 'partnership', 'sole_prop', 'trust', 'other'];
 const industryCodes = [
@@ -29,8 +25,31 @@ const industryCodes = [
     { code: '541512', description: 'Computer Systems Design Services' },
     { code: '541519', description: 'Other Computer Related Services' },
 ];
-const accountPurposes = ['receive_payments_for_goods_and_services', 'charitable_donations', 'payroll', 'other'];
-const estimatedRevenueOptions = ['under_10000', '10000_to_99999', '100000_to_499999', '500000_to_999999', '1000000_to_4999999', '5000000_to_9999999', '10000000_plus'];
+
+export const accountPurposes = [
+    { code: 'CharitableDonations', description: 'Charitable Donations' },
+    { code: 'EcommerceRetailPayments', description: 'Ecommerce Retail Payments' },
+    { code: 'InvestmentPurposes', description: 'Investment Purposes' },
+    { code: 'OperatingACompany', description: 'Operating a Company' },
+    { code: 'Other', description: 'Other' },
+    { code: 'PaymentsToFriendsOrFamilyAbroad', description: 'Payments To Friends Or Family Abroad' },
+    { code: 'PersonalOrLivingExpenses', description: 'Personal Or Living Expenses' },
+    { code: 'ProtectWealth', description: 'Protect Wealth' },
+    { code: 'PurchaseGoodsAndServices', description: 'Purchase Goods and Services' },
+    { code: 'ReceivePaymentForFreelancing', description: 'Receive Payment for Freelancing' },
+    { code: 'ReceiveSalary', description: 'Receive Salary' }
+] as const;
+
+
+const estimatedRevenueOptions = [
+    'under_10000',
+    '10000_to_99999',
+    '100000_to_499999',
+    '500000_to_999999',
+    '1000000_to_4999999',
+    '5000000_to_9999999',
+    '10000000_plus'
+];
 const documentPurposes = [
     { value: 'business_formation', label: 'Business formation' },
     { value: 'ownership_information', label: 'Ownership information' },
@@ -38,7 +57,6 @@ const documentPurposes = [
     { value: 'other', label: 'Other' },
 ];
 const idTypes = ['passport', 'drivers_license', 'national_id', 'other'];
-
 const steps = [
     { id: 'business-info', label: 'Business Information', component: BusinessInfo },
     { id: 'addresses', label: 'Addresses', component: Address },
@@ -49,7 +67,6 @@ const steps = [
     { id: 'identifying_information', label: 'Identity Information', component: IdentifyingInfoTab },
     { id: 'review', label: 'Review', component: ReviewStep },
 ];
-
 /* ----------  main form  ---------- */
 export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props) {
     const [formData, setFormData] = useState<any>({
@@ -72,25 +89,24 @@ export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props
         identifying_information: [],
         is_dao: false,
     });
-
     const [activeTab, setActiveTab] = useState('business-info');
     const [completed, setCompleted] = useState<Record<string, boolean>>({});
     const [saving, setSaving] = useState(false);
-
     /* ----------  helpers  ---------- */
     const handleStepComplete = (stepId: string) => setCompleted(prev => ({ ...prev, [stepId]: true }));
     const postStep = async (stepNum: number, payload: any) => {
         setSaving(true);
-        await axios.post(`/api/business-customer/step/${stepNum}`, payload);
-        setSaving(false);
+        try {
+            await axios.post(`/api/business-customer/step/${stepNum}`, payload);
+        } finally {
+            setSaving(false);
+        }
     };
-
     const next = async (stepNum: number, nextTab: string) => {
         await postStep(stepNum, formData);
         handleStepComplete(activeTab);
         setActiveTab(nextTab);
     };
-
     /* ----------  nav bar  ---------- */
     const NavBar = () => (
         <nav className="flex space-x-8 border-b">
@@ -111,16 +127,14 @@ export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props
             })}
         </nav>
     );
-
     /* ----------  render  ---------- */
     const CurrentStep = steps.find(s => s.id === activeTab)?.component;
     if (!CurrentStep) return null;
-
     const props = {
         formData,
         setFormData,
-        setActiveTab,          // ✅ required by step components
-        countries: countries || [], // ✅ never undefined
+        setActiveTab,
+        countries: countries || [],
         businessTypes,
         industryCodes,
         accountPurposes,
@@ -128,25 +142,14 @@ export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props
         documentPurposes,
         idTypes,
     };
-    
-
     return (
         <AppLayout title="Business Account Registration">
             <Head title="Business Account Registration" />
             <div className="max-w-6xl mx-auto p-6">
                 <h1 className="text-2xl font-bold mb-6">Business (K.Y.B)</h1>
-
                 <NavBar />
-
-                <form
-                    onSubmit={(e) => e.preventDefault()}
-                    className="mt-6 space-y-6"
-                >
+                <form onSubmit={(e) => e.preventDefault()} className="mt-6 space-y-6">
                     <CurrentStep {...props} />
-
-                    <div className="flex justify-end">
-                        
-                    </div>
                 </form>
             </div>
         </AppLayout>

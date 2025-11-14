@@ -565,7 +565,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     /**
      * Full mapping from internal ID types to Noah-supported types.
      * Preserves all original mappings from your initial implementation.
-     */
+     */ 
     private function mapIdTypeToNoah(string $internalType): string
     {
         $noahIdTypeMap = [
@@ -741,11 +741,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
         if ($associateId) {
             $query['AssociateID'] = $associateId;
         }
-
+        $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
         $response = Http::withHeaders([
             'Accept'    => 'application/json',
             'X-Api-Key' => $this->noah_api_key,
-        ])->get("https://api.sandbox.noah.com/v1/onboarding/{$customerId}/prefill/documents/upload-url", $query);
+        ])->get("{$baseUrl}/onboarding/{$customerId}/prefill/documents/upload-url", $query);
 
         if (! $response->successful()) {
             Log::error('Noah Upload URL request failed', [
