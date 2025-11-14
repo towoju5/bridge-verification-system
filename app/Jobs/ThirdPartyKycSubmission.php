@@ -148,6 +148,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             $token = $this->generateAccessToken()?->accessToken;
             Log::info("The generated accesstoken is: ", ['token' => $token]);
+            
             $response = Http::timeout(15)
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
