@@ -77,13 +77,15 @@ class ThirdPartyKycSubmission implements ShouldQueue
             return ['accessToken' => Cache::get('borderless_access_token')];
         }
 
+        $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
         $url     = '/auth/m2m/token';
+        
         $payload = [
             'clientId'     => $this->clientId,
             'clientSecret' => $this->clientSecret,
         ];
 
-        $response = Http::post($this->borderlessBaseUrl . $url, $payload);
+        $response = Http::post("{$baseUrl}/{$url}", $payload);
 
         if ($response->successful()) {
             $result = $response->json();
