@@ -105,7 +105,7 @@ export default function ReviewStep({ onComplete }: ReviewStepProps) {
             try {
                 const res = await axios.get("/api/business-customer/step/8");
 
-                setData(res.data?.data ?? null);
+                setData(res.data?.data ?? res.data?.business_data ?? null);
                 setInitialData(res.data?.initialData ?? res.data?.business_data ?? null);
 
                 if (!res.data?.data) {
