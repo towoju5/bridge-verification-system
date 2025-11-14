@@ -153,7 +153,7 @@ class BusinessController extends Controller
             case 4:
                 $rules = [
                     'account_purpose'                     => ['required', Rule::in(array_keys(config('bridge_data.account_purposes')))],
-                    'account_purpose_other'               => 'required_if:account_purpose,Other|string',
+                    'account_purpose_other'               => 'required_if:account_purpose,Other|nullable|string',
                     'source_of_funds'                     => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds')))],
                     'high_risk_activities'                => 'required|array',
                     'high_risk_activities.*'              => 'string',

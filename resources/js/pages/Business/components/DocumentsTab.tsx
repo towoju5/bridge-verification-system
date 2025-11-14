@@ -1,10 +1,9 @@
-// DocumentsTab
 import React, { useState } from 'react';
 import axios from 'axios';
 
 interface Document {
 	purposes: string[];
-	file: File | null; // must hold actual File object
+	file: File | null;
 	description: string;
 }
 
@@ -20,9 +19,10 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 
 	const add = () => setDocs([...docs, { purposes: [], file: null, description: '' }]);
 	const remove = (idx: number) => setDocs(docs.filter((_, i) => i !== idx));
+
 	const update = (idx: number, field: keyof Document, val: any) => {
 		const copy = [...docs];
-		(copy[idx] as any)[field] = val;
+		copy[idx] = { ...copy[idx], [field]: val };
 		setDocs(copy);
 	};
 
@@ -31,17 +31,17 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 			const formDataToSend = new FormData();
 
 			docs.forEach((doc, i) => {
-				// Append purposes
-				doc.purposes.forEach((p, j) => {
-					formDataToSend.append(`documents[${i}][purposes][${j}]`, p);
+				// ----- Purposes as array -----
+				doc.purposes.forEach((p) => {
+					formDataToSend.append(`documents[${i}][purposes][]`, p);
 				});
 
-				// Append file if selected
+				// ----- File -----
 				if (doc.file) {
 					formDataToSend.append(`documents[${i}][file]`, doc.file);
 				}
 
-				// Append description
+				// ----- Description -----
 				formDataToSend.append(`documents[${i}][description]`, doc.description);
 			});
 
@@ -58,6 +58,7 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 
 	return (
 		<div className="bg-white p-6 rounded-lg shadow-md">
+
 			<div className="flex justify-between items-center mb-4">
 				<h2 className="text-lg font-bold">Documents</h2>
 				<button
@@ -82,12 +83,21 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 					{/* Purposes */}
 					<label className="block text-sm font-medium mb-1">Purposes</label>
 					<select
+						multiple
 						className="w-full border rounded p-2"
 						value={doc.purposes}
 						onChange={(e) =>
-							update(idx, 'purposes', Array.from(e.target.selectedOptions, (o) => o.value))
+							update(
+								idx,
+								'purposes',
+								Array.from(e.target.selectedOptions, (o) => o.value)
+							)
 						}
 					>
+						<option disabled value="">
+							Select purposes
+						</option>
+
 						{documentPurposes.map((p) => (
 							<option key={p.value} value={p.value}>
 								{p.label}
@@ -101,7 +111,9 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 						type="file"
 						className="w-full border rounded p-2"
 						accept=".pdf,.jpg,.jpeg,.png"
-						onChange={(e) => update(idx, 'file', (e.target as HTMLInputElement).files?.[0] || null)}
+						onChange={(e) =>
+							update(idx, 'file', (e.target as HTMLInputElement).files?.[0] || null)
+						}
 					/>
 
 					{/* Description */}
