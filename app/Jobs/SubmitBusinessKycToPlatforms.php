@@ -78,6 +78,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 ->post(config('services.tazapay.base_url') . '/v1/kyb', $data);
 
             if ($response->successful()) {
+                Log::info("KYC to Tazapay submitted successfully");
                 $result = $response->json();
                 return ['status' => 'success', 'provider_id' => $result['id'] ?? null];
             } else {

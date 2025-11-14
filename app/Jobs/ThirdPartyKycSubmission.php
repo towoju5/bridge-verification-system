@@ -110,8 +110,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function borderless(Customer $customer, array $data): void
     {
         try {
-            if (! $customer->borderless_identity_id) {
-                Log::info('Borderless skipped: customer not enrolled', ['customer_id' => $customer->customer_id]);
+            if ($customer->borderless_identity_id) {
+                Log::info('Borderless skipped: customer already enrolled', ['customer_id' => $customer->customer_id]);
                 return;
             }
 
@@ -741,7 +741,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         if ($associateId) {
             $query['AssociateID'] = $associateId;
         }
-        
+
         $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
         $response = Http::withHeaders([
             'Accept'    => 'application/json',

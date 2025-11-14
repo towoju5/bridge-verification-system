@@ -230,12 +230,12 @@ class BusinessController extends Controller
 
             case 2:
                 return [
-                    'registered_address' => json_encode(Arr::get($data, 'registered_address')),
-                    'physical_address'   => json_encode(Arr::get($data, 'physical_address')),
+                    'registered_address' => (Arr::get($data, 'registered_address')),
+                    'physical_address'   => (Arr::get($data, 'physical_address')),
                 ];
 
             case 3:
-                return ['associated_persons' => json_encode(Arr::get($data, 'associated_persons'))];
+                return ['associated_persons' => (Arr::get($data, 'associated_persons'))];
 
             case 4:
                 $out = Arr::only($data, [
@@ -253,7 +253,7 @@ class BusinessController extends Controller
                     'has_material_intermediary_ownership',
                 ]);
                 if (isset($data['high_risk_activities'])) {
-                    $out['high_risk_activities'] = json_encode($data['high_risk_activities']);
+                    $out['high_risk_activities'] = ($data['high_risk_activities']);
                 }
                 return $out;
 
@@ -266,10 +266,10 @@ class BusinessController extends Controller
                 ]);
 
             case 6:
-                return ['documents' => json_encode($data['documents'])];
+                return ['documents' => $data['documents']];
 
             case 7:
-                return ['identifying_information' => json_encode($data['identifying_information'])];
+                return ['identifying_information' => ($data['identifying_information'])];
 
             case 8:
                 return ['status' => 'completed'];
