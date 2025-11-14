@@ -78,16 +78,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
-        $url     = 'auth/m2m/token';
+        $endpoint     = 'auth/m2m/token';
         
         $payload = [
             'clientId'     => $this->clientId,
             'clientSecret' => $this->clientSecret,
         ];
 
-        $fullUrl = "{$baseUrl}/{$url}";
-        logger("full access token URL is {$fullUrl}");
-        $response = Http::post($fullUrl, $payload);
+        $fullUrl = "{$baseUrl}/{$endpoint}";
+        logger("full access token URL is {$fullUrl}, base url is: {$baseUrl}, and the endpoint is {$endpoint}");
+        $response = Http::post("https://sandbox-api.borderless.xyz/v1/auth/m2m/token", $payload);
 
         if ($response->successful()) {
             $result = $response->json();
