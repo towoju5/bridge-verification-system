@@ -146,7 +146,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $baseUrl  = rtrim(config('services.borderless.base_url', $this->borderlessBaseUrl), '/');
             $endpoint = "identities/personal";
 
-            $token = $this->generateAccessToken();
+            $token = $this->generateAccessToken()?->accessToken;
             Log::info("The generated accesstoken is: ", ['token' => $token]);
             $response = Http::timeout(15)
                 ->withHeaders([
