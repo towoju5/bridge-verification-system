@@ -77,7 +77,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             return ['accessToken' => Cache::get('borderless_access_token')];
         }
 
-        $url     = 'auth/m2m/token';
+        $url     = '/auth/m2m/token';
         $payload = [
             'clientId'     => $this->clientId,
             'clientSecret' => $this->clientSecret,

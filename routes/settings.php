@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Models\CustomerSubmission;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -22,3 +23,5 @@ Route::middleware('auth')->group(function () {
         return Inertia::render('settings/appearance');
     })->name('appearance');
 });
+
+
