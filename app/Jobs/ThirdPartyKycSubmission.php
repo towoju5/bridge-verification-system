@@ -52,7 +52,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
         $docs = collect($this->submissionData['documents'] ?? []);
 
-        $hasIdFront = $docs->contains('type', 'id_front');
+        $hasIdFront = $docs->contains('type', 'image_front_file');
         $hasSelfie  = $docs->contains('type', 'selfie');
 
         // Submit to all applicable providers
@@ -239,6 +239,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 if ($imageBack) {
                     $docPayload['imageBack'] = $imageBack;
                 }
+
+                // remove null data
+                $docPayload = array_filter($docPayload);
 
                 $response = Http::timeout(20)
                     ->withHeaders($headers)
