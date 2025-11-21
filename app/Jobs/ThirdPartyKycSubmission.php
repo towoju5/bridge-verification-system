@@ -53,7 +53,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $docs = collect($this->submissionData['documents'] ?? []);
 
         $hasIdFront = $docs->contains('type', 'image_front_file');
-        $hasSelfie  = $docs->contains('type', 'selfie');
+        $hasSelfie  = $docs->contains('type', 'selfie_image') ?? $this->submissionData['selfie_image'] ?? null;
 
         // Submit to all applicable providers
         $this->borderless($customer, $this->submissionData);
@@ -411,7 +411,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function bitnob(Customer $customer, array $data, $docs): void
     {
         try {
-            $userPhoto = $this->downloadAndEncode($docs->firstWhere('type', 'selfie')['file'] ?? null);
+            $userPhoto = $this->downloadAndEncode($docs->firstWhere('type', 'selfie_image') ?? null);
             $idImage   = $this->downloadAndEncode($docs->firstWhere('type', 'id_front')['file'] ?? null);
 
             if (! $userPhoto || ! $idImage) {
@@ -434,8 +434,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 if (! in_array($idType, $allowed, true)) {
                     Log::warning('Bitnob skipped: invalid ID type for Nigeria', ['customer_id' => $customer->customer_id, 'idType' => $idType]);
                     return;
-                }
-            }
+                }           
+            }                   
 
             $validatedData = [
                 'date_of_birth' => substr($data['birth_date'], 0, 10) ?? null,
@@ -459,10 +459,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $baseUrl = rtrim(env('BITNOB_BASE_URL', 'https://api.bitnob.co/api/v1'), '/');
             $token   = env('BITNOB_API_KEY');
 
-            $response = Http::timeout(20)
-                ->withToken($token)
-                ->post("{$baseUrl}/customers", $validatedData)
-                ->json();
+            $response = Http::timeout(20)->withToken($token)->post("{$baseUrl}/customers", $validatedData)->json();
 
             if (isset($response['status']) && $response['status'] === true) {
                 $customer->update([
@@ -738,7 +735,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
         }
     }
-
+ 
     private function uploadSingleSide(
         string $customerId,
         string $documentType,

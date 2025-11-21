@@ -36,11 +36,17 @@ class CustomerController extends Controller
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         // var_dump('Bridge API Key:', env('BRIDGE_API_KEY')); exit;
-        $this->maxSteps = self::MAX_STEPS;
+        $this->maxSteps = self::MAX_STEPS; 
 
         if (! Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
             Schema::table('customer_submissions', function ($table) {
                 $table->json('uploaded_documents')->nullable()->after('documents');
+            });
+        }
+
+        if (! Schema::hasColumn('customer_submissions', 'selfie_image')) {
+            Schema::table('customer_submissions', function ($table) {
+                $table->json('selfie_image')->nullable()->after('email');
             });
         }
     }
@@ -318,6 +324,7 @@ class CustomerController extends Controller
                     'nationality'      => 'required|string|size:2',
                     'gender'           => 'required|in:Male,Female,male,female',
                     'taxId'            => 'required|string|max:100',
+                    'selfie_image'     => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
                 ];
                 break;
 
@@ -335,7 +342,7 @@ class CustomerController extends Controller
 
             case 3:
                 $rules = [
-                    'identifying_information'                    => 'array|required|min:2',
+                    'identifying_information'                    => 'array|required|min:1',
                     'identifying_information.*.type'             => 'required_with:identifying_information|string',
                     'identifying_information.*.issuing_country'  => 'required_with:identifying_information|string|size:2',
                     'identifying_information.*.number'           => 'required|string',
@@ -428,6 +435,16 @@ class CustomerController extends Controller
                         ? ($transliterated->needsTransliteration($val)['transliterated'] ?? null)
                         : null;
                 }
+                $fileUrl = $this->uploadFileIfExists(
+                    'selfie_image',
+                    'customer_documents/' . request()->signed_agreement_id
+                );
+
+                $modelData['selfie_image'] = $fileUrl;
+
+                if (empty($modelData['selfie_image'])) {
+                    $modelData['selfie_image'] = null;
+                }
                 break;
 
             case 2:
@@ -511,8 +528,6 @@ class CustomerController extends Controller
                         return $cleaned;
                     })->toArray();
                 }
-                break;
-
                 break;
             default:
                 Log::warning('Unknown step in customer verification', ['step' => $step, 'submission_id' => session('customer_submission_id')]);

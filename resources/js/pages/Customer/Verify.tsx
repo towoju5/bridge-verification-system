@@ -50,6 +50,7 @@ interface CustomerData {
     nationality: string | null;
     birth_date: string | null;
     gender: string | null;
+    selfie_image: string;
     signed_agreement_id: string;
     residential_address: {
         street_line_1?: string | null;
@@ -394,150 +395,171 @@ export default function Verify({ initialData, currentStep, maxSteps, customerDat
 }
 
 // --- Step Components ---
-const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }) => (
-    <div>
-        <h3 className="text-xl font-semibold mb-4">Step 1: Personal Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-white">First Name</label>
-                <input
-                    type="text"
-                    id="first_name"
-                    name="first_name"
-                    value={data.first_name || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="middle_name" className="block text-sm font-medium text-gray-700 dark:text-white">Middle Name</label>
-                <input
-                    type="text"
-                    id="middle_name"
-                    name="middle_name"
-                    value={data.middle_name || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name</label>
-                <input
-                    type="text"
-                    id="last_name"
-                    name="last_name"
-                    value={data.last_name || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="last_name_native" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name (Native)</label>
-                <input
-                    type="text"
-                    id="last_name_native"
-                    name="last_name_native"
-                    value={data.last_name_native || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500">Required if Last Name contains non-Latin characters.</p>
-            </div>
-            <div>
-                <label htmlFor="taxId" className="block text-sm font-medium text-gray-700 dark:text-white">Tax ID</label>
-                <input
-                    type="text"
-                    id="taxId"
-                    name="taxId"
-                    value={data.taxId || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-white">Email Address</label>
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={data.email || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-white">Phone Number</label>
-                <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={data.phone || ''}
-                    onChange={onDataChange}
-                    placeholder="+12223334444"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 dark:text-white">Date of Birth</label>
-                <input
-                    type="date"
-                    id="birth_date"
-                    name="birth_date"
-                    value={data.birth_date || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-            </div>
-            <div>
-                <label htmlFor="nationality" className="block text-sm font-medium text-gray-700 dark:text-white">Nationality</label>
-                <select
-                    id="nationality"
-                    name="nationality"
-                    value={data.nationality || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                    <option value="">Select Nationality</option>
-                    {countries?.map(country => (
-                        <option key={country.code} value={country.code}>{country.name}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label htmlFor="second_last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Second Last Name</label>
-                <input
-                    type="text"
-                    id="second_last_name"
-                    name="second_last_name"
-                    value={data.second_last_name || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500">Required for Latams.</p>
-            </div>
-            <div>
-                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-white">Select Gender</label>
-                <select
-                    id="gender"
-                    name="gender"
-                    value={data.gender || ''}
-                    onChange={onDataChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                    <option value="">Select Gender</option>
-                    {Object.entries({
-                        male: 'Male',
-                        female: 'Female',
-                    }).map(([key, value]) => (
-                        <option key={key} value={key}>
-                            {value.replace(/_/g, ' ')}
-                        </option>
-                    ))}
-                </select>
+const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }) => {
+    const handleSelfieChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        // Update formData directly with the File object
+        onDataChange({
+            target: { name: 'selfie_image', value: file },
+        } as unknown as React.ChangeEvent<HTMLInputElement>);
+    };
+
+    return (
+        <div>
+            <h3 className="text-xl font-semibold mb-4">Step 1: Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-white">First Name</label>
+                    <input
+                        type="text"
+                        id="first_name"
+                        name="first_name"
+                        value={data.first_name || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="middle_name" className="block text-sm font-medium text-gray-700 dark:text-white">Middle Name</label>
+                    <input
+                        type="text"
+                        id="middle_name"
+                        name="middle_name"
+                        value={data.middle_name || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name</label>
+                    <input
+                        type="text"
+                        id="last_name"
+                        name="last_name"
+                        value={data.last_name || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="last_name_native" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name (Native)</label>
+                    <input
+                        type="text"
+                        id="last_name_native"
+                        name="last_name_native"
+                        value={data.last_name_native || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Required if Last Name contains non-Latin characters.</p>
+                </div>
+                <div>
+                    <label htmlFor="taxId" className="block text-sm font-medium text-gray-700 dark:text-white">Tax ID</label>
+                    <input
+                        type="text"
+                        id="taxId"
+                        name="taxId"
+                        value={data.taxId || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-white">Email Address</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={data.email || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-white">Phone Number</label>
+                    <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={data.phone || ''}
+                        onChange={onDataChange}
+                        placeholder="+12223334444"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 dark:text-white">Date of Birth</label>
+                    <input
+                        type="date"
+                        id="birth_date"
+                        name="birth_date"
+                        value={data.birth_date || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="nationality" className="block text-sm font-medium text-gray-700 dark:text-white">Nationality</label>
+                    <select
+                        id="nationality"
+                        name="nationality"
+                        value={data.nationality || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                        <option value="">Select Nationality</option>
+                        {countries?.map(country => (
+                            <option key={country.code} value={country.code}>{country.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="second_last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Second Last Name</label>
+                    <input
+                        type="text"
+                        id="second_last_name"
+                        name="second_last_name"
+                        value={data.second_last_name || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Required for Latams.</p>
+                </div>
+                <div>
+                    <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-white">Select Gender</label>
+                    <select
+                        id="gender"
+                        name="gender"
+                        value={data.gender || ''}
+                        onChange={onDataChange}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+                <div className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <label htmlFor="selfie_image" className="block text-sm font-medium text-gray-700 dark:text-white">Selfie Image</label>
+                    <input
+                        type="file"
+                        id="selfie_image"
+                        accept=".pdf,.jpeg,.jpg,.png,.heic,.tif"
+                        onChange={handleSelfieChange}
+                        className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {data.selfie_image ? (
+                        <p className="text-sm text-green-600 mt-1">
+                            ✓ {typeof data.selfie_image === 'string' ? 'Previously uploaded' : data.selfie_image.name} selected
+                        </p>
+                    ) : (
+                        <p className="text-sm text-gray-500 mt-1">No file selected</p>
+                    )}
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, countries = [] }) => {
     const address = data.residential_address || {};

@@ -108,6 +108,9 @@ export default function ReviewStep({ onComplete }: ReviewStepProps) {
                 setData(res.data?.data ?? res.data?.business_data ?? null);
                 setInitialData(res.data?.initialData ?? res.data?.business_data ?? null);
 
+                console.log(res.data);
+                console.log(res.data.business_data);
+                
                 if (!res.data?.business_data) {
                     setError("No review data received.");
                 }

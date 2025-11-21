@@ -22,8 +22,13 @@ use Illuminate\Support\Facades\Artisan;
 
 
 Route::get('un', function() {
-    $customerSubmission = CustomerSubmission::latest()->first();
-    dispatch(new \App\Jobs\ThirdPartyKycSubmission($customerSubmission->toArray()));
+    $query = CustomerSubmission::query();
+    if(request()->has('customerId')) {
+        $customerSubmission = $query->where('customer_id', request('customerId'));
+    } else {
+        $customerSubmission = $query->latest()->first();
+    }
+    dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
 });
 
 
@@ -38,13 +43,14 @@ Route::get('ccu', function(){
 
 
 Route::get('/', function(){
+    return redirect()->to('https://yativo.com');
     // $user = CustomerSubmission::first();
     // return response()->json($user);
     // if(!request()->has('customer_id')) {
     //     return back()->with('error', 'customer ID is required');
     // }
     // session()->put('customer_submission_id', request()->customer_id);
-    return redirect()->to(route('account.type'));
+    // return redirect()->to(route('account.type'));
 })->name('home');
 
 // Route::get('/account-type', function () {
@@ -52,7 +58,7 @@ Route::get('/', function(){
 //     abort(404, "Invalid URI or Expired session");
 // })->name('account.type');
 
-Route::get('/account-type', [CustomerController::class, 'debugShowAccountTypeSelection'])->name('account.type');
+// Route::get('/account-type', [CustomerController::class, 'debugShowAccountTypeSelection'])->name('account.type');
 
 // Business user Verification Routes
 Route::match(['get', 'post'], 'business/verify/individual/start', [BusinessController::class, 'startBusinessVerification'])->name('business.verify.start');
