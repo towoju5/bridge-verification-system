@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +9,7 @@ use App\Jobs\SubmitBusinessToTazapay;
 use App\Jobs\SubmitUBODocumentsToBorderless;
 use App\Models\BusinessCustomer;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BusinessCustomerController extends Controller
 {
@@ -97,19 +99,29 @@ class BusinessCustomerController extends Controller
             'physical_address'   => $physical,
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step3(Request $request)
     {
         $validated = $request->validate([
-            'associated_persons'                                     => 'required|array',
-            'associated_persons.*.first_name'                        => 'required|string',
-            'associated_persons.*.last_name'                         => 'required|string',
+            'associated_persons'                                     => 'required|array|min:1',
+            'associated_persons.*.first_name'                        => 'required|string|max:100',
+            'associated_persons.*.last_name'                         => 'required|string|max:100',
+            'associated_persons.*.birth_date'                        => 'required|date|before:today',
+            'associated_persons.*.nationality'                       => 'required|string|size:2',
             'associated_persons.*.email'                             => 'required|email',
-            'associated_persons.*.residential_address.street_line_1' => 'required|string',
-            'associated_persons.*.residential_address.city'          => 'required|string',
+            'associated_persons.*.phone'                             => 'nullable|string',
+            'associated_persons.*.title'                             => 'nullable|string',
+            'associated_persons.*.ownership_percentage'              => 'required|numeric|min:0|max:100',
+            'associated_persons.*.relationship_established_at'       => 'nullable|date|before_or_equal:today',
+            'associated_persons.*.residential_address.street_line_1' => 'required|string|max:255',
+            'associated_persons.*.residential_address.city'          => 'required|string|max:100',
             'associated_persons.*.residential_address.country'       => 'required|string|size:2',
+            'associated_persons.*.has_ownership'                     => 'boolean',
+            'associated_persons.*.has_control'                       => 'boolean',
+            'associated_persons.*.is_signer'                         => 'boolean',
+            'associated_persons.*.is_director'                       => 'boolean',
         ]);
 
         $customer = $this->getCustomerBySession($request);
@@ -121,18 +133,28 @@ class BusinessCustomerController extends Controller
             'associated_persons' => $request->input('associated_persons'),
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step4(Request $request)
     {
-        $validated = $request->validate([
-            'account_purpose'               => 'required|string',
-            'source_of_funds'               => 'required|string',
-            'high_risk_activities'          => 'required|array',
-            'estimated_annual_revenue_usd'  => 'nullable|string',
-            'expected_monthly_payments_usd' => 'nullable|integer|min:0',
-        ]);
+        $rules = [
+            'account_purpose'                     => ['required', Rule::in(array_keys(config('bridge_data.account_purposes')))],
+            'account_purpose_other'               => 'required_if:account_purpose,Other|nullable|string',
+            'source_of_funds'                     => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds')))],
+            'high_risk_activities'                => 'required|array',
+            'high_risk_activities.*'              => 'string',
+            'high_risk_activities_explanation'    => 'required_if:high_risk_activities,*,!=,none_of_the_above|string',
+            'conducts_money_services'             => 'boolean',
+            'conducts_money_services_description' => 'required_if:conducts_money_services,true|string',
+            'compliance_screening_explanation'    => 'required_if:conducts_money_services,true|string',
+            'estimated_annual_revenue_usd'        => 'nullable|string',
+            'expected_monthly_payments_usd'       => 'nullable|integer|min:0',
+            'operates_in_prohibited_countries'    => 'nullable|in:yes,no',
+            'ownership_threshold'                 => 'nullable|integer|min:5|max:25',
+            'has_material_intermediary_ownership' => 'boolean',
+        ];
+        $validated = $request->validate($rules);
 
         $customer = $this->getCustomerBySession($request);
         if (! $customer) {
@@ -143,7 +165,7 @@ class BusinessCustomerController extends Controller
             'account_information' => $validated,
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step5(Request $request)
@@ -164,7 +186,7 @@ class BusinessCustomerController extends Controller
             'regulated_activity' => $request->input('regulated_activity'),
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step6(Request $request)
@@ -201,13 +223,13 @@ class BusinessCustomerController extends Controller
 
         $customer->update(['documents' => $documents]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step7(Request $request)
     {
         $validated = $request->validate([
-            'identifying_information'                   => 'array',
+            'identifying_information'                   => 'required|array|min:1',
             'identifying_information.*.type'            => 'required|string',
             'identifying_information.*.issuing_country' => 'required|string|size:2',
             'identifying_information.*.number'          => 'required|string',
@@ -236,7 +258,7 @@ class BusinessCustomerController extends Controller
 
         $customer->update(['identifying_information' => $infos]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'data' => $customer, 'business_details' => $customer, 'initialData' => $customer]);
     }
 
     public function step8(Request $request)
@@ -259,7 +281,7 @@ class BusinessCustomerController extends Controller
             'customerData'                 => $data, // Pass the full model instance
         ];
 
-        return response()->json(['data' => $customer, 'data' => $data, 'initialData' => $arr]);
+        return response()->json(['data' => $customer, 'business_details' => $data, 'initialData' => $arr]);
     }
 
     public function submit(Request $request)

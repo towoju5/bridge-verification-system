@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Jobs;
 
 use App\Models\Customer;
@@ -50,23 +51,32 @@ class ThirdPartyKycSubmission implements ShouldQueue
             return;
         }
 
-        $docs = collect($this->submissionData['documents'] ?? []);
+        // Pull ID front from identifying_information
+        $idInfo = $this->submissionData['identifying_information'][0] ?? null;
+        $idFront = $idInfo['image_front_file'] ?? null;
 
-        $hasIdFront = $docs->contains('type', 'image_front_file');
-        $hasSelfie  = $docs->contains('type', 'selfie_image') ?? $this->submissionData['selfie_image'] ?? null;
+        // Selfie is directly selfie_image
+        $selfie = $this->submissionData['selfie_image'] ?? null;
 
-        // Submit to all applicable providers
+        $hasIdFront = ! empty($idFront);
+        $hasSelfie  = ! empty($selfie);
+
+        // Submit to mandatory providers always
         $this->borderless($customer, $this->submissionData);
         $this->noah($customer, $this->submissionData);
 
+        // Submit to TransFi + Bitnob only if both docs exist
         if ($hasIdFront && $hasSelfie) {
-            $this->transFi($customer, $this->submissionData, $docs);
-            $this->bitnob($customer, $this->submissionData, $docs);
+            $this->transFi($customer, $this->submissionData);
+            $this->bitnob($customer, $this->submissionData);
         } else {
-            Log::info('TransFi & Bitnob skipped: missing id_front or selfie', ['customer_id' => $customerId]);
+            Log::info('TransFi & Bitnob skipped: missing id_front or selfie', [
+                'customer_id' => $customerId,
+                'has_id_front' => $hasIdFront,
+                'has_selfie'   => $hasSelfie,
+            ]);
         }
     }
-
     /**
      * Generate and cache API access token for borderless
      */
@@ -341,14 +351,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 return;
             }
 
-            $idInfo = $data['identifying_information'][0] ?? [];
+            $idInfo  = $data['identifying_information'][0] ?? [];
+            $idFront = ($idInfo['image_front_file'] ?? null);
+            $selfie  = ($data['selfie_image'] ?? null);
 
-            $imageFront = $this->downloadAndEncode($docs->firstWhere('type', 'id_front')['file'] ?? null);
-            $imageBack  = $this->downloadAndEncode($docs->firstWhere('type', 'id_back')['file'] ?? null) ?: $imageFront;
-            $selfie     = $this->downloadAndEncode($docs->firstWhere('type', 'selfie')['file'] ?? null);
+            // If no image_back_file, fallback to front
+            $idBack = ($idInfo['image_back_file'] ?? null);
+            if (! $idBack) $idBack = $idFront;
 
-            if (! $imageFront || ! $selfie) {
-                Log::warning('TransFi skipped: failed to fetch/encode docs', ['customer_id' => $customer->customer_id]);
+            if (! $idFront || ! $selfie) {
+                Log::warning('TransFi skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
                 return;
             }
 
@@ -359,8 +371,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'idDocExpiryDate'    => $idInfo['expiration_date'] ?? null,
                 'idDocUserName'      => trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')),
                 'idDocType'          => $idInfo['type'] ?? 'id_card',
-                'idDocFrontSide'     => $imageFront,
-                'idDocBackSide'      => $imageBack,
+                'idDocFrontSide'     => $idFront,
+                'idDocBackSide'      => $idBack,
                 'selfie'             => $selfie,
                 'gender'             => $data['gender'] ?? null,
                 'phoneNo'            => $data['phone'] ?? '',
@@ -411,11 +423,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function bitnob(Customer $customer, array $data, $docs): void
     {
         try {
-            $userPhoto = $this->downloadAndEncode($docs->firstWhere('type', 'selfie_image') ?? null);
-            $idImage   = $this->downloadAndEncode($docs->firstWhere('type', 'id_front')['file'] ?? null);
+            $idInfo  = $data['identifying_information'][0] ?? [];
+            $idFront = ($idInfo['image_front_file'] ?? null);
+            $selfie  = ($data['selfie_image'] ?? null);
 
-            if (! $userPhoto || ! $idImage) {
-                Log::warning('Bitnob skipped: missing/failed ID or selfie', ['customer_id' => $customer->customer_id]);
+            if (! $idFront || ! $selfie) {
+                Log::warning('Bitnob skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
                 return;
             }
 
@@ -434,8 +447,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 if (! in_array($idType, $allowed, true)) {
                     Log::warning('Bitnob skipped: invalid ID type for Nigeria', ['customer_id' => $customer->customer_id, 'idType' => $idType]);
                     return;
-                }           
-            }                   
+                }
+            }
 
             $validatedData = [
                 'date_of_birth' => substr($data['birth_date'], 0, 10) ?? null,
@@ -444,8 +457,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'lastName'      => $nameParts[1] ?? ($nameParts[0] ?? 'Unknown'),
                 'customerEmail' => $data['email'] ?? '',
                 'phoneNumber'   => $data['phone'] ?? '',
-                'idImage'       => $idImage,
-                'userPhoto'     => $userPhoto,
+                'idImage'       => $idFront,
+                'userPhoto'     => $selfie,
                 'country'       => $addr['country'] ?? 'NG',
                 'city'          => $addr['city'] ?? '',
                 'state'         => $addr['state'] ?? '',
@@ -660,7 +673,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             'utr'         => 'TaxID',
             'crib'        => 'TaxID',
             'crc'         => 'TaxID',
-            'bir'         => 'TaxID',
+            'bir'          return base64_encode($response->body());  => 'TaxID',
             'mf'          => 'TaxID',
             'ntn'         => 'TaxID',
             'trn'         => 'TaxID',
@@ -735,7 +748,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
         }
     }
- 
+
     private function uploadSingleSide(
         string $customerId,
         string $documentType,
