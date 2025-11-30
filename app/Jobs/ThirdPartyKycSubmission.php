@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Customer;
 use App\Models\Endorsement;
+use App\Services\NoahService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable as FoundationQueueable;
 use Illuminate\Support\Facades\Cache;
@@ -281,11 +282,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $proofPayload = [
                     "issuingCountry" => $address['country'] ?? 'NG',
                     "type"           => "ProofOfAddress",
-                    "idNumber"       => "", // Not required for PoA
-                    "issuedDate"     => now()->format('Y-m-d'),
-                    "expiryDate"     => "", // Optional
+                    "issuedDate" => (string) now()->toDateString(),
                     "imageFront"     => $proofImage,
                 ];
+
+                Log::info('Issued Date Sent:', ['issuedDate' => (string) now()->toDateString()]);
 
                 $response = Http::timeout(20)
                     ->withHeaders($headers)
@@ -343,7 +344,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         return null;
     }
 
-    private function transFi(Customer $customer, array $data, $docs): void
+    private function transFi(Customer $customer, array $data): void
     {
         try {
             if (! $customer->transfi_user_id) {
@@ -420,7 +421,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
-    private function bitnob(Customer $customer, array $data, $docs): void
+    private function bitnob(Customer $customer, array $data): void
     {
         try {
             $idInfo  = $data['identifying_information'][0] ?? [];
@@ -550,19 +551,14 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
             ];
 
-            $baseUrl = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
+            $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
 
             if (empty($this->noah_api_key)) {
                 throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
             }
 
-            $response = Http::timeout(20)
-                ->withHeaders([
-                    'X-Api-Key'    => $this->noah_api_key,
-                    'Accept'       => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
-                ->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
+            $noah = new NoahService();
+            $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
 
             if ($response->successful()) {
                 $customer->update(['is_noah_registered' => true]);
@@ -673,7 +669,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             'utr'         => 'TaxID',
             'crib'        => 'TaxID',
             'crc'         => 'TaxID',
-            'bir'          return base64_encode($response->body());  => 'TaxID',
+            'bir'         => 'TaxID',
             'mf'          => 'TaxID',
             'ntn'         => 'TaxID',
             'trn'         => 'TaxID',
@@ -773,7 +769,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $query['AssociateID'] = $associateId;
         }
 
-        $baseUrl  = rtrim(config('services.noah.base_url', 'https://api.sandbox.noah.com/v1'), '/');
+        $baseUrl  = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
         $response = Http::withHeaders([
             'Accept'    => 'application/json',
             'X-Api-Key' => $this->noah_api_key,

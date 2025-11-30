@@ -144,7 +144,7 @@ class BusinessCustomerController extends Controller
             'source_of_funds'                     => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds')))],
             'high_risk_activities'                => 'required|array',
             'high_risk_activities.*'              => 'string',
-            'high_risk_activities_explanation'    => 'required_if:high_risk_activities,*,!=,none_of_the_above|string',
+            'high_risk_activities_explanation'    => 'string|nullable',
             'conducts_money_services'             => 'boolean',
             'conducts_money_services_description' => 'required_if:conducts_money_services,true|string',
             'compliance_screening_explanation'    => 'required_if:conducts_money_services,true|string',

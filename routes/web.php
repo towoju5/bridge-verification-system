@@ -44,21 +44,7 @@ Route::get('ccu', function(){
 
 Route::get('/', function(){
     return redirect()->to('https://yativo.com');
-    // $user = CustomerSubmission::first();
-    // return response()->json($user);
-    // if(!request()->has('customer_id')) {
-    //     return back()->with('error', 'customer ID is required');
-    // }
-    // session()->put('customer_submission_id', request()->customer_id);
-    // return redirect()->to(route('account.type'));
 })->name('home');
-
-// Route::get('/account-type', function () {
-//     // [CustomerController::class, 'showAccountTypeSelection']
-//     abort(404, "Invalid URI or Expired session");
-// })->name('account.type');
-
-// Route::get('/account-type', [CustomerController::class, 'debugShowAccountTypeSelection'])->name('account.type');
 
 // Business user Verification Routes
 Route::match(['get', 'post'], 'business/verify/individual/start', [BusinessController::class, 'startBusinessVerification'])->name('business.verify.start');
@@ -116,6 +102,5 @@ Route::get('/{accountType}/{customerId}', [CustomerController::class, 'showAccou
 
 
 Route::get('/{any}', function () {
-    // return Inertia::render('welcome');
-    var_dump('Catch-all route hit'); // For debugging
+    return redirect()->to('https://yativo.com');
 })->where('any', '.*');

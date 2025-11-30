@@ -37,7 +37,7 @@ return [
 
     'noah' => [
         'api_key' => env('NOAH_API_KEY'),
-        'base_url' => env('NOAH_BASE_URL', 'https://api.sandbox.noah.com/v1'),
+        'base_url' => env('NOAH_BASE_URL', 'https://api.noah.com/v1'),
     ],
     'tazapay' => [
         'base_url' => env('TAZAPAY_BASE_URL'),

@@ -83,7 +83,6 @@ export default function DocumentsTab({ formData, setFormData, setActiveTab, docu
 					{/* Purposes */}
 					<label className="block text-sm font-medium mb-1">Purposes</label>
 					<select
-						multiple
 						className="w-full border rounded p-2"
 						value={doc.purposes}
 						onChange={(e) =>
