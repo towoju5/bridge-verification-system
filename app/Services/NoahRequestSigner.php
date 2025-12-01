@@ -1,13 +1,10 @@
 <?php
-
 namespace App\Services;
 
 use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
+use function Illuminate\Log\log;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
-
-use function Illuminate\Log\log;
 
 // use function Sentry\logger;
 
@@ -43,24 +40,37 @@ class NoahRequestSigner
     public function signRequest(string $method, string $path, ?array $queryParams = null, ?string $body = null): string
     {
         logger("initiating Noah request signing");
+
+        // Normalize the path: extract path if full URL is given
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $parsedUrl = parse_url($path);
+            $path      = $parsedUrl['path'] ?? '';
+        }
+
+        // Ensure path starts with '/' (required by Noah)
+        if ($path === '') {
+            $path = '/';
+        } elseif (! str_starts_with($path, '/')) {
+            $path = '/' . $path;
+        }
+
         $iat = time();
         $exp = $iat + 5 * 60; // 5 minutes
 
         $payload = [
-            'aud'    => "https://api.noah.com",
+            'aud'    => 'https://api.noah.com', // ✅ no trailing spaces
             'iat'    => $iat,
             'exp'    => $exp,
             'method' => strtoupper($method),
-            'path'   => $path,
+            'path'   => $path, // ✅ now guaranteed to be a clean path like "/v1/customers/..."
         ];
 
-        // queryParams only if used — preserve order & type
+        // Include queryParams only if present
         if ($queryParams && is_array($queryParams) && count($queryParams) > 0) {
             $payload['queryParams'] = $queryParams;
         }
 
-        logger("proceeding to Noah request body hasing");
-        // bodyHash only if body provided
+        logger("proceeding to Noah request body hashing");
         if ($body !== null) {
             $payload['bodyHash'] = hash('sha256', $body);
         }
