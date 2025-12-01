@@ -17,13 +17,11 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
-use Modules\Customer\app\Models\Customer;
+use App\Models\Customer;
 use Modules\SendMoney\app\Http\Controllers\SendMoneyController;
 use Modules\Webhook\app\Models\Webhook;
 use Spatie\WebhookServer\WebhookCall;
 
-use function Sentry\logger;
-use function Sentry\logger as SentryLogger;
 
 class NoahService
 {
@@ -37,7 +35,7 @@ class NoahService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('noah.base_url', 'https://api.sandbox.noah.com/v1'), " \t\n\r\0\x0B");
+        $this->baseUrl = rtrim(config('noah.base_url', 'https://api.noah.com/v1'), " \t\n\r\0\x0B");
 
         $apiKey = config('noah.api_key');
         if (empty($apiKey)) {
