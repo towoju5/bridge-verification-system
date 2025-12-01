@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
+use function Illuminate\Log\log;
+
 class ThirdPartyKycSubmission implements ShouldQueue
 {
     use FoundationQueueable;
@@ -550,6 +552,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ],
                 ],
             ];
+
+            log('Noah KYC payload', $customerData);
 
             $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
 

@@ -7,6 +7,8 @@ use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
+use function Illuminate\Log\log;
+
 // use function Sentry\logger;
 
 class NoahRequestSigner
@@ -17,6 +19,7 @@ class NoahRequestSigner
     public function __construct()
     {
         $rawKey = env('NOAH_PRIVATE_KEY');
+        log('Loading Noah private key from environment', ['key_present' => $rawKey ?? null]);
         if (empty($rawKey)) {
             throw new \Exception('NOAH_PRIVATE_KEY is missing in environment.');
         }
