@@ -1,18 +1,16 @@
 <?php
-
 namespace App\Jobs;
 
 use App\Models\Customer;
 use App\Models\Endorsement;
 use App\Services\NoahService;
+use function Illuminate\Log\log;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable as FoundationQueueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-
-use function Illuminate\Log\log;
 
 class ThirdPartyKycSubmission implements ShouldQueue
 {
@@ -55,7 +53,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         // Pull ID front from identifying_information
-        $idInfo = $this->submissionData['identifying_information'][0] ?? null;
+        $idInfo  = $this->submissionData['identifying_information'][0] ?? null;
         $idFront = $idInfo['image_front_file'] ?? null;
 
         // Selfie is directly selfie_image
@@ -74,7 +72,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $this->bitnob($customer, $this->submissionData);
         } else {
             Log::info('TransFi & Bitnob skipped: missing id_front or selfie', [
-                'customer_id' => $customerId,
+                'customer_id'  => $customerId,
                 'has_id_front' => $hasIdFront,
                 'has_selfie'   => $hasSelfie,
             ]);
@@ -284,7 +282,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $proofPayload = [
                     "issuingCountry" => $address['country'] ?? 'NG',
                     "type"           => "ProofOfAddress",
-                    "issuedDate" => (string) now()->toDateString(),
+                    "issuedDate"     => (string) now()->toDateString(),
                     "imageFront"     => $proofImage,
                 ];
 
@@ -360,7 +358,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             // If no image_back_file, fallback to front
             $idBack = ($idInfo['image_back_file'] ?? null);
-            if (! $idBack) $idBack = $idFront;
+            if (! $idBack) {
+                $idBack = $idFront;
+            }
 
             if (! $idFront || ! $selfie) {
                 Log::warning('TransFi skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
@@ -501,7 +501,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
-    private function noah(Customer $customer, array $data): void
+    public function noah(Customer $customer, array $data): void
     {
         try {
             if ($customer->is_noah_registered) {
@@ -553,18 +553,22 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
             ];
 
-            log('Noah KYC payload', $customerData);
+            Log::info('Noah KYC payload', $customerData);
 
+            // ✅ Trim base URL to avoid trailing spaces
             $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
 
             if (empty($this->noah_api_key)) {
                 throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
             }
 
-            $noah = new NoahService();
+            $noah     = new NoahService();
             $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
 
-            if ($response->successful()) {
+            // ✅ Check status code (PSR-7 response)
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode >= 200 && $statusCode < 300) {
                 $customer->update(['is_noah_registered' => true]);
                 Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
@@ -576,19 +580,22 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     );
                 }
 
-                $documents = $data['identifying_information']; // ['identifying_information' => $data['identifying_information']];
+                $documents = $data['identifying_information'];
                 $this->submitNoahDocument($customer->customer_id, $documents);
             } else {
+                // ✅ Safely get response body from PSR-7
+                $body = $response->getBody()->getContents();
                 Log::error('Noah KYC failed', [
                     'customer_id' => $customer->customer_id,
-                    'status'      => $response->status(),
-                    'body'        => $response->body(),
+                    'status'      => $statusCode,
+                    'body'        => $body,
                 ]);
             }
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
                 'customer_id' => $customer->customer_id,
                 'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
             ]);
         }
     }
