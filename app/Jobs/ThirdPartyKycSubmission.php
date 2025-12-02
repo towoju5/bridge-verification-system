@@ -192,125 +192,61 @@ class ThirdPartyKycSubmission implements ShouldQueue
         Log::info('Noah prefill successful', ['customer_id' => $customer->customer_id]);
     }
 
-
     protected function initiateNoahOnboarding(string $customerId): void
     {
         Log::info('Initiating Noah onboarding', ['customer_id' => $customerId]);
 
         $noah = new NoahService();
         // Onboarding initiation may require an empty body or minimal payload
-        $response = $noah->post("/v1/onboarding/{$customerId}", []);
+        $returnUrl = session()->get('return_url', 'https://app.yativo.com');
+        $payload = [
+            "Metadata" => [
+                "CustomerId"    => $customerId
+            ],
+            "ReturnURL"   => $returnUrl,
+            "FiatOptions" => [
+                ["FiatCurrencyCode" => "USD"],
+                ["FiatCurrencyCode" => "EUR"],
+            ]
+        ];
+
+        log('Noah Onboarding Payload:', ['payload' => $payload]);
+
+        $noah     = new NoahService();
+        $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
+        $body = $response->json();
+
+        log('Noah Onboarding Response:', [
+            'status' => $response->status(),
+            'body' => $body,
+            'hosted_url' => $body['HostedURL'] ?? null,
+        ]);
+
 
         if ($response->successful()) {
-            Log::info('Noah onboarding initiated', ['customer_id' => $customerId]);
+            $hostedUrl = $body['HostedURL'] ?? null;
+            foreach (['base', 'sepa'] as $service) {
+                Endorsement::updateOrCreate(
+                    [
+                        'customer_id' => $customerId,
+                        'service' => $service,
+                    ],
+                    [
+                        'status' => 'pending',
+                        'hosted_kyc_url' => $hostedUrl
+                    ]
+                );
+            }
+            Log::info('Noah onboarding initiated', [
+                'customer_id' => $customerId,
+                'hosted_url'  => $hostedUrl,
+            ]);
+
+            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
         } else {
             throw new \RuntimeException('Failed to initiate Noah onboarding: ' . $response->body());
         }
     }
-
-    /**
-     * Generate the KYC url for customers 
-     * intending to create USD virtual account
-     * 
-     * @param string customerId
-     * @param array|null  payload
-     * @return null|string
-     */
-    // public function startOnboarding($customerId, $data = []): ?string
-    // {
-    //     if (!$customerId) {
-    //         Log::error('Missing customerId for onboarding');
-    //         return null;
-    //     }
-
-    //     $returnUrl = session()->get('return_url', 'https://google.com');
-    //     $customer  = Customer::where('customer_id', $customerId)->first();
-
-    //     if (!$customer) {
-    //         Log::error('Customer not found', ['customerId' => $customerId]);
-    //         return null;
-    //     }
-
-    //     // Ensure identifying_information is an array
-    //     $identities = $data ?? $customer->identifying_information[0] ?? [];
-    //     log('Noah Onboarding - Preparing Customer Data', ['identifying_information' => $identities]);
-
-    //     // Ensure residential_address is an array
-    //     $address = $customer->residential_address;
-    //     log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
-
-    //     if (empty($identities) || !is_array($identities) || count($identities) === 0) {
-    //         Log::error('No identifying information available for Noah onboarding', ['customerId' => $customerId]);
-    //         return null;
-    //     }
-
-    //     if (empty($address) || !is_array($address)) {
-    //         Log::error('No residential address available for Noah onboarding', ['customerId' => $customerId]);
-    //         return null;
-    //     }
-
-    //     log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]]);
-    //     log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
-
-    //     $payload = [
-    //         "Metadata" => [
-    //             "CustomerId"    => $customer->customer_id,
-    //             "CustomerEmail" => $customer->email,
-    //         ],
-    //         "ReturnURL"   => $returnUrl,
-    //         "FiatOptions" => [
-    //             ["FiatCurrencyCode" => "USD"],
-    //             ["FiatCurrencyCode" => "EUR"],
-    //         ]
-    //     ];
-
-    //     log('Noah Onboarding Payload:', ['payload' => $payload]);
-
-    //     $noah     = new NoahService();
-    //     $prefill_response = $noah->post("/v1/onboarding/{$customerId}", $payload);
-    //     $body = json_decode($prefill_response->getBody()->getContents(), true);
-    //     $data_received = (array)$prefill_response->getBody();
-
-    //     log('Noah Onboarding Response:', [
-    //         'status' => $prefill_response->getStatusCode(),
-    //         'body' => $body,
-    //         'hosted_url' => $body['HostedURL'] ?? null,
-    //         'data_received' => $data_received,
-    //     ]);
-
-    //     $hostedUrl = $body['HostedURL'] ?? $data_received['HostedURL'] ?? null;
-
-
-    //     if ($prefill_response->getStatusCode() >= 200 && $prefill_response->getStatusCode() < 300) {
-    //         if (!$hostedUrl) {
-    //             Log::error('HostedURL missing', ['body' => $body]);
-    //             return null;
-    //         }
-
-    //         foreach (['base', 'sepa'] as $service) {
-    //             Endorsement::updateOrCreate(
-    //                 [
-    //                     'customer_id' => $customer->customer_id,
-    //                     'service' => $service,
-    //                 ],
-    //                 [
-    //                     'status' => 'pending',
-    //                     'hosted_kyc_url' => $hostedUrl
-    //                 ]
-    //             );
-    //         }
-
-    //         return $hostedUrl;
-    //     }
-
-    //     Log::error('Noah onboarding creation failed', [
-    //         'status' => $prefill_response->getStatusCode(),
-    //         'body'   => $body,
-    //     ]);
-
-    //     return null;
-    // }
-
 
     /**
      * Generate and cache API access token for borderless
