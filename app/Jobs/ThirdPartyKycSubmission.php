@@ -609,7 +609,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
      * @param array|null  payload
      * @return null|string
      */
-    public function startOnboarding($customerId, $payload = null): ?string
+    public function startOnboarding($customerId, $data = []): ?string
     {
         // Optional: Validate $customerId
         if (!$customerId) {
@@ -620,10 +620,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $returnUrl = session()->get('return_url', 'https://google.com');
 
         $customer = Customer::where('customer_id', $customerId)->first();
-        $payload = [
+
+        $data = [
             "Metadata" => [
                 "CustomerId" => $customer->customer_id,
-                "CustomerEmail" => $customer->email
+                "CustomerEmail" => $customer->customer_email
             ],
             "ReturnURL" => $returnUrl,
             "FiatOptions" => [
@@ -632,6 +633,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]
         ];
 
+        $payload = array_filter($data);
 
         log('Noah Onboarding Payload:', ['payload' => $payload]);
         $noah = new NoahService();
