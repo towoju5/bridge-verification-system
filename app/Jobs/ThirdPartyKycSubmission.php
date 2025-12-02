@@ -648,6 +648,19 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ? $customer->residential_address
             : json_decode($customer->residential_address, true);
 
+        if(empty($identities) || !is_array($identities) || count($identities) === 0) {
+            Log::error('No identifying information available for Noah onboarding', ['customerId' => $customerId]);
+            return null;
+        }
+
+        if(empty($address) || !is_array($address)) {
+            Log::error('No residential address available for Noah onboarding', ['customerId' => $customerId]);
+            return null;
+        }
+
+        log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]);
+        log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
+
         $customerData = [
             "Type" => "IndividualCustomerPrefill",
             "FullName" => [
@@ -669,7 +682,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     "FrontImageFile" => $identity['image_front_file'] ?? null,
                     "BackImageFile" => $identity['image_back_file'] ?? null,
                 ];
-            }, $identities),
+            }, $identities[0]),
             "PrimaryResidence" => [
                 "Street" => $address['street_line_1'] ?? null,
                 "Street2" => $address['street_line_2'] ?? null,
