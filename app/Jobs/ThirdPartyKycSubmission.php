@@ -183,7 +183,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         Log::info('Noah KYC payload (prefill)', $customerData);
 
         $noah = new NoahService();
-        $response = $noah->post("/v1/onboarding/{$customer->customer_id}/prefill", $customerData);
+        $response = $noah->post("/onboarding/{$customer->customer_id}/prefill", $customerData);
 
         if (!$response->successful()) {
             throw new \RuntimeException('Noah prefill failed: ' . $response->status() . ' - ' . $response->body());
@@ -213,7 +213,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         log('Noah Onboarding Payload:', ['payload' => $payload]);
 
         $noah     = new NoahService();
-        $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
+        $response = $noah->post("/onboarding/{$customerId}", $payload);
         $body = $response->json();
 
         log('Noah Onboarding Response:', [
