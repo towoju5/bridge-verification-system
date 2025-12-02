@@ -58,11 +58,11 @@ class NoahRequestSigner
         $exp = $iat + 5 * 60; // 5 minutes
 
         $payload = [
+            'path'   => $path, // ✅ now guaranteed to be a clean path like "/v1/customers/..."
             'aud'    => 'https://api.noah.com', // ✅ no trailing spaces
             'iat'    => $iat,
             'exp'    => $exp,
             'method' => strtoupper($method),
-            'path'   => $path, // ✅ now guaranteed to be a clean path like "/v1/customers/..."
         ];
 
         // Include queryParams only if present

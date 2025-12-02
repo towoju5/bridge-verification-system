@@ -28,7 +28,7 @@ class NoahService
 
     protected function buildClient(string $method, string $path, ?array $queryParams = null, ?string $body = null)
     {
-        $fullUrl = $this->baseUrl . ltrim($path, '/');
+        $fullUrl = normalizeNoahApiUrl($this->baseUrl . ltrim($path, '/'));
 
         $signature = $this->signer->signRequest($method, $fullUrl, $queryParams, $body);
 

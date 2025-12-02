@@ -16,3 +16,51 @@ if (!function_exists('array_filter_recursive')) {
         return $array;
     }
 }
+
+if (!function_exists('normalizeNoahApiUrl')) {
+    /**
+     * Normalizes a URL to the correct Noah API format:
+     * https://api.noah.com/v1/{endpoint}
+     *
+     * Fixes common issues:
+     * - Adds https://api.noah.com if missing
+     * - Ensures exactly one /v1/ at the start of the path
+     * - Removes duplicate /v1/ segments
+     * - Strips extra leading/trailing slashes in the endpoint
+     *
+     * @param string $url Partial path or full URL
+     * @return string Correctly formatted Noah API URL
+     */
+    function normalizeNoahApiUrl(string $url): string
+    {
+        $url = trim($url);
+
+        // Extract path regardless of input format
+        if (preg_match('#^https?://#i', $url)) {
+            $parsed = parse_url($url);
+            $path = ltrim($parsed['path'] ?? '', '/');
+        } else {
+            $path = ltrim($url, '/');
+        }
+
+        // Fix: insert slash if path starts with "v1" followed directly by a letter/digit/underscore
+        // e.g. "v1onboarding" → "v1/onboarding"
+        $path = preg_replace('#^v1([a-zA-Z0-9_])#', 'v1/$1', $path);
+        $path = preg_replace('#^/v1([a-zA-Z0-9_])#', '/v1/$1', $path);
+
+        // Remove any redundant /v1/ prefixes (keep only one at start)
+        // This handles cases like /v1/v1/..., v1/v1/..., etc.
+        $path = preg_replace('#^(/?v1/)+#', '', $path);
+
+        // Ensure the path starts with /v1/
+        $path = '/v1/' . ltrim($path, '/');
+
+        // Collapse multiple slashes (e.g. /v1///onboarding → /v1/onboarding)
+        $path = preg_replace('#/+#', '/', $path);
+
+        // Prevent trailing slash if not needed (optional)
+        // $path = rtrim($path, '/');
+
+        return 'https://api.noah.com' . $path;
+    }
+}
