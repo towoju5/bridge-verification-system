@@ -510,88 +510,102 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 return;
             }
 
-            $idInfo = $data['identifying_information'][0] ?? [];
-            $addr   = $data['residential_address'] ?? [];
+            $this->startOnboarding($customer->customer_id);
+            Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
-            $nameParts = array_values(array_filter([
-                $data['first_name'] ?? '',
-                $data['middle_name'] ?? '',
-                $data['last_name'] ?? '',
-            ]));
-
-            $internalIdType = strtolower($idInfo['type'] ?? 'national_id');
-            $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
-
-            $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
-            if (! in_array($noahIdType, $supportedIdTypes, true)) {
-                $noahIdType = 'NationalIDCard';
+            $documents = $data['identifying_information'];
+            $this->submitNoahDocument($customer->customer_id, $documents);
+            $customer->update(['is_noah_registered' => true]);
+            // ✅ Add required endorsements: base + sepa
+            foreach (['base', 'sepa'] as $service) {
+                Endorsement::updateOrCreate(
+                    ['customer_id' => $customer->customer_id, 'service' => $service],
+                    ['status' => 'pending']
+                );
             }
 
-            $customerData = [
-                "Type"             => "Individual",
-                "FullName"         => [
-                    "FirstName" => $nameParts[0] ?? '',
-                    "LastName"  => $nameParts[1] ?? ($nameParts[0] ?? ''),
-                ],
-                "DateOfBirth"      => substr($data['birth_date'], 0, 10) ?? '1990-01-01',
-                "Email"            => $data['email'] ?? '',
-                "PhoneNumber"      => $data['phone'] ?? '',
-                "PrimaryResidence" => [
-                    "Street"   => $addr['street_line_1'] ?? '',
-                    "City"     => $addr['city'] ?? '',
-                    "PostCode" => $addr['postal_code'] ?? '',
-                    "State"    => $addr['state'] ?? '',
-                    "Country"  => $addr['country'] ?? 'NG',
-                ],
-                "Identities"       => [
-                    [
-                        'IssuingCountry' => $idInfo['issuing_country'] ?? 'NG',
-                        'IDNumber'       => $idInfo['number'] ?? '',
-                        'IssuedDate'     => $idInfo['date_issued'] ?? '',
-                        'ExpiryDate'     => $idInfo['expiration_date'] ?? '',
-                        'IDType'         => $noahIdType,
-                    ],
-                ],
-            ];
+            // $idInfo = $data['identifying_information'][0] ?? [];
+            // $addr   = $data['residential_address'] ?? [];
 
-            Log::info('Noah KYC payload', $customerData);
+            // $nameParts = array_values(array_filter([
+            //     $data['first_name'] ?? '',
+            //     $data['middle_name'] ?? '',
+            //     $data['last_name'] ?? '',
+            // ]));
 
-            // ✅ Trim base URL to avoid trailing spaces
-            $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
+            // $internalIdType = strtolower($idInfo['type'] ?? 'national_id');
+            // $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
 
-            if (empty($this->noah_api_key)) {
-                throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
-            }
+            // $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
+            // if (! in_array($noahIdType, $supportedIdTypes, true)) {
+            //     $noahIdType = 'NationalIDCard';
+            // }
 
-            $noah     = new NoahService();
-            $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
+            // $customerData = [
+            //     "Type"             => "Individual",
+            //     "FullName"         => [
+            //         "FirstName" => $nameParts[0] ?? '',
+            //         "LastName"  => $nameParts[1] ?? ($nameParts[0] ?? ''),
+            //     ],
+            //     "DateOfBirth"      => substr($data['birth_date'], 0, 10) ?? '1990-01-01',
+            //     "Email"            => $data['email'] ?? '',
+            //     "PhoneNumber"      => $data['phone'] ?? '',
+            //     "PrimaryResidence" => [
+            //         "Street"   => $addr['street_line_1'] ?? '',
+            //         "City"     => $addr['city'] ?? '',
+            //         "PostCode" => $addr['postal_code'] ?? '',
+            //         "State"    => $addr['state'] ?? '',
+            //         "Country"  => $addr['country'] ?? 'NG',
+            //     ],
+            //     "Identities"       => [
+            //         [
+            //             'IssuingCountry' => $idInfo['issuing_country'] ?? 'NG',
+            //             'IDNumber'       => $idInfo['number'] ?? '',
+            //             'IssuedDate'     => $idInfo['date_issued'] ?? '',
+            //             'ExpiryDate'     => $idInfo['expiration_date'] ?? '',
+            //             'IDType'         => $noahIdType,
+            //         ],
+            //     ],
+            // ];
 
-            // ✅ Check status code (PSR-7 response)
-            $statusCode = $response->getStatusCode();
+            // Log::info('Noah KYC payload', $customerData);
 
-            if ($statusCode >= 200 && $statusCode < 300) {
-                $this->startOnboarding($customer->customer_id);
-                Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
+            // // ✅ Trim base URL to avoid trailing spaces
+            // $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
 
-                $documents = $data['identifying_information'];
-                $this->submitNoahDocument($customer->customer_id, $documents);
-                $customer->update(['is_noah_registered' => true]);
-                // ✅ Add required endorsements: base + sepa
-                foreach (['base', 'sepa'] as $service) {
-                    Endorsement::updateOrCreate(
-                        ['customer_id' => $customer->customer_id, 'service' => $service],
-                        ['status' => 'pending']
-                    );
-                }
-            } else {
-                // ✅ Safely get response body from PSR-7
-                $body = $response->getBody()->getContents();
-                Log::error('Noah KYC failed', [
-                    'customer_id' => $customer->customer_id,
-                    'status'      => $statusCode,
-                    'body'        => $body,
-                ]);
-            }
+            // if (empty($this->noah_api_key)) {
+            //     throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
+            // }
+
+            // $noah     = new NoahService();
+            // $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
+
+            // // ✅ Check status code (PSR-7 response)
+            // $statusCode = $response->getStatusCode();
+
+            // if ($statusCode >= 200 && $statusCode < 300) {
+            //     $this->startOnboarding($customer->customer_id);
+            //     Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
+
+            //     $documents = $data['identifying_information'];
+            //     $this->submitNoahDocument($customer->customer_id, $documents);
+            //     $customer->update(['is_noah_registered' => true]);
+            //     // ✅ Add required endorsements: base + sepa
+            //     foreach (['base', 'sepa'] as $service) {
+            //         Endorsement::updateOrCreate(
+            //             ['customer_id' => $customer->customer_id, 'service' => $service],
+            //             ['status' => 'pending']
+            //         );
+            //     }
+            // } else {
+            //     // ✅ Safely get response body from PSR-7
+            //     $body = $response->getBody()->getContents();
+            //     Log::error('Noah KYC failed', [
+            //         'customer_id' => $customer->customer_id,
+            //         'status'      => $statusCode,
+            //         'body'        => $body,
+            //     ]);
+            // }
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
                 'customer_id' => $customer->customer_id,
