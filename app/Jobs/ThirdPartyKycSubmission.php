@@ -516,7 +516,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             $this->submitNoahDocument($customer->customer_id, $documents);
             $customer->update(['is_noah_registered' => true]);
-            
+
             // ✅ Add required endorsements: base + sepa
             foreach (['base', 'sepa'] as $service) {
                 Endorsement::updateOrCreate(
@@ -525,88 +525,115 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 );
             }
 
-            // $idInfo = $data['identifying_information'][0] ?? [];
-            // $addr   = $data['residential_address'] ?? [];
+            $idInfo = $data['identifying_information'][0] ?? [];
+            $addr   = $data['residential_address'] ?? [];
 
-            // $nameParts = array_values(array_filter([
-            //     $data['first_name'] ?? '',
-            //     $data['middle_name'] ?? '',
-            //     $data['last_name'] ?? '',
-            // ]));
+            $nameParts = array_values(array_filter([
+                $data['first_name'] ?? '',
+                $data['middle_name'] ?? '',
+                $data['last_name'] ?? '',
+            ]));
 
-            // $internalIdType = strtolower($idInfo['type'] ?? 'national_id');
-            // $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
+            $internalIdType = strtolower($idInfo['type'] ?? 'national_id');
+            $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
 
-            // $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
-            // if (! in_array($noahIdType, $supportedIdTypes, true)) {
-            //     $noahIdType = 'NationalIDCard';
-            // }
+            $supportedIdTypes = ["DrivingLicense", "NationalIDCard", "Passport", "AddressProof", "ResidencePermit", "TaxID"];
+            if (! in_array($noahIdType, $supportedIdTypes, true)) {
+                $noahIdType = 'NationalIDCard';
+            }
 
-            // $customerData = [
-            //     "Type"             => "Individual",
-            //     "FullName"         => [
-            //         "FirstName" => $nameParts[0] ?? '',
-            //         "LastName"  => $nameParts[1] ?? ($nameParts[0] ?? ''),
-            //     ],
-            //     "DateOfBirth"      => substr($data['birth_date'], 0, 10) ?? '1990-01-01',
-            //     "Email"            => $data['email'] ?? '',
-            //     "PhoneNumber"      => $data['phone'] ?? '',
-            //     "PrimaryResidence" => [
-            //         "Street"   => $addr['street_line_1'] ?? '',
-            //         "City"     => $addr['city'] ?? '',
-            //         "PostCode" => $addr['postal_code'] ?? '',
-            //         "State"    => $addr['state'] ?? '',
-            //         "Country"  => $addr['country'] ?? 'NG',
-            //     ],
-            //     "Identities"       => [
-            //         [
-            //             'IssuingCountry' => $idInfo['issuing_country'] ?? 'NG',
-            //             'IDNumber'       => $idInfo['number'] ?? '',
-            //             'IssuedDate'     => $idInfo['date_issued'] ?? '',
-            //             'ExpiryDate'     => $idInfo['expiration_date'] ?? '',
-            //             'IDType'         => $noahIdType,
-            //         ],
-            //     ],
-            // ];
+            $customerData = [
+                "Type" => "IndividualCustomerPrefill",
+                "FullName" => [
+                    "FirstName" => $customer->first_name,
+                    "MiddleName" => $customer->middle_name,
+                    "LastName" => $customer->last_name,
+                    "TransliteratedFirstName" => $customer->transliterated_first_name ?? $customer->first_name,
+                    "TransliteratedMiddleName" => $customer->transliterated_middle_name ?? $customer->middle_name,
+                    "TransliteratedLastName" => $customer->transliterated_last_name ?? $customer->last_name,
+                ],
+                "DateOfBirth" => date('Y-m-d', strtotime($customer->birth_date)),
+                "Identities" => [
+                    "IDType" => ucfirst($$idInfo['type']),
+                    "IssuingCountry" => $$idInfo['issuing_country'],
+                    "IDNumber" => $$idInfo['number'],
+                    "IssuedDate" => $$idInfo['date_issued'],
+                    "ExpiryDate" => $$idInfo['expiration_date'],
+                    "FrontImageFile" => $$idInfo['image_front_file'] ?? null,
+                    "BackImageFile" => $$idInfo['image_back_file'] ?? null,
+                ],
+                "PrimaryResidence" => [
+                    "Street" => $addr['street_line_1'] ?? null,
+                    "Street2" => $addr['street_line_2'] ?? null,
+                    "City" => $addr['city'] ?? null,
+                    "PostCode" => $addr['postal_code'] ?? null,
+                    "State" => $addr['state'] ?? null,
+                    "Country" => $addr['country'] ?? null,
+                ],
+                "Citizenship" => $customer->nationality,
+                "TaxResidenceCountry" => $customer->nationality,
+                "Email" => $customer->email,
+                "PhoneNumber" => $customer->phone,
+                "SourceOfIncome" => $customer->source_of_funds,
+                "EmploymentStatus" => $customer->employment_status,
+                "WorkIndustry" => $customer->most_recent_occupation_code ?? null,
+                "FinancialsUsd" => [
+                    "AnnualDeposit" => $customer->expected_monthly_payments_usd,
+                    "TransactionFrequency" => null, // dynamically assign if available
+                ],
+                "UploadedDocuments" => array_map(function ($doc) {
+                    return $doc['file'] ?? null;
+                }, is_array($customer->uploaded_documents) ? $customer->uploaded_documents : json_decode($customer->uploaded_documents, true) ?? []),
+                "SelfieImage" => $customer->selfie_image ?? null,
+            ];
 
-            // Log::info('Noah KYC payload', $customerData);
+            // submit data prefill to Noah
+            $noah = new NoahService();
+            $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", $customerData);
 
-            // // ✅ Trim base URL to avoid trailing spaces
-            // $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
+            log('Noah Onboarding Prefill Response:', [
+                'status' => $prefill_response->getStatusCode(),
+                'body' => json_decode($prefill_response->getBody()->getContents(), true),
+            ]);
 
-            // if (empty($this->noah_api_key)) {
-            //     throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
-            // }
+            Log::info('Noah KYC payload', $customerData);
 
-            // $noah     = new NoahService();
-            // $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
+            // ✅ Trim base URL to avoid trailing spaces
+            $baseUrl = rtrim(config('services.noah.base_url', 'https://api.noah.com/v1'), '/');
 
-            // // ✅ Check status code (PSR-7 response)
-            // $statusCode = $response->getStatusCode();
+            if (empty($this->noah_api_key)) {
+                throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
+            }
 
-            // if ($statusCode >= 200 && $statusCode < 300) {
-            //     $this->startOnboarding($customer->customer_id);
-            //     Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
+            $noah     = new NoahService();
+            $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
 
-            //     $documents = $data['identifying_information'];
-            //     $this->submitNoahDocument($customer->customer_id, $documents);
-            //     $customer->update(['is_noah_registered' => true]);
-            //     // ✅ Add required endorsements: base + sepa
-            //     foreach (['base', 'sepa'] as $service) {
-            //         Endorsement::updateOrCreate(
-            //             ['customer_id' => $customer->customer_id, 'service' => $service],
-            //             ['status' => 'pending']
-            //         );
-            //     }
-            // } else {
-            //     // ✅ Safely get response body from PSR-7
-            //     $body = $response->getBody()->getContents();
-            //     Log::error('Noah KYC failed', [
-            //         'customer_id' => $customer->customer_id,
-            //         'status'      => $statusCode,
-            //         'body'        => $body,
-            //     ]);
-            // }
+            // ✅ Check status code (PSR-7 response)
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                $this->startOnboarding($customer->customer_id);
+                Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
+
+                $documents = $data['identifying_information'];
+                $this->submitNoahDocument($customer->customer_id, $documents);
+                $customer->update(['is_noah_registered' => true]);
+                // ✅ Add required endorsements: base + sepa
+                foreach (['base', 'sepa'] as $service) {
+                    Endorsement::updateOrCreate(
+                        ['customer_id' => $customer->customer_id, 'service' => $service],
+                        ['status' => 'pending']
+                    );
+                }
+            } else {
+                // ✅ Safely get response body from PSR-7
+                $body = $response->getBody()->getContents();
+                Log::error('Noah KYC failed', [
+                    'customer_id' => $customer->customer_id,
+                    'status'      => $statusCode,
+                    'body'        => $body,
+                ]);
+            }
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
                 'customer_id' => $customer->customer_id,
@@ -647,75 +674,18 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $address = $customer->residential_address;
         log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
 
-        if(empty($identities) || !is_array($identities) || count($identities) === 0) {
+        if (empty($identities) || !is_array($identities) || count($identities) === 0) {
             Log::error('No identifying information available for Noah onboarding', ['customerId' => $customerId]);
             return null;
         }
 
-        if(empty($address) || !is_array($address)) {
+        if (empty($address) || !is_array($address)) {
             Log::error('No residential address available for Noah onboarding', ['customerId' => $customerId]);
             return null;
         }
 
         log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]]);
         log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
-
-        $customerData = [
-            "Type" => "IndividualCustomerPrefill",
-            "FullName" => [
-                "FirstName" => $customer->first_name,
-                "MiddleName" => $customer->middle_name,
-                "LastName" => $customer->last_name,
-                "TransliteratedFirstName" => $customer->transliterated_first_name ?? $customer->first_name,
-                "TransliteratedMiddleName" => $customer->transliterated_middle_name ?? $customer->middle_name,
-                "TransliteratedLastName" => $customer->transliterated_last_name ?? $customer->last_name,
-            ],
-            "DateOfBirth" => date('Y-m-d', strtotime($customer->birth_date)),
-            "Identities" => array_map(function ($identity) {
-                return [
-                    "IDType" => ucfirst($identity['type']),
-                    "IssuingCountry" => $identity['issuing_country'],
-                    "IDNumber" => $identity['number'],
-                    "IssuedDate" => $identity['date_issued'],
-                    "ExpiryDate" => $identity['expiration_date'],
-                    "FrontImageFile" => $identity['image_front_file'] ?? null,
-                    "BackImageFile" => $identity['image_back_file'] ?? null,
-                ];
-            }, $identities[0]),
-            "PrimaryResidence" => [
-                "Street" => $address['street_line_1'] ?? null,
-                "Street2" => $address['street_line_2'] ?? null,
-                "City" => $address['city'] ?? null,
-                "PostCode" => $address['postal_code'] ?? null,
-                "State" => $address['state'] ?? null,
-                "Country" => $address['country'] ?? null,
-            ],
-            "Citizenship" => $customer->nationality,
-            "TaxResidenceCountry" => $customer->nationality,
-            "Email" => $customer->email,
-            "PhoneNumber" => $customer->phone,
-            "SourceOfIncome" => $customer->source_of_funds,
-            "EmploymentStatus" => $customer->employment_status,
-            "WorkIndustry" => $customer->most_recent_occupation_code ?? null,
-            "FinancialsUsd" => [
-                "AnnualDeposit" => $customer->expected_monthly_payments_usd,
-                "TransactionFrequency" => null, // dynamically assign if available
-            ],
-            // Include uploaded documents if available
-            "UploadedDocuments" => array_map(function ($doc) {
-                return $doc['file'] ?? null;
-            }, is_array($customer->uploaded_documents) ? $customer->uploaded_documents : json_decode($customer->uploaded_documents, true) ?? []),
-            "SelfieImage" => $customer->selfie_image ?? null,
-        ];
-
-        // submit data prefill to Noah
-        $noah = new NoahService();
-        $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", $customerData);
-
-        log('Noah Onboarding Prefill Response:', [
-            'status' => $prefill_response->getStatusCode(),
-            'body' => json_decode($prefill_response->getBody()->getContents(), true),
-        ]);
 
         $payload = [
             "Metadata" => [
