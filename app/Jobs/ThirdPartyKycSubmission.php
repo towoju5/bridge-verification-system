@@ -522,7 +522,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ['customer_id' => $customer->customer_id, 'service' => $service],
                     ['status' => 'pending']
                 );
-            }                                       
+            }
 
             // $idInfo = $data['identifying_information'][0] ?? [];
             // $addr   = $data['residential_address'] ?? [];
@@ -633,10 +633,82 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $returnUrl = session()->get('return_url', 'https://google.com');
         $customer  = Customer::where('customer_id', $customerId)->first();
 
+        if (!$customer) {
+            Log::error('Customer not found', ['customerId' => $customerId]);
+            return null;
+        }
+
+        // Ensure identifying_information is an array
+        $identities = is_array($customer->identifying_information)
+            ? $customer->identifying_information
+            : json_decode($customer->identifying_information, true);
+
+        // Ensure residential_address is an array
+        $address = is_array($customer->residential_address)
+            ? $customer->residential_address
+            : json_decode($customer->residential_address, true);
+
+        $customerData = [
+            "Type" => "IndividualCustomerPrefill",
+            "FullName" => [
+                "FirstName" => $customer->first_name,
+                "MiddleName" => $customer->middle_name,
+                "LastName" => $customer->last_name,
+                "TransliteratedFirstName" => $customer->transliterated_first_name ?? $customer->first_name,
+                "TransliteratedMiddleName" => $customer->transliterated_middle_name ?? $customer->middle_name,
+                "TransliteratedLastName" => $customer->transliterated_last_name ?? $customer->last_name,
+            ],
+            "DateOfBirth" => date('Y-m-d', strtotime($customer->birth_date)),
+            "Identities" => array_map(function ($identity) {
+                return [
+                    "IDType" => ucfirst($identity['type']),
+                    "IssuingCountry" => $identity['issuing_country'],
+                    "IDNumber" => $identity['number'],
+                    "IssuedDate" => $identity['date_issued'],
+                    "ExpiryDate" => $identity['expiration_date'],
+                    "FrontImageFile" => $identity['image_front_file'] ?? null,
+                    "BackImageFile" => $identity['image_back_file'] ?? null,
+                ];
+            }, $identities),
+            "PrimaryResidence" => [
+                "Street" => $address['street_line_1'] ?? null,
+                "Street2" => $address['street_line_2'] ?? null,
+                "City" => $address['city'] ?? null,
+                "PostCode" => $address['postal_code'] ?? null,
+                "State" => $address['state'] ?? null,
+                "Country" => $address['country'] ?? null,
+            ],
+            "Citizenship" => $customer->nationality,
+            "TaxResidenceCountry" => $customer->nationality,
+            "Email" => $customer->email,
+            "PhoneNumber" => $customer->phone,
+            "SourceOfIncome" => $customer->source_of_funds,
+            "EmploymentStatus" => $customer->employment_status,
+            "WorkIndustry" => $customer->most_recent_occupation_code ?? null,
+            "FinancialsUsd" => [
+                "AnnualDeposit" => $customer->expected_monthly_payments_usd,
+                "TransactionFrequency" => null, // dynamically assign if available
+            ],
+            // Include uploaded documents if available
+            "UploadedDocuments" => array_map(function ($doc) {
+                return $doc['file'] ?? null;
+            }, is_array($customer->uploaded_documents) ? $customer->uploaded_documents : json_decode($customer->uploaded_documents, true) ?? []),
+            "SelfieImage" => $customer->selfie_image ?? null,
+        ];
+
+        // submit data prefill to Noah
+        $noah = new NoahService();
+        $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", $customerData);
+
+        log('Noah Onboarding Prefill Response:', [
+            'status' => $prefill_response->getStatusCode(),
+            'body' => json_decode($prefill_response->getBody()->getContents(), true),
+        ]);
+
         $payload = [
             "Metadata" => [
                 "CustomerId"    => $customer->customer_id,
-                "CustomerEmail" => $customer->customer_email
+                "CustomerEmail" => $customer->email,
             ],
             "ReturnURL"   => $returnUrl,
             "FiatOptions" => [
@@ -647,9 +719,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
         log('Noah Onboarding Payload:', ['payload' => $payload]);
 
-        $noah = new NoahService();
         $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
-
         $body = json_decode($response->getBody()->getContents(), true);
 
         log('Noah Onboarding Response:', [
@@ -658,18 +728,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
             'hosted_url' => $body['HostedURL'] ?? null,
         ]);
 
-        $json = json_decode($body, true);
-
-        if (!$json) {
-            Log::error('JSON decode failed', ['body' => $body]);
-            return null;
-        }
-
-        $hostedUrl = $json['HostedURL'] ?? null;
+        $hostedUrl = $body['HostedURL'] ?? null;
 
         if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
             if (!$hostedUrl) {
-                Log::error('HostedURL missing', ['body' => $json]);
+                Log::error('HostedURL missing', ['body' => $body]);
                 return null;
             }
 
@@ -697,7 +760,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
         return null;
     }
 
-            
+
+
 
     /**
      * Full mapping from internal ID types to Noah-supported types.

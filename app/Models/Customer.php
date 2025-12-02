@@ -8,4 +8,9 @@ class Customer extends Model
     protected $connection = 'mysql_second';
 
     protected $guarded = [];
+
+    protected $casts = [
+        'residential_address' => 'array',
+        'identifying_information' => 'array',
+    ];
 }
