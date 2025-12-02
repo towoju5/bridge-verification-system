@@ -510,12 +510,13 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 return;
             }
 
-            $this->startOnboarding($customer->customer_id);
+            $documents = $data['identifying_information'] ?? [];
+            $this->startOnboarding($customer->customer_id, $documents);
             Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
-            $documents = $data['identifying_information'];
             $this->submitNoahDocument($customer->customer_id, $documents);
             $customer->update(['is_noah_registered' => true]);
+            
             // ✅ Add required endorsements: base + sepa
             foreach (['base', 'sepa'] as $service) {
                 Endorsement::updateOrCreate(
@@ -639,14 +640,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         // Ensure identifying_information is an array
-        $identities = is_array($customer->identifying_information)
-            ? $customer->identifying_information
-            : json_decode($customer->identifying_information, true);
+        $identities = $data ?? $customer->identifying_information[0] ?? [];
+        log('Noah Onboarding - Preparing Customer Data', ['identifying_information' => $identities]);
 
         // Ensure residential_address is an array
-        $address = is_array($customer->residential_address)
-            ? $customer->residential_address
-            : json_decode($customer->residential_address, true);
+        $address = $customer->residential_address;
+        log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
 
         if(empty($identities) || !is_array($identities) || count($identities) === 0) {
             Log::error('No identifying information available for Noah onboarding', ['customerId' => $customerId]);

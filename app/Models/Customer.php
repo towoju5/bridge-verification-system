@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,10 @@ class Customer extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'residential_address' => 'array',
         'identifying_information' => 'array',
+        'residential_address'    => 'array',
+        'uploaded_documents'     => 'array',
+        'documents'              => 'array',
+        'endorsements'           => 'array',
     ];
 }
