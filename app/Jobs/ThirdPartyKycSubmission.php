@@ -658,7 +658,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             return null;
         }
 
-        log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]);
+        log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]]);
         log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
 
         $customerData = [
