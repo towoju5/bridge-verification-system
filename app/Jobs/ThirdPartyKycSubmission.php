@@ -625,52 +625,54 @@ class ThirdPartyKycSubmission implements ShouldQueue
      */
     public function startOnboarding($customerId, $data = []): ?string
     {
-        // Optional: Validate $customerId
         if (!$customerId) {
             Log::error('Missing customerId for onboarding');
             return null;
         }
 
         $returnUrl = session()->get('return_url', 'https://google.com');
+        $customer  = Customer::where('customer_id', $customerId)->first();
 
-        $customer = Customer::where('customer_id', $customerId)->first();
-
-        $data = [
+        $payload = [
             "Metadata" => [
-                "CustomerId" => $customer->customer_id,
+                "CustomerId"    => $customer->customer_id,
                 "CustomerEmail" => $customer->customer_email
             ],
-            "ReturnURL" => $returnUrl,
+            "ReturnURL"   => $returnUrl,
             "FiatOptions" => [
                 ["FiatCurrencyCode" => "USD"],
                 ["FiatCurrencyCode" => "EUR"],
             ]
         ];
 
-        $payload = array_filter($data);
-
         log('Noah Onboarding Payload:', ['payload' => $payload]);
+
         $noah = new NoahService();
         $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
-        log('Noah Onboarding Response:', ['response' => $response]);
-        $statusCode = $response->getStatusCode();
-        $body = (string) $response->getBody(); // safe read
 
-        if ($statusCode >= 200 && $statusCode < 300) {
-            $data = json_decode($body, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('JSON decode failed for Noah response', ['body' => $body]);
-                return null;
-            }
+        $body = $response->getBody()->getContents();
 
-            $hostedUrl = $data['HostedURL'] ?? null;
+        log('Noah Onboarding Response:', [
+            'status' => $response->getStatusCode(),
+            'body' => $body
+        ]);
+
+        $json = json_decode($body, true);
+
+        if (!$json) {
+            Log::error('JSON decode failed', ['body' => $body]);
+            return null;
+        }
+
+        $hostedUrl = $json['HostedURL'] ?? null;
+
+
+        if ($response->status() >= 200 && $response->status() < 300) {
             if (!$hostedUrl) {
-                Log::error('HostedURL missing in Noah response', ['body' => $data]);
+                Log::error('HostedURL missing', ['body' => $json]);
                 return null;
             }
 
-
-            $customer = Customer::where('customer_id', $customerId)->first();
             foreach (['base', 'sepa'] as $service) {
                 Endorsement::updateOrCreate(
                     [
@@ -683,15 +685,18 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ]
                 );
             }
+
             return $hostedUrl;
-        } else {
-            Log::error('Noah onboarding session creation failed', [
-                'status' => $statusCode,
-                'body'   => $body,
-            ]);
-            return null;
         }
+
+        Log::error('Noah onboarding creation failed', [
+            'status' => $response->getStatusCode(),
+            'body'   => $body,
+        ]);
+
+        return null;
     }
+
 
     /**
      * Full mapping from internal ID types to Noah-supported types.
