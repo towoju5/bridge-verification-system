@@ -573,6 +573,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $this->startOnboarding($customer->customer_id);
                 Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
+                $documents = $data['identifying_information'];
+                $this->submitNoahDocument($customer->customer_id, $documents);
+                $customer->update(['is_noah_registered' => true]);
                 // ✅ Add required endorsements: base + sepa
                 foreach (['base', 'sepa'] as $service) {
                     Endorsement::updateOrCreate(
@@ -580,10 +583,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
                         ['status' => 'pending']
                     );
                 }
-
-                $documents = $data['identifying_information'];
-                $this->submitNoahDocument($customer->customer_id, $documents);
-                $customer->update(['is_noah_registered' => true]);
             } else {
                 // ✅ Safely get response body from PSR-7
                 $body = $response->getBody()->getContents();
@@ -619,27 +618,25 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
 
         $returnUrl = session()->get('return_url', 'https://google.com');
-        if ($returnUrl && !filter_var(trim($returnUrl), FILTER_VALIDATE_URL)) {
-            Log::warning('Invalid return_url, ignoring', ['url' => $returnUrl]);
-            $returnUrl = null;
-        }
 
+        $customer = Customer::where('customer_id', $customerId)->first();
         $payload = [
             "Metadata" => [
-                "CustomerId" => $customerId,
+                "CustomerId" => $customer->customer_id,
+                "CustomerEmail" => $customer->email
             ],
-            "ReturnURL" => trim($returnUrl),
+            "ReturnURL" => $returnUrl,
             "FiatOptions" => [
                 ["FiatCurrencyCode" => "USD"],
                 ["FiatCurrencyCode" => "EUR"],
-                ["FiatCurrencyCode" => "GBP"],
-            ],
-            "Form" => [], // or (object)[] if API strictly requires object
+            ]
         ];
 
+
+        log('Noah Onboarding Payload:', ['payload' => $payload]);
         $noah = new NoahService();
         $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
-
+        log('Noah Onboarding Response:', ['response' => $response]);
         $statusCode = $response->getStatusCode();
         $body = (string) $response->getBody(); // safe read
 
