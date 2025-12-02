@@ -544,12 +544,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 "DateOfBirth" => date('Y-m-d', strtotime($customer->birth_date)),
                 "Identities" => [
                     "IDType" => ucfirst($idInfo['type']),
-                    "IssuingCountry" => $$idInfo['issuing_country'],
-                    "IDNumber" => $$idInfo['number'],
-                    "IssuedDate" => $$idInfo['date_issued'],
-                    "ExpiryDate" => $$idInfo['expiration_date'],
-                    "FrontImageFile" => $$idInfo['image_front_file'] ?? null,
-                    "BackImageFile" => $$idInfo['image_back_file'] ?? null,
+                    "IssuingCountry" => $idInfo['issuing_country'],
+                    "IDNumber" => $idInfo['number'],
+                    "IssuedDate" => $idInfo['date_issued'],
+                    "ExpiryDate" => $idInfo['expiration_date'],
+                    "FrontImageFile" => $idInfo['image_front_file'] ?? null,
+                    "BackImageFile" => $idInfo['image_back_file'] ?? null,
                 ],
                 "PrimaryResidence" => [
                     "Street" => $addr['street_line_1'] ?? null,
@@ -625,14 +625,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $noah     = new NoahService();
                 $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
                 $body = json_decode($response->getBody()->getContents(), true);
+                $data_received = (array)$prefill_response->getBody();
 
                 log('Noah Onboarding Response:', [
                     'status' => $response->getStatusCode(),
                     'body' => $body,
                     'hosted_url' => $body['HostedURL'] ?? null,
+                    'data_received' => $data_received,
                 ]);
 
-                $hostedUrl = $body['HostedURL'] ?? null;
+                $hostedUrl = $body['HostedURL'] ?? $data_received['HostedURL'] ?? null;
 
                 if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
                     if (!$hostedUrl) {
