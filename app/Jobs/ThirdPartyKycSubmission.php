@@ -522,7 +522,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ['customer_id' => $customer->customer_id, 'service' => $service],
                     ['status' => 'pending']
                 );
-            }
+            }                                       
 
             // $idInfo = $data['identifying_information'][0] ?? [];
             // $addr   = $data['residential_address'] ?? [];
@@ -650,11 +650,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $noah = new NoahService();
         $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
 
-        $body = $response->getBody()->getContents();
+        $body = json_decode($response->getBody()->getContents(), true);
 
         log('Noah Onboarding Response:', [
             'status' => $response->getStatusCode(),
-            'body' => $body
+            'body' => $body,
+            'hosted_url' => $body['HostedURL'] ?? null,
         ]);
 
         $json = json_decode($body, true);
@@ -696,6 +697,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         return null;
     }
 
+            
 
     /**
      * Full mapping from internal ID types to Noah-supported types.
