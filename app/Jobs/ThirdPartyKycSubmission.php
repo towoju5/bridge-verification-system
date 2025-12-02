@@ -543,7 +543,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
                 "DateOfBirth" => date('Y-m-d', strtotime($customer->birth_date)),
                 "Identities" => [
-                    "IDType" => ucfirst($$idInfo['type']),
+                    "IDType" => ucfirst($idInfo['type']),
                     "IssuingCountry" => $$idInfo['issuing_country'],
                     "IDNumber" => $$idInfo['number'],
                     "IssuedDate" => $$idInfo['date_issued'],
