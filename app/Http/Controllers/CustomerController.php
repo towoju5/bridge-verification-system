@@ -36,7 +36,7 @@ class CustomerController extends Controller
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
         // var_dump('Bridge API Key:', env('BRIDGE_API_KEY')); exit;
-        $this->maxSteps = self::MAX_STEPS; 
+        $this->maxSteps = self::MAX_STEPS;
 
         if (! Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
             Schema::table('customer_submissions', function ($table) {
@@ -140,13 +140,17 @@ class CustomerController extends Controller
     public function startIndividualVerification(Request $request)
     {
         $signedAgreementId  = $request->signed_agreement_id ?? Str::uuid();
-        $customerSubmission = CustomerSubmission::create([
-            'type'                => 'individual',
-            'signed_agreement_id' => $signedAgreementId,
-            'customer_id'         => $request->customer_id,
-            'user_agent'          => $request->userAgent(),
-            'ip_address'          => $request->ip(),
-        ]);
+        $customerSubmission = CustomerSubmission::firstOrCreate(
+            [
+                'customer_id'         => $request->customer_id
+            ],
+            [
+                'type'                => 'individual',
+                'signed_agreement_id' => $signedAgreementId,
+                'user_agent'          => $request->userAgent(),
+                'ip_address'          => $request->ip(),
+            ]
+        );
         session(['customer_submission_id' => $customerSubmission->id]);
         $url = route('customer.verify.step', ['step' => 1]);
         return $url;
