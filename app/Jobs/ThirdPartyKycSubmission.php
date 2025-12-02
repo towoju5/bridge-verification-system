@@ -570,7 +570,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $statusCode = $response->getStatusCode();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                $customer->update(['is_noah_registered' => true]);
                 $this->startOnboarding($customer->customer_id);
                 Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
@@ -584,6 +583,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
                 $documents = $data['identifying_information'];
                 $this->submitNoahDocument($customer->customer_id, $documents);
+                $customer->update(['is_noah_registered' => true]);
             } else {
                 // ✅ Safely get response body from PSR-7
                 $body = $response->getBody()->getContents();
@@ -638,7 +638,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         ];
 
         $noah = new NoahService();
-        $response = $noah->post('/v1/onboarding/sessions', $payload);
+        $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
 
         $statusCode = $response->getStatusCode();
         $body = (string) $response->getBody(); // safe read
