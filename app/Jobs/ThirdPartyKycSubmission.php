@@ -511,6 +511,22 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             $documents = $data['identifying_information'] ?? [];
+            $this->startOnboarding($customer->customer_id, $documents);
+            Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
+
+            $this->submitNoahDocument($customer->customer_id, $documents);
+            $customer->update(['is_noah_registered' => true]);
+
+            // ✅ Add required endorsements: base + sepa
+            foreach (['base', 'sepa'] as $service) {
+                Endorsement::updateOrCreate(
+                    ['customer_id' => $customer->customer_id, 'service' => $service],
+                    ['status' => 'pending']
+                );
+            }
+
+            $this->startOnboarding($customer->customer_id);
+            Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
             $idInfo = $data['identifying_information'][0] ?? [];
             $addr   = $data['residential_address'] ?? [];
@@ -520,8 +536,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $data['middle_name'] ?? '',
                 $data['last_name'] ?? '',
             ]));
-
-            $customerId = $customer->customer_id;
 
             $internalIdType = strtolower($idInfo['type'] ?? 'national_id');
             $noahIdType     = $this->mapIdTypeToNoah($internalIdType);
@@ -568,12 +582,14 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 "WorkIndustry" => $customer->most_recent_occupation_code ?? null,
                 "FinancialsUsd" => [
                     "AnnualDeposit" => $customer->expected_monthly_payments_usd,
+                    "TransactionFrequency" => null, // dynamically assign if available
                 ]
             ];
 
             // submit data prefill to Noah
+            $customerId = $customer->customer_id;
             $noah = new NoahService();
-            $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", array_filter($customerData));
+            $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", $customerData);
 
             log('Noah Onboarding Prefill Response:', [
                 'status' => $prefill_response->getStatusCode(),
@@ -589,67 +605,15 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
             }
 
+            $noah     = new NoahService();
             $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
 
             // ✅ Check status code (PSR-7 response)
             $statusCode = $response->getStatusCode();
 
-            log('Noah KYC Response:', [
-                'status' => $statusCode,
-                'is_array'   => is_array(json_decode($response->getBody()->getContents(), true)) ? true : false,
-                'body'   => json_decode($response->getBody()->getContents(), true),
-            ]);
-
             if ($statusCode >= 200 && $statusCode < 300) {
-                $returnUrl = session()->get('return_url', 'https://google.com');
 
-                $payload = [
-                    "Metadata" => [
-                        "CustomerId"    => $customer->customer_id,
-                        "CustomerEmail" => $customer->email,
-                    ],
-                    "ReturnURL"   => $returnUrl,
-                    "FiatOptions" => [
-                        ["FiatCurrencyCode" => "USD"],
-                        ["FiatCurrencyCode" => "EUR"],
-                    ]
-                ];
-
-                log('Noah Onboarding Payload:', ['payload' => $payload]);
-
-                $noah     = new NoahService();
-                $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
-                $body = json_decode($response->getBody()->getContents(), true);
-                $data_received = (array)$prefill_response->getBody();
-
-                log('Noah Onboarding Response:', [
-                    'status' => $response->getStatusCode(),
-                    'body' => $body,
-                    'hosted_url' => $body['HostedURL'] ?? null,
-                    'data_received' => $data_received,
-                ]);
-
-                $hostedUrl = $body['HostedURL'] ?? $data_received['HostedURL'] ?? null;
-
-                if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
-                    if (!$hostedUrl) {
-                        Log::error('HostedURL missing', ['body' => $body]);
-                    }
-
-                    foreach (['base', 'sepa'] as $service) {
-                        Endorsement::updateOrCreate(
-                            [
-                                'customer_id' => $customer->customer_id,
-                                'service' => $service,
-                            ],
-                            [
-                                'status' => 'pending',
-                                'hosted_kyc_url' => $hostedUrl
-                            ]
-                        );
-                    }
-                }
-
+                $documents = $data['identifying_information'];
                 $this->submitNoahDocument($customer->customer_id, $documents);
                 $customer->update(['is_noah_registered' => true]);
                 // ✅ Add required endorsements: base + sepa
@@ -700,6 +664,24 @@ class ThirdPartyKycSubmission implements ShouldQueue
             return null;
         }
 
+        // Ensure identifying_information is an array
+        $identities = $data ?? $customer->identifying_information[0] ?? [];
+        log('Noah Onboarding - Preparing Customer Data', ['identifying_information' => $identities]);
+
+        // Ensure residential_address is an array
+        $address = $customer->residential_address;
+        log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
+
+        if (empty($identities) || !is_array($identities) || count($identities) === 0) {
+            Log::error('No identifying information available for Noah onboarding', ['customerId' => $customerId]);
+            return null;
+        }
+
+        if (empty($address) || !is_array($address)) {
+            Log::error('No residential address available for Noah onboarding', ['customerId' => $customerId]);
+            return null;
+        }
+
         log('Noah Onboarding - Preparing Customer Data', ['customer_identity' => $identities[0]]);
         log('Noah Onboarding - Preparing Customer Data', ['residential_address' => $address]);
 
@@ -716,8 +698,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
         ];
 
         log('Noah Onboarding Payload:', ['payload' => $payload]);
+        $noah = new NoahService();
 
-        $noah     = new NoahService();
         $response = $noah->post("/v1/onboarding/{$customerId}", $payload);
         $body = json_decode($response->getBody()->getContents(), true);
 
