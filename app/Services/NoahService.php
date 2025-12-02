@@ -16,7 +16,7 @@ class NoahService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('noah.base_url', 'https://api.noah.com/v1'), " \t\n\r\0\x0B");
+        $this->baseUrl = rtrim(config('noah.base_url', 'https://api.noah.com/'), " \t\n\r\0\x0B");
         $this->apiKey = config('noah.api_key');
 
         if (empty($this->apiKey)) {
