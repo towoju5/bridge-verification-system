@@ -571,6 +571,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 $customer->update(['is_noah_registered' => true]);
+                $this->startOnboarding($customer->customer_id);
                 Log::info('Noah KYC submitted', ['customer_id' => $customer->customer_id]);
 
                 // ✅ Add required endorsements: base + sepa
