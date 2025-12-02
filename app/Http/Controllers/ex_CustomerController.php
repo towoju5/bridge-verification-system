@@ -92,7 +92,7 @@ class ex_CustomerController extends Controller
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  int  $step
-     * @return \Inertia\Response
+     * @return 
      */
     public function showVerificationStep(Request $request, $step = 1)
     {

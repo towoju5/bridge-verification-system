@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Jobs;
 
 use App\Models\Customer;
@@ -576,7 +577,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 foreach (['base', 'sepa'] as $service) {
                     Endorsement::updateOrCreate(
                         ['customer_id' => $customer->customer_id, 'service' => $service],
-                        ['status' => 'approved']
+                        ['status' => 'pending']
                     );
                 }
 
@@ -597,6 +598,84 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'error'       => $e->getMessage(),
                 'trace'       => $e->getTraceAsString(),
             ]);
+        }
+    }
+
+    /**
+     * Generate the KYC url for customers 
+     * intending to create USD virtual account
+     * 
+     * @param string customerId
+     * @param array|null  payload
+     * @return null|string
+     */
+    public function startOnboarding($customerId, $payload = null): ?string
+    {
+        // Optional: Validate $customerId
+        if (!$customerId) {
+            Log::error('Missing customerId for onboarding');
+            return null;
+        }
+
+        $returnUrl = session()->get('return_url', 'https://google.com');
+        if ($returnUrl && !filter_var(trim($returnUrl), FILTER_VALIDATE_URL)) {
+            Log::warning('Invalid return_url, ignoring', ['url' => $returnUrl]);
+            $returnUrl = null;
+        }
+
+        $payload = [
+            "Metadata" => [
+                "CustomerId" => $customerId,
+            ],
+            "ReturnURL" => trim($returnUrl),
+            "FiatOptions" => [
+                ["FiatCurrencyCode" => "USD"],
+                ["FiatCurrencyCode" => "EUR"],
+                ["FiatCurrencyCode" => "GBP"],
+            ],
+            "Form" => [], // or (object)[] if API strictly requires object
+        ];
+
+        $noah = new NoahService();
+        $response = $noah->post('/onboarding/sessions', $payload);
+
+        $statusCode = $response->getStatusCode();
+        $body = (string) $response->getBody(); // safe read
+
+        if ($statusCode >= 200 && $statusCode < 300) {
+            $data = json_decode($body, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('JSON decode failed for Noah response', ['body' => $body]);
+                return null;
+            }
+
+            $hostedUrl = $data['HostedURL'] ?? null;
+            if (!$hostedUrl) {
+                Log::error('HostedURL missing in Noah response', ['body' => $data]);
+                return null;
+            }
+
+
+            $customer = Customer::where('customer_id', $customerId)->first();
+            foreach (['base', 'sepa'] as $service) {
+                Endorsement::updateOrCreate(
+                    [
+                        'customer_id' => $customer->customer_id,
+                        'service' => $service,
+                    ],
+                    [
+                        'status' => 'pending',
+                        'hosted_kyc_url' => $hostedUrl
+                    ]
+                );
+            }
+            return $hostedUrl;
+        } else {
+            Log::error('Noah onboarding session creation failed', [
+                'status' => $statusCode,
+                'body'   => $body,
+            ]);
+            return null;
         }
     }
 
