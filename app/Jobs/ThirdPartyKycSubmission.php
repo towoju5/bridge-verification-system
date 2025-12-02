@@ -666,8 +666,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
         $hostedUrl = $json['HostedURL'] ?? null;
 
-
-        if ($response->status() >= 200 && $response->status() < 300) {
+        if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
             if (!$hostedUrl) {
                 Log::error('HostedURL missing', ['body' => $json]);
                 return null;
