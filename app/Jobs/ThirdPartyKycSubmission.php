@@ -638,7 +638,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         ];
 
         $noah = new NoahService();
-        $response = $noah->post('/onboarding/sessions', $payload);
+        $response = $noah->post('/v1/onboarding/sessions', $payload);
 
         $statusCode = $response->getStatusCode();
         $body = (string) $response->getBody(); // safe read
