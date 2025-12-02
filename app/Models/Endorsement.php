@@ -1,9 +1,11 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Endorsement extends Model
@@ -32,7 +34,7 @@ class Endorsement extends Model
 
     protected $fillable = [
         'customer_id',
-        'hosted_url',
+        'hosted_kyc_url',
         'service',
         'status',
         'errors',
@@ -75,11 +77,16 @@ class Endorsement extends Model
     {
         parent::boot();
 
+        if (!Schema::hasColumn('customer_kyc_endorsements', 'hosted_kyc_url')) {
+            Schema::table('customer_kyc_endorsements', function ($table) {
+                $table->longText('hosted_kyc_url')->change();
+            });
+        }
+
         static::creating(function ($model) {
             if (empty($model->{$model->getKeyName()})) {
                 $model->{$model->getKeyName()} = Str::uuid();
             }
         });
     }
-
 }

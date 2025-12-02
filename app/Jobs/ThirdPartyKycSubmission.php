@@ -208,7 +208,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         log('Noah Onboarding Response:', [
             'status' => $response->status(),
             'body' => $body,
-            'hosted_url' => $body['HostedURL'] ?? null,
+            'hosted_kyc_url' => $body['HostedURL'] ?? null,
         ]);
 
 
@@ -230,7 +230,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             Log::info('Noah onboarding initiated', [
                 'customer_id' => $customerId,
-                'hosted_url' => $hostedUrl,
+                'hosted_kyc_url' => $hostedUrl,
             ]);
 
             Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
