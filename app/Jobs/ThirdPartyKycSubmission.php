@@ -236,6 +236,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ]
                 );
             }
+            
             Log::info('Noah onboarding initiated', [
                 'customer_id' => $customerId,
                 'hosted_url'  => $hostedUrl,

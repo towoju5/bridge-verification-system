@@ -37,6 +37,7 @@ class Endorsement extends Model
         'requirements_due',
         'future_requirements_due',
         'metadata',
+        'hosted_url'
     ];
 
     public static function ensureAllEndorsementsExist($customerId)
