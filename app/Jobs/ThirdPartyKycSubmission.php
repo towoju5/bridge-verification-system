@@ -594,11 +594,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 throw new \RuntimeException('NOAH_API_KEY not configured in config/services.php');
             }
 
-            $noah     = new NoahService();
             $response = $noah->put("{$baseUrl}/customers/{$customer->customer_id}", $customerData);
 
             // ✅ Check status code (PSR-7 response)
             $statusCode = $response->getStatusCode();
+
+            log('Noah KYC Response:', [
+                'status' => $statusCode,
+                'is_array'   => is_array(json_decode($response->getBody()->getContents(), true)) ? true : false,
+                'body'   => json_decode($response->getBody()->getContents(), true),
+            ]);
 
             if ($statusCode >= 200 && $statusCode < 300) {
                 $returnUrl = session()->get('return_url', 'https://google.com');
