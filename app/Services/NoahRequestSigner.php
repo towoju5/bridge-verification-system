@@ -15,9 +15,9 @@ class NoahRequestSigner
 
     public function __construct()
     {
-        $rawKey = env('NOAH_PRIVATE_KEY');
+        $rawKey = config('noah.private_key') ?? 'test who i am';
         log('Loading Noah private key from environment', ['key_present' => $rawKey ?? null]);
-        if (empty($rawKey)) {
+        if (empty($rawKey) || $rawKey === 'test who i am') {
             throw new \Exception('NOAH_PRIVATE_KEY is missing in environment.');
         }
 
