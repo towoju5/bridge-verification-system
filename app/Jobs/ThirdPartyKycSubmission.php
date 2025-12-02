@@ -568,17 +568,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 "WorkIndustry" => $customer->most_recent_occupation_code ?? null,
                 "FinancialsUsd" => [
                     "AnnualDeposit" => $customer->expected_monthly_payments_usd,
-                    "TransactionFrequency" => null, // dynamically assign if available
-                ],
-                "UploadedDocuments" => array_map(function ($doc) {
-                    return $doc['file'] ?? null;
-                }, is_array($customer->uploaded_documents) ? $customer->uploaded_documents : json_decode($customer->uploaded_documents, true) ?? []),
-                "SelfieImage" => $customer->selfie_image ?? null,
+                ]
             ];
 
             // submit data prefill to Noah
             $noah = new NoahService();
-            $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", $customerData);
+            $prefill_response = $noah->post("/v1/onboarding/{$customerId}/prefill", array_filter($customerData));
 
             log('Noah Onboarding Prefill Response:', [
                 'status' => $prefill_response->getStatusCode(),
