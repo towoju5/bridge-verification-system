@@ -171,7 +171,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
             "PhoneNumber" => $data['phone'],
             "SourceOfIncome" => $data['source_of_funds'],
             "EmploymentStatus" => $data['employment_status'],
-            "WorkIndustry" => $data['most_recent_occupation_code'] ?? null,
             "FinancialsUsd" => [
                 "AnnualDeposit" => $data['expected_monthly_payments_usd']
             ]
