@@ -27,17 +27,18 @@ class Endorsement extends Model
         'approved',
         'rejected',
         'under_review',
+        'pending'
     ];
 
     protected $fillable = [
         'customer_id',
+        'hosted_url',
         'service',
         'status',
         'errors',
         'requirements_due',
         'future_requirements_due',
         'metadata',
-        'hosted_url'
     ];
 
     public static function ensureAllEndorsementsExist($customerId)

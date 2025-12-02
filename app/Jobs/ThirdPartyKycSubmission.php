@@ -101,13 +101,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             // Mark as registered and create endorsements
             $customer->update(['is_noah_registered' => true]);
-            foreach (['base', 'sepa'] as $service) {
-                Endorsement::updateOrCreate(
-                    ['customer_id' => $customer->customer_id, 'service' => $service],
-                    ['status' => 'pending']
-                );
-            }
-
             Log::info('Noah KYC completed successfully', ['customer_id' => $customer->customer_id]);
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
@@ -222,11 +215,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
         if ($response->successful()) {
             $hostedUrl = $body['HostedURL'] ?? null;
             foreach (['base', 'sepa'] as $service) {
-                Endorsement::updateOrCreate(
+                Endorsement::where(
                     [
                         'customer_id' => $customerId,
                         'service' => $service,
-                    ],
+                    ]
+                )->update(
                     [
                         'status' => 'pending',
                         'hosted_kyc_url' => $hostedUrl
@@ -878,9 +872,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $uploadResponse = Http::withHeaders([
             'Content-Type' => 'image/png',
         ])->withBody(
-                file_get_contents($filePath),
-                'image/png'
-            )->put($url);
+            file_get_contents($filePath),
+            'image/png'
+        )->put($url);
 
         if ($uploadResponse->successful()) {
             Log::info('Noah document upload completed', [
