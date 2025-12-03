@@ -77,12 +77,6 @@ class Endorsement extends Model
     {
         parent::boot();
 
-        if (!Schema::hasColumn('customer_kyc_endorsements', 'hosted_kyc_url')) {
-            Schema::table('customer_kyc_endorsements', function ($table) {
-                $table->longText('hosted_kyc_url')->change();
-            });
-        }
-
         static::creating(function ($model) {
             if (empty($model->{$model->getKeyName()})) {
                 $model->{$model->getKeyName()} = Str::uuid();

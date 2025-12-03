@@ -5,13 +5,16 @@ namespace App\Jobs;
 use App\Models\Customer;
 use App\Models\Endorsement;
 use App\Services\NoahService;
-use function Illuminate\Log\log;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable as FoundationQueueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Models\Country;
+use Illuminate\Support\Str;
+
+
 
 class ThirdPartyKycSubmission implements ShouldQueue
 {
@@ -63,9 +66,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $hasIdFront = !empty($idFront);
         $hasSelfie = !empty($selfie);
 
-        // Submit to mandatory providers always
-        $this->borderless($customer, $this->submissionData);
-        $this->noah($customer, $this->submissionData);
+        // // Submit to mandatory providers always
+        // $this->borderless($customer, $this->submissionData);
+        // $this->noah($customer, $this->submissionData);
 
         // Submit to TransFi + Bitnob only if both docs exist
         if ($hasIdFront && $hasSelfie) {
@@ -508,19 +511,51 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function transFi(Customer $customer, array $data): void
     {
         try {
-            if (!$customer->transfi_user_id) {
-                Log::info('TransFi skipped: no transfi_user_id', ['customer_id' => $customer->customer_id]);
-                return;
-            }
+            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com'), '/');
+
+            // Helper: resolve any country input to ISO2 using DB
+            $countryCache = [];
+
+            $resolveCountryToIso2 = function ($input) use (&$countryCache) {
+                $key = strtolower(trim($input ?? ''));
+                if (isset($countryCache[$key])) {
+                    return $countryCache[$key];
+                }
+
+                $input = trim($input);
+
+                // If already ISO2, return as-is (normalized)
+                if (strlen($input) === 2 && ctype_alpha($input)) {
+                    return strtoupper($input);
+                }
+
+                // Try to find by name (case-insensitive) or iso3
+                $country = Country::whereRaw('LOWER(name) = ?', [Str::lower($input)])
+                    ->orWhere('iso3', strtoupper($input))
+                    ->orWhere('iso2', strtoupper($input))
+                    ->first();
+
+                if ($country) {
+                    return $country->iso2;
+                }
+
+
+                $iso2 = $country?->iso2 ?? 'NG';
+                $countryCache[$key] = $iso2;
+                return $iso2;
+            };
 
             $idInfo = $data['identifying_information'][0] ?? [];
-            $idFront = ($idInfo['image_front_file'] ?? null);
-            $selfie = ($data['selfie_image'] ?? null);
+            $idFront = $idInfo['image_front_file'] ?? null;
+            $selfie = $data['selfie_image'] ?? null;
 
-            // If no image_back_file, fallback to front
-            $idBack = ($idInfo['image_back_file'] ?? null);
+            $idBack = $idInfo['image_back_file'] ?? null;
             if (!$idBack) {
                 $idBack = $idFront;
+                Log::warning('Using front image as back for TransFi KYC (no back provided)', [
+                    'customer_id' => $customer->customer_id,
+                    'id_type' => $idInfo['type'] ?? 'unknown'
+                ]);
             }
 
             if (!$idFront || !$selfie) {
@@ -530,41 +565,155 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             $addr = $data['residential_address'] ?? [];
 
-            $payload = [
-                'email' => $data['email'] ?? '',
-                'idDocExpiryDate' => $idInfo['expiration_date'] ?? null,
-                'idDocUserName' => trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')),
-                'idDocType' => $idInfo['type'] ?? 'id_card',
-                'idDocFrontSide' => $idFront,
-                'idDocBackSide' => $idBack,
-                'selfie' => $selfie,
-                'gender' => $data['gender'] ?? null,
-                'phoneNo' => $data['phone'] ?? '',
-                'idDocIssuerCountry' => $idInfo['issuing_country'] ?? ($addr['country'] ?? 'NG'),
+            // Normalize gender
+            $gender = strtolower(trim($data['gender'] ?? '')) ?: 'male';
+            if (!in_array($gender, ['male', 'female'])) {
+                $gender = 'male';
+            }
+
+            // Normalize DOB
+            $dob = null;
+            if (!empty($data['birth_date'])) {
+                $dob = substr($data['birth_date'], 0, 10);
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+                    $dob = null;
+                }
+            }
+
+            // Normalize ID type
+            $idType = strtolower($idInfo['type'] ?? 'id_card');
+            if (!in_array($idType, ['passport', 'id_card', 'drivers'])) {
+                $idType = 'id_card';
+            }
+
+            // Resolve all country fields using DB lookup
+            $nationalityIso2 = $resolveCountryToIso2($data['nationality'] ?? 'NG');
+            $issuerCountryIso2 = $resolveCountryToIso2($idInfo['issuing_country'] ?? $data['nationality'] ?? 'NG');
+            $residenceCountryIso2 = $resolveCountryToIso2($addr['country'] ?? $data['nationality'] ?? 'NG');
+
+            // Build address with ISO2 country
+            $addressPayload = [
                 'street' => $addr['street_line_1'] ?? '',
                 'city' => $addr['city'] ?? '',
                 'state' => $addr['state'] ?? '',
-                'country' => $addr['country'] ?? 'NG',
-                'dob' => substr($data['birth_date'], 0, 10) ?? null,
+                'country' => $residenceCountryIso2,
                 'postalCode' => $addr['postal_code'] ?? '',
-                'firstName' => $data['first_name'] ?? '',
-                'lastName' => $data['last_name'] ?? '',
-                'userId' => $customer->transfi_user_id,
-                'nationality' => $addr['country'] ?? 'NG',
             ];
 
-            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com'), '/');
+            // Ensure customer has a TransFi user ID
+            if (!$customer->transfi_user_id) {
+                $userPayload = [
+                    'firstName' => $data['first_name'] ?? '',
+                    'lastName' => $data['last_name'] ?? '',
+                    'date' => $dob,
+                    'email' => $data['email'] ?? '',
+                    'gender' => $gender,
+                    'phone' => $data['phone'] ?? '',
+                    'country' => $nationalityIso2,
+                    'address' => $addressPayload,
+                ];
+
+                $res = Http::timeout(20)
+                    ->withHeaders([
+                        'Accept' => 'application/json',
+                        'MID' => env('TRANSFI_MERCHANT_ID'),
+                        'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                    ])
+                    ->post("{$baseUrl}/users/individual", $userPayload);
+
+                if ($res->failed()) {
+                    Log::error('TransFi user registration failed', [
+                        'merchant_id' => env('TRANSFI_MERCHANT_ID'),
+                        'keys' => [
+                            'user' => env('TRANSFI_USERNAME'),
+                            'pass' => env('TRANSFI_PASSWORD')
+                        ],
+                        'customer_id' => $customer->customer_id,
+                        'response' => $res->body(),
+                    ]);
+                    return;
+                }
+
+                $transfiUserId = $res->json()['userId'] ?? null;
+                if (!$transfiUserId) {
+                    Log::error('TransFi did not return userId', [
+                        'customer_id' => $customer->customer_id,
+                        'response' => $res->json(),
+                    ]);
+                    return;
+                }
+
+                $customer->update(['transfi_user_id' => $transfiUserId]);
+            }
+
+            // Final KYC payload
+            $payload = [
+                'firstName' => $data['first_name'] ?? '',
+                'lastName' => $data['last_name'] ?? '',
+                'dob' => $dob,
+                'email' => $data['email'] ?? '',
+                'gender' => $gender,
+                'phoneNo' => $data['phone'] ?? '',
+                'nationality' => $nationalityIso2,
+                'street' => $addressPayload['street'],
+                'city' => $addressPayload['city'],
+                'state' => $addressPayload['state'],
+                'country' => $addressPayload['country'],
+                'postalCode' => $addressPayload['postalCode'],
+                'idDocType' => $idType,
+                'idDocUserName' => trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')),
+                'idDocIssuerCountry' => $issuerCountryIso2,
+                'idDocExpiryDate' => $idInfo['expiration_date'] ?? null,
+                'idDocFrontSide' => $idFront,
+                'idDocBackSide' => $idBack,
+                'selfie' => $selfie,
+                'userId' => $customer->transfi_user_id,
+            ];
+
+            // Validate required fields
+            $required = [
+                'firstName',
+                'lastName',
+                'dob',
+                'email',
+                'gender',
+                'phoneNo',
+                'nationality',
+                'street',
+                'city',
+                'country',
+                'postalCode',
+                'idDocType',
+                'idDocUserName',
+                'idDocIssuerCountry',
+                'idDocFrontSide',
+                'idDocBackSide',
+                'selfie',
+                'userId'
+            ];
+
+            foreach ($required as $field) {
+                if (empty($payload[$field])) {
+                    Log::error('TransFi KYC missing required field', [
+                        'customer_id' => $customer->customer_id,
+                        'missing_field' => $field,
+                    ]);
+                    return;
+                }
+            }
+
+            // Submit KYC
             $response = Http::asMultipart()
                 ->timeout(20)
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'MID' => env('TRANSFI_MERCHANT_ID'),
-                    'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_API_KEY') . ':' . env('TRANSFI_API_SECRET')),
+                    'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
                 ])
                 ->post("{$baseUrl}/kyc/share/third-vendor", $payload);
 
             if ($response->successful()) {
-                Log::info('TransFi KYC submitted', ['customer_id' => $customer->customer_id]);
+                Log::info('TransFi KYC submitted successfully', ['customer_id' => $customer->customer_id]);
                 Endorsement::updateOrCreate(
                     ['customer_id' => $customer->customer_id, 'service' => 'asian'],
                     ['status' => 'approved']
@@ -580,6 +729,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             Log::error('TransFi KYC error', [
                 'customer_id' => $customer->customer_id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -662,8 +812,131 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
+    public function avenia(Customer $customer, array $data = [])
+    {
+        try {
+            $baseUrl = rtrim("https://api.sandbox.avenia.io:10952/v2", " ");
+            $token = 'your_jwt_bearer_token_here'; // Replace with actual token retrieval logic
 
+            //===================================
+            // STEP 1: Request Upload URLs
+            //===================================
 
+            $idInfo = $data['identity_information'][0];
+            $isDoubleSided = !empty($idInfo['back_image_url']);
+
+            // --- Upload Document (e.g., Driver's License) ---
+            $docResponse = Http::withToken($token)
+                ->post("{$baseUrl}/documents/", [
+                    'documentType' => 'DRIVERS-LICENSE',
+                    'isDoubleSided' => $isDoubleSided,
+                ]);
+
+            if (!$docResponse->successful()) {
+                log('Failed to request document upload URI',  ['response' => $docResponse->body()]);
+            }
+
+            $docData = $docResponse->json();
+            $uploadedDocumentId = $docData['id'];
+
+            // --- Upload Selfie ---
+            $selfieResponse = Http::withToken($token)
+                ->post("{$baseUrl}/documents/", [
+                    'documentType' => 'SELFIE',
+                ]);
+
+            if (!$selfieResponse->successful()) {
+                log('Failed to request selfie upload URI: ',  ['response' =>  $selfieResponse->body()]);
+            }
+
+            $selfieData = $selfieResponse->json();
+            $uploadedSelfieId = $selfieData['id'];
+            $selfieUploadUrl = $selfieData['uploadURLFront'];
+
+            //===================================
+            // STEP 2: Upload Files
+            //===================================
+
+            // Helper to get image binary from URL or path
+            $getImageBinary = function ($imageUrl) {
+                if (filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                    return Http::get($imageUrl)->body();
+                } else {
+                    return file_get_contents($imageUrl);
+                }
+            };
+
+            // Upload front of document
+            $frontImageBinary = $getImageBinary($idInfo['front_image_url']);
+            $frontUploadResponse = Http::withHeaders([
+                'Content-Type' => 'image/jpeg', // adjust if PNG
+                'If-None-Match' => '*',
+            ])->put($docData['uploadURLFront'], $frontImageBinary);
+
+            if (!$frontUploadResponse->successful()) {
+                log('Failed to upload front document: ',  ['response' => $frontUploadResponse->status()]);
+            }
+
+            // Upload back if double-sided
+            if ($isDoubleSided) {
+                $backImageBinary = $getImageBinary($idInfo['back_image_url']);
+                $backUploadResponse = Http::withHeaders([
+                    'Content-Type' => 'image/jpeg',
+                    'If-None-Match' => '*',
+                ])->put($docData['uploadURLBack'], $backImageBinary);
+
+                if (!$backUploadResponse->successful()) {
+                    log('Failed to upload back document: ',  ['response' => $backUploadResponse->status()]);
+                }
+            }
+
+            // Upload selfie
+            $selfieImageBinary = $getImageBinary($idInfo['selfie_image_url']);
+            $selfieUploadResponse = Http::withHeaders([
+                'Content-Type' => 'image/jpeg',
+                'If-None-Match' => '*',
+            ])->put($selfieUploadUrl, $selfieImageBinary);
+
+            if (!$selfieUploadResponse->successful()) {
+                log('Failed to upload selfie: ', ['response' => $selfieUploadResponse->status()]);
+            }
+
+            //===================================
+            // STEP 3: Submit KYC Request
+            //===================================
+
+            // Map customer data (adjust based on your Customer model)
+            $payload = [
+                "fullName" => $customer->full_name, // or "{$customer->first_name} {$customer->last_name}"
+                "dateOfBirth" => $customer->date_of_birth->format('Y-m-d'), // ensure it's a Carbon instance or string
+                "countryOfTaxId" => "NGA", // Nigeria ISO 3166-1 alpha-3
+                "taxIdNumber" => $customer->tax_id_number ?? '12345678901', // fallback if missing
+                "email" => $customer->email,
+                "phone" => $customer->phone,
+                "country" => "NGA",
+                "state" => "FC",
+                "city" => "Abuja",
+                "zipCode" => "900107",
+                "streetAddress" => "30 ABC Orjiako Street, Lugbe",
+                "uploadedSelfieId" => $uploadedSelfieId,
+                "uploadedDocumentId" => $uploadedDocumentId,
+            ];
+
+            $kycResponse = Http::withToken($token)
+                ->post("{$baseUrl}/kyc/new-level-1/api", $payload);
+
+            if (!$kycResponse->successful()) {
+                log('KYC submission failed: ', ['response' => $kycResponse->body()]);
+            }
+
+            $kycResult = $kycResponse->json();
+            // Success! You can now store $kycResult['id'] or trigger next steps
+            return $kycResult;
+        } catch (Throwable $th) {
+            \Log::error('Avenia KYC Error: ' . $th->getMessage(), ['trace' => $th->getTraceAsString()]);
+            throw $th; // or return error response as needed
+        }
+    }
 
     /**
      * Full mapping from internal ID types to Noah-supported types.
