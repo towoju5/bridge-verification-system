@@ -67,8 +67,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $hasSelfie = !empty($selfie);
 
         // // Submit to mandatory providers always
-        // $this->borderless($customer, $this->submissionData);
-        // $this->noah($customer, $this->submissionData);
+        $this->borderless($customer, $this->submissionData);
+        $this->noah($customer, $this->submissionData);
 
         // Submit to TransFi + Bitnob only if both docs exist
         if ($hasIdFront && $hasSelfie) {
