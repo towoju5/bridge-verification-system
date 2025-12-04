@@ -202,13 +202,13 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]
         ];
 
-        log('Noah Onboarding Payload:', ['payload' => $payload]);
+        logger('Noah Onboarding Payload:', ['payload' => $payload]);
 
         $noah = new NoahService();
         $response = $noah->post("/onboarding/{$customerId}", $payload);
         $body = $response->json();
 
-        log('Noah Onboarding Response:', [
+        logger('Noah Onboarding Response:', [
             'status' => $response->status(),
             'body' => $body,
             'hosted_kyc_url' => $body['HostedURL'] ?? null,
@@ -833,7 +833,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ]);
 
             if (!$docResponse->successful()) {
-                log('Failed to request document upload URI',  ['response' => $docResponse->body()]);
+                logger('Failed to request document upload URI',  ['response' => $docResponse->body()]);
             }
 
             $docData = $docResponse->json();
@@ -846,7 +846,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ]);
 
             if (!$selfieResponse->successful()) {
-                log('Failed to request selfie upload URI: ',  ['response' =>  $selfieResponse->body()]);
+                logger('Failed to request selfie upload URI: ',  ['response' =>  $selfieResponse->body()]);
             }
 
             $selfieData = $selfieResponse->json();
@@ -874,7 +874,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ])->put($docData['uploadURLFront'], $frontImageBinary);
 
             if (!$frontUploadResponse->successful()) {
-                log('Failed to upload front document: ',  ['response' => $frontUploadResponse->status()]);
+                logger('Failed to upload front document: ',  ['response' => $frontUploadResponse->status()]);
             }
 
             // Upload back if double-sided
@@ -886,7 +886,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ])->put($docData['uploadURLBack'], $backImageBinary);
 
                 if (!$backUploadResponse->successful()) {
-                    log('Failed to upload back document: ',  ['response' => $backUploadResponse->status()]);
+                    logger('Failed to upload back document: ',  ['response' => $backUploadResponse->status()]);
                 }
             }
 
@@ -898,7 +898,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ])->put($selfieUploadUrl, $selfieImageBinary);
 
             if (!$selfieUploadResponse->successful()) {
-                log('Failed to upload selfie: ', ['response' => $selfieUploadResponse->status()]);
+                logger('Failed to upload selfie: ', ['response' => $selfieUploadResponse->status()]);
             }
 
             //===================================
@@ -926,14 +926,14 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ->post("{$baseUrl}/kyc/new-level-1/api", $payload);
 
             if (!$kycResponse->successful()) {
-                log('KYC submission failed: ', ['response' => $kycResponse->body()]);
+                logger('KYC submission failed: ', ['response' => $kycResponse->body()]);
             }
 
             $kycResult = $kycResponse->json();
             // Success! You can now store $kycResult['id'] or trigger next steps
             return $kycResult;
         } catch (Throwable $th) {
-            \Log::error('Avenia KYC Error: ' . $th->getMessage(), ['trace' => $th->getTraceAsString()]);
+            Log::error('Avenia KYC Error: ' . $th->getMessage(), ['trace' => $th->getTraceAsString()]);
             throw $th; // or return error response as needed
         }
     }
