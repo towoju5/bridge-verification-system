@@ -559,6 +559,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'postalCode' => $addr['postal_code'] ?? '',
             ];
 
+            $phoneNumber = preg_replace('/\D+/', '',$data['phone']);
+
             // Ensure customer has a TransFi user ID
             if (!$customer->transfi_user_id) {
                 $userPayload = [
@@ -567,7 +569,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => $dob,
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phone' => $data['phone'] ?? '',
+                    'phone' => $phoneNumber ?? '',
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
                 ];
@@ -613,7 +615,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'dob' => Carbon::parse($data['birth_date'])->format('Y-m-d'),
                 'email' => $data['email'] ?? '',
                 'gender' => $gender,
-                'phoneNo' => $data['phone'] ?? '',
+                'phoneNo' => $phoneNumber ?? '',
                 'nationality' => $nationalityIso2,
                 'street' => $addressPayload['street'],
                 'city' => $addressPayload['city'],
