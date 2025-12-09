@@ -466,7 +466,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function transFi(Customer $customer, array $data): void
     {
         try {
-            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com'), '/');
+            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
 
             // Helper: resolve any country input to ISO2 using DB
             $countryCache = [];
@@ -724,7 +724,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'dateOfBirth' => substr($data['birth_date'], 0, 10) ?? null,
                 'firstName' => $nameParts[0] ?? '',
                 'lastName' => $nameParts[1] ?? ($nameParts[0] ?? 'Unknown'),
-                'customerEmail' => $data['email'] ?? '',
+                'email' => $data['email'] ?? '',
                 'phoneNumber' => $data['phone'] ?? '',
                 'idImage' => $idFront,
                 'userPhoto' => $selfie,
@@ -735,7 +735,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'line1' => $addr['street_line_1'] ?? '',
                 'houseNumber' => '',
                 'idType' => $idType,
-                'idNumber' => $idInfo['number'] ?? null, // ✅ Correct field: 'number'
+                'idNumber' => $idInfo['number'] ?? null,
             ];
 
             $baseUrl = rtrim(env('BITNOB_BASE_URL', 'https://api.bitnob.co/api/v1'), '/');

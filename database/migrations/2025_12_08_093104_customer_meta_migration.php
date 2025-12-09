@@ -29,3 +29,16 @@ return new class extends Migration
         Schema::dropIfExists('customer_meta_data');
     }
 };
+
+
+
+/**
+
+
+#----------------------------------------
+#   BITNOB API KEYS
+#----------------------------------------
+BITNOB_API_KEY="sk.4a639fdf1840.2e3f85b0514f6b77467685759" #"pk.e27c232.5367654ca4df707b7e602f"
+BITNOB_BASE_URL="https://api.bitnob.co/api/v1/"
+BITNOB_LIGHTNING_KEY="ln.f5d261c.cd18972131b3a35b33"
+BITNOB_WEBHOOK_SECRET="f9701ba65dc8f5971102"
