@@ -22,9 +22,6 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 
-
-
-
 class CustomerController extends Controller
 {
     private const MAX_STEPS = 6;
@@ -35,14 +32,11 @@ class CustomerController extends Controller
 
     public function __construct()
     {
-        // 🚫 DO NOT run schema changes in controller constructor in production.
-        // ✅ Instead, create a migration:
-
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
-        // var_dump('Bridge API Key:', env('BRIDGE_API_KEY')); exit;
-        $this->maxSteps = self::MAX_STEPS;
+        $this->maxSteps     = self::MAX_STEPS;
 
+        // Kept for backward compatibility (not recommended in production, but you requested no functionality loss)
         if (! Schema::hasColumn('customer_submissions', 'uploaded_documents')) {
             Schema::table('customer_submissions', function ($table) {
                 $table->json('uploaded_documents')->nullable()->after('documents');
@@ -66,7 +60,7 @@ class CustomerController extends Controller
         try {
             $submissionId = session('customer_submission_id', $customerId);
 
-            if (!env('IS_LOCAL_ENV')) {
+            if (! env('IS_LOCAL_ENV')) {
                 $customer = Customer::whereCustomerId($customerId);
 
                 if (! $customer->exists()) {
@@ -88,7 +82,6 @@ class CustomerController extends Controller
 
             if ($customer_type == 'individual') {
                 $url = $this->startIndividualVerification(request()->merge(['customer_id' => $customer_id]));
-                // if a valid url was returned then redirect customer to the URI
                 if (filter_var($url, FILTER_VALIDATE_URL)) {
                     return redirect()->to($url);
                 }
@@ -96,27 +89,26 @@ class CustomerController extends Controller
 
             if ($customer_type == 'business') {
                 session([
-                    'type'                   => 'business',
-                    'signed_agreement_id'    => $customer_id,
-                    'user_agent'             => request()->userAgent(),
-                    'ip_address'             => request()->ip(),
-                    'customer_id'            => $customerId,
-                    'customer_submission_id' => $customerId,
-                    'business_customer_session_id' => $customerId,
+                    'type'                        => 'business',
+                    'signed_agreement_id'         => $customer_id,
+                    'user_agent'                  => request()->userAgent(),
+                    'ip_address'                  => request()->ip(),
+                    'customer_id'                 => $customerId,
+                    'customer_submission_id'      => $customerId,
+                    'business_customer_session_id'=> $customerId,
                 ]);
 
                 BusinessCustomer::firstOrCreate([
                     'session_id' => $customer_id,
-                    'customer_id' => $customer_id
+                    'customer_id'=> $customer_id,
                 ]);
+
                 $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
 
                 if (filter_var($url, FILTER_VALIDATE_URL)) {
                     return redirect()->to($url);
                 }
             }
-
-            // Removed: var_dump($customer_type);
 
             abort(400, "Invalid customer type. {$customer_type} provided.");
         } catch (\Throwable $th) {
@@ -131,15 +123,15 @@ class CustomerController extends Controller
     {
         $signedAgreementId = $request->signed_agreement_id ?? Str::uuid();
         $customerId        = $request->customer_id;
-        if (!env('IS_LOCAL_ENV')) {
-            $customer          = Customer::whereCustomerId($customerId);
+
+        if (! env('IS_LOCAL_ENV')) {
+            $customer = Customer::whereCustomerId($customerId);
 
             if (! $customer->exists()) {
                 abort(404, "Customer with provided ID {$customerId} not found.");
             }
         }
 
-        // var_dump('Starting business verification...');
         $url = route('business.verify.start', ['step' => 1, 'customer_id' => $customerId]);
         return $url;
     }
@@ -149,7 +141,7 @@ class CustomerController extends Controller
         $signedAgreementId  = $request->signed_agreement_id ?? Str::uuid();
         $customerSubmission = CustomerSubmission::firstOrCreate(
             [
-                'customer_id'         => $request->customer_id
+                'customer_id' => $request->customer_id,
             ],
             [
                 'type'                => 'individual',
@@ -158,7 +150,9 @@ class CustomerController extends Controller
                 'ip_address'          => $request->ip(),
             ]
         );
+
         session(['customer_submission_id' => $customerSubmission->id]);
+
         $url = route('customer.verify.step', ['step' => 1]);
         return $url;
     }
@@ -181,7 +175,9 @@ class CustomerController extends Controller
         } else {
             $customerSubmission = CustomerSubmission::find($submissionId);
         }
+
         $customerSubmission = CustomerSubmission::find($submissionId);
+
         if (! $customerSubmission || $customerSubmission->type !== 'individual') {
             session()->forget('customer_submission_id');
             return redirect()->route('account.type');
@@ -226,6 +222,23 @@ class CustomerController extends Controller
             return response()->json(['success' => false, 'message' => 'Submission not found.'], 404);
         }
 
+        // 🔐 Scan ALL incoming files for viruses before any processing
+        try {
+            $this->scanAllFilesInArray($request->files->all());
+        } catch (\Throwable $virusEx) {
+            Log::warning('Virus detected during saveVerificationStep', [
+                'submission_id' => $submissionId,
+                'step'          => $step,
+                'error'         => $virusEx->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Uploaded file failed virus scan.',
+                'debug'   => $virusEx->getMessage(),
+            ], 422);
+        }
+
         if ($step >= $this->maxSteps) {
             if ($request->has('submit_bridge_kyc')) {
                 $customerSubmission->update(['submit_bridge_kyc' => (bool) $request->submit_bridge_kyc]);
@@ -234,12 +247,14 @@ class CustomerController extends Controller
                 $customerSubmission->status       = 'submitted';
                 $customerSubmission->submitted_at = now();
                 $customerSubmission->save();
-                // initiate the third-party KYC job process
+
                 dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
             }
+
             session()->forget('customer_submission_id');
             $redirectUrl = session('return_url') ?? env('DEFAULT_REDIRECT_URL', 'https://app.yativo.com');
             $redirectUrl = $this->sanitizeRedirectUrl($redirectUrl);
+
             return response()->json([
                 'success'       => true,
                 'message'       => "KYC process completed successfully.",
@@ -294,7 +309,7 @@ class CustomerController extends Controller
                 Arr::set($normalized, $key, $value);
                 unset($data[$key]);
             } elseif (str_contains($key, 'residential_address_')) {
-                $subKey                                     = str_replace('residential_address_', '', $key);
+                $subKey                                      = str_replace('residential_address_', '', $key);
                 $normalized['residential_address'][$subKey] = $value;
                 unset($data[$key]);
             } elseif (preg_match('/^endorsements_(\d+)$/', $key, $matches)) {
@@ -311,10 +326,11 @@ class CustomerController extends Controller
 
         $data = array_merge($data, $normalized);
         $request->replace($data);
+
         Log::info('Normalized Request Data', [
-            'original'   => $data,
-            'normalized' => $request->all(),
+            'data' => $request->all(),
         ]);
+
         return $request;
     }
 
@@ -381,7 +397,7 @@ class CustomerController extends Controller
                             if (! in_array(strtolower($value), $allowed)) {
                                 $fail("Invalid account purpose.");
                             }
-                        }
+                        },
                     ],
                     'account_purpose_other'         => 'required_if:account_purpose,other',
                     'acting_as_intermediary'        => 'sometimes|boolean',
@@ -404,7 +420,7 @@ class CustomerController extends Controller
                 $validator->after(function ($validator) use ($request, $requiredTypes) {
                     $uploadedTypes = collect($request->uploaded_documents ?? [])
                         ->pluck('type')
-                        ->map(fn($t) => strtolower(trim($t)));
+                        ->map(fn ($t) => strtolower(trim($t)));
 
                     foreach ($requiredTypes as $type) {
                         if (! $uploadedTypes->contains(strtolower($type))) {
@@ -447,29 +463,28 @@ class CustomerController extends Controller
                     'second_last_name',
                     'gender',
                 ]);
+
                 $modelData['endorsements'] = ['spei', 'base', 'sepa'];
+
                 foreach (['first_name', 'middle_name', 'last_name'] as $field) {
                     $val                                  = $validatedData[$field] ?? null;
                     $modelData["transliterated_{$field}"] = $val
                         ? ($transliterated->needsTransliteration($val)['transliterated'] ?? null)
                         : null;
                 }
+
                 $fileUrl = $this->uploadFileIfExists(
                     'selfie_image',
                     'customer_documents/' . request()->signed_agreement_id
                 );
 
-                $modelData['selfie_image'] = $fileUrl;
-
-                if (empty($modelData['selfie_image'])) {
-                    $modelData['selfie_image'] = null;
-                }
+                $modelData['selfie_image'] = $fileUrl ?: null;
                 break;
 
             case 2:
                 if (isset($validatedData['residential_address'])) {
                     $addr                             = Arr::except($validatedData['residential_address'], ['proof_of_address_file']);
-                    $modelData['residential_address'] = array_filter($addr, fn($v) => ! empty($v));
+                    $modelData['residential_address'] = array_filter($addr, fn ($v) => ! empty($v));
 
                     $fileUrl = $this->uploadFileIfExists(
                         'residential_address.proof_of_address_file',
@@ -487,9 +502,8 @@ class CustomerController extends Controller
             case 3:
                 if (! empty($validatedData['identifying_information'])) {
                     $modelData['identifying_information'] = collect($validatedData['identifying_information'])->map(function ($doc, $index) {
-                        // $cleaned = array_filter($doc, fn($v) => ! is_file($v) && $v !== null && $v !== '');
-                        $cleaned = array_filter($doc, fn($v) => ! empty($v));
-                        // Attach file URLs
+                        $cleaned = array_filter($doc, fn ($v) => ! empty($v));
+
                         foreach (['image_front_file', 'image_back_file'] as $fileField) {
                             $fileUrl = $this->uploadFileIfExists(
                                 "identifying_information.$index.$fileField",
@@ -501,7 +515,6 @@ class CustomerController extends Controller
                         return $cleaned;
                     })->toArray();
                 }
-
                 break;
 
             case 4:
@@ -515,10 +528,11 @@ class CustomerController extends Controller
                     'acting_as_intermediary',
                 ]);
                 break;
+
             case 5:
                 if (isset($validatedData['uploaded_documents'])) {
                     $modelData['uploaded_documents'] = collect($validatedData['uploaded_documents'])->map(function ($doc, $index) {
-                        $cleaned = Arr::only($doc, ['type']); // keep metadata like type
+                        $cleaned = Arr::only($doc, ['type']);
 
                         $fileUrl = $this->uploadFileIfExists(
                             "uploaded_documents.$index.file",
@@ -535,7 +549,7 @@ class CustomerController extends Controller
 
                 if (! empty($validatedData['uploaded_documents'])) {
                     $modelData['documents'] = collect($validatedData['uploaded_documents'])->map(function ($doc, $index) {
-                        $cleaned = Arr::only($doc, ['type']); // keep metadata like type
+                        $cleaned = Arr::only($doc, ['type']);
 
                         $fileUrl = $this->uploadFileIfExists(
                             "uploaded_documents.$index.file",
@@ -548,10 +562,12 @@ class CustomerController extends Controller
                     })->toArray();
                 }
                 break;
-            default:
-                Log::warning('Unknown step in customer verification', ['step' => $step, 'submission_id' => session('customer_submission_id')]);
-                // return response()->json(['success' => false, 'message' => 'Unknown step.'], 400);
 
+            default:
+                Log::warning('Unknown step in customer verification', [
+                    'step'          => $step,
+                    'submission_id' => session('customer_submission_id'),
+                ]);
                 break;
         }
 
@@ -571,8 +587,8 @@ class CustomerController extends Controller
             $path = $file->store("customer_documents/{$submission->id}", 'public');
             $url  = Storage::url($path);
 
-            $addr                            = $submission->residential_address ?? [];
-            $addr['proof_of_address_url']    = $url; // ✅ Standardized key
+            $addr                         = $submission->residential_address ?? [];
+            $addr['proof_of_address_url'] = $url;
             $submission->residential_address = $addr;
             $submission->save();
 
@@ -595,10 +611,10 @@ class CustomerController extends Controller
                     $path = $file->store("customer_documents/{$submission->id}/ids", 'public');
                     $url  = Storage::url($path);
 
-                    $data                                     = $submission->identifying_information ?? [];
-                    $info                                     = $data[$idx] ?? [];
+                    $data = $submission->identifying_information ?? [];
+                    $info = $data[$idx] ?? [];
                     $info[str_replace('_file', '', $sideKey)] = $url;
-                    $data[$idx]                               = $info;
+                    $data[$idx] = $info;
 
                     $submission->identifying_information = $data;
                     $submission->save();
@@ -608,11 +624,11 @@ class CustomerController extends Controller
                         'document_type'          => 'identification',
                         'side'                   => str_replace('image_', '', $sideKey),
                         'reference_field'        => "identifying_information.{$idx}.{$sideKey}",
-                        'file_path'       => $path,
-                        'file_name'       => $file->getClientOriginalName(),
-                        'mime_type'       => $file->getMimeType(),
-                        'file_size'       => $file->getSize(),
-                        'issuing_country' => $info['issuing_country'] ?? null,
+                        'file_path'              => $path,
+                        'file_name'              => $file->getClientOriginalName(),
+                        'mime_type'              => $file->getMimeType(),
+                        'file_size'              => $file->getSize(),
+                        'issuing_country'        => $info['issuing_country'] ?? null,
                     ]);
                 }
             }
@@ -622,6 +638,7 @@ class CustomerController extends Controller
     private function uploadAdditionalDocuments(Request $request, CustomerSubmission $submission): void
     {
         $documents = $submission->documents ?? [];
+
         foreach ($request->file('uploaded_documents', []) as $idx => $doc) {
             if (! isset($doc['file'])) {
                 continue;
@@ -652,35 +669,42 @@ class CustomerController extends Controller
         $submission->save();
     }
 
-    // 🔻 Kept for backward compatibility but no longer used — safe to remove later
+    // 🔻 Kept for backward compatibility, used by mapStepDataToModel
     private function uploadFileIfExists(string $key, string $folder): ?string
     {
         $file = null;
+
         if (request()->hasFile($key)) {
             $file = request()->file($key);
         } elseif (request()->hasFile(str_replace('.', '_', $key))) {
-            $file = request()->file($key);
+            $file = request()->file(str_replace('.', '_', $key));
         }
+
         if ($file) {
             $path = $file->store($folder, 'public');
             return asset(Storage::url($path));
         }
+
         return null;
     }
 
     private function dotToNestedArray(array $data): array
     {
         $result = [];
+
         foreach ($data as $key => $value) {
             if (is_array($value)) {
                 $value = $this->dotToNestedArray($value);
             }
-            if ($value instanceof UploadedFile  || $value === null) {
+
+            if ($value instanceof UploadedFile || $value === null) {
                 data_set($result, $key, $value);
                 continue;
             }
+
             data_set($result, $key, $value);
         }
+
         return $result;
     }
 
@@ -691,6 +715,7 @@ class CustomerController extends Controller
                 'customer_id'   => 'required|string',
                 'customer_type' => 'required|in:business,individual',
             ]);
+
             if ($validator->fails()) {
                 return response()->json(['error' => $validator->errors()->toArray()]);
             }
@@ -731,6 +756,7 @@ class CustomerController extends Controller
                 'customer_id'   => 'required',
                 'customer_type' => 'required|in:individual,business',
             ]);
+
             if ($validator->fails()) {
                 return response()->json($validator->errors()->toArray(), 422);
             }
@@ -742,14 +768,17 @@ class CustomerController extends Controller
                     $customer = CustomerSubmission::query()
                         ->whereCustomerId($validated['customer_id'])
                         ->where('type', 'individual')
-                        ->latest()->first()?->toArray();
+                        ->latest()
+                        ->first()?->toArray();
                     break;
+
                 case 'business':
                     $customer = BusinessCustomer::query()
                         ->whereCustomerId($validated['customer_id'])
                         ->where('type', 'business')
                         ->first()?->toArray();
                     break;
+
                 default:
                     $customer = ['error' => 'Unknown customer type provided'];
                     break;
@@ -763,23 +792,24 @@ class CustomerController extends Controller
 
     public function getSubdivisions($countryCode)
     {
-        // Left as placeholder — implement as needed
+        // Placeholder
     }
 
     public function getIdentificationTypesByCountry($countryCode)
     {
-        // Left as placeholder — implement as needed
+        // Placeholder
     }
-
 
     private function sanitizeRedirectUrl(?string $url): string
     {
         $allowedHosts = ['app.yativo.com', 'yativo.com'];
+
         if (! $url) {
             return 'https://app.yativo.com';
         }
 
         $host = parse_url($url, PHP_URL_HOST);
+
         if ($host && in_array($host, $allowedHosts, true)) {
             return $url;
         }
@@ -787,254 +817,381 @@ class CustomerController extends Controller
         return 'https://app.yativo.com';
     }
 
+    /**
+     * API endpoint: submit full KYC in one request.
+     * Always returns JSON. All files are virus-scanned before processing.
+     */
     public function submitFullKyc(Request $request)
     {
-        // 1. Validate presence of customer_id
-        $request->validate([
+        $respond = fn ($success, $message, $errors = null, $code = 422) =>
+            response()->json([
+                'success' => $success,
+                'message' => $message,
+                'errors'  => $errors,
+            ], $code);
+
+        // Basic validation for customer_id
+        $v = Validator::make($request->all(), [
             'customer_id' => 'required|string',
         ]);
 
-        $customerId = $request->customer_id;
-        $customer = Customer::where('customer_id', $customerId)->first();
-
-        if (!$customer) {
-            return response()->json(['error' => 'Customer with provided customer_id not found'], 404);
+        if ($v->fails()) {
+            return $respond(false, 'Validation error.', $v->errors());
         }
 
-        DB::beginTransaction();
+        $customer = Customer::where('customer_id', $request->customer_id)->first();
+
+        if (! $customer) {
+            return $respond(false, 'Customer not found.', null, 404);
+        }
 
         try {
-            // 2. Create submission
+            DB::beginTransaction();
+
             $submission = CustomerSubmission::updateOrCreate(
-                ['customer_id' => $customerId],
+                ['customer_id' => $request->customer_id],
                 [
                     'type'                => 'individual',
                     'signed_agreement_id' => Str::uuid(),
-                    'user_agent'          => $request->userAgent() ?? 'API',
-                    'ip_address'          => $request->ip(),
                     'status'              => 'submitted',
                     'submitted_at'        => now(),
+                    'user_agent'          => $request->userAgent() ?? 'API',
+                    'ip_address'          => $request->ip(),
                 ]
             );
 
-            // 3. Preprocess: convert Base64 to UploadedFile if needed
+            // Convert Base64 → UploadedFile
             $processedRequest = $this->convertBase64ToUploadedFiles($request);
+            $processedRequest->merge(['signed_agreement_id' => $submission->signed_agreement_id]);
 
-            // 4. Validate all sections using your existing rules (adapted)
+            // Replace Laravel request instance so uploadFileIfExists, etc., see this
+            app()->instance('request', $processedRequest);
+
+            // Virus scan all files
+            try {
+                $this->scanAllFilesInArray($processedRequest->files->all());
+            } catch (\Throwable $virusEx) {
+                Log::warning('Virus detected in submitFullKyc', [
+                    'customer_id' => $request->customer_id,
+                    'error'       => $virusEx->getMessage(),
+                ]);
+
+                DB::rollBack();
+
+                return $respond(false, 'File failed virus scan.', [
+                    'virus_error' => $virusEx->getMessage(),
+                ]);
+            }
+
             $data = $processedRequest->all();
 
-            // Step 1
-            $step1 = $this->validateSection($data, [
-                'first_name'       => 'required|string|min:1|max:1024',
+            // STEP 1 – Personal Info + Selfie
+            $step1 = $this->safeValidate($data, [
+                'first_name'       => 'required|string|max:1024',
                 'middle_name'      => 'required|string|max:1024',
-                'last_name'        => 'required|string|min:1|max:1024',
+                'last_name'        => 'required|string|max:1024',
                 'email'            => 'required|email|max:1024',
                 'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
                 'birth_date'       => 'required|date|before:today',
                 'nationality'      => 'required|string|size:2',
                 'gender'           => 'required|in:Male,Female,male,female',
                 'taxId'            => 'required|string|max:100',
+                'selfie_image'     => 'required|file|max:5120',
             ]);
-            if ($processedRequest->hasFile('selfie_image')) {
-                $step1['selfie_image'] = $processedRequest->file('selfie_image');
+
+            if (! $step1['success']) {
+                DB::rollBack();
+                return $respond(false, $step1['message'], $step1['errors']);
             }
 
-            // Step 2
-            $step2 = $this->validateSection($data['residential_address'] ?? [], [
-                'street_line_1'   => 'required|string|max:256',
-                'city'            => 'required|string|max:256',
-                'state'           => 'required|string|max:256',
-                'postal_code'     => 'required|string|max:256',
-                'country'         => 'required|string|size:2',
-            ]);
-            if (
-                !empty($data['residential_address']['proof_of_address_file']) ||
-                $processedRequest->hasFile('residential_address.proof_of_address_file')
-            ) {
-                $step2['proof_of_address_file'] = $processedRequest->file('residential_address.proof_of_address_file')
-                    ?? $data['residential_address']['proof_of_address_file'];
-            }
-            $step2 = ['residential_address' => $step2];
+            // STEP 2 – Residential Address + Proof of Address
+            $step2 = $this->safeValidate(
+                $data['residential_address'] ?? [],
+                [
+                    'street_line_1' => 'required|string|max:256',
+                    'city'          => 'required|string|max:256',
+                    'state'         => 'required|string|max:256',
+                    'postal_code'   => 'required|string|max:256',
+                    'country'       => 'required|string|size:2',
+                ]
+            );
 
-            // Step 3
+            if (! $step2['success']) {
+                DB::rollBack();
+                return $respond(false, $step2['message'], $step2['errors']);
+            }
+
+            if (! $processedRequest->hasFile('residential_address.proof_of_address_file')) {
+                DB::rollBack();
+                return $respond(false, 'Proof of address file is required.');
+            }
+
+            $step2['data']['proof_of_address_file'] =
+                $processedRequest->file('residential_address.proof_of_address_file');
+
+            // STEP 3 – Identifying Documents
             $ids = [];
-            foreach ($data['identifying_information'] ?? [] as $idx => $idDoc) {
-                $validatedId = $this->validateSection($idDoc, [
+
+            foreach ($data['identifying_information'] ?? [] as $i => $doc) {
+                $validated = $this->safeValidate($doc, [
                     'type'            => 'required|string',
                     'issuing_country' => 'required|string|size:2',
                     'number'          => 'required|string',
                     'date_issued'     => 'required|date|before:today',
                     'expiration_date' => 'required|date|after:today',
                 ]);
-                // Attach files if present
-                $frontFile = $processedRequest->file("identifying_information.{$idx}.image_front_file")
-                    ?? ($idDoc['image_front_file'] ?? null);
-                $backFile = $processedRequest->file("identifying_information.{$idx}.image_back_file")
-                    ?? ($idDoc['image_back_file'] ?? null);
-                if ($frontFile) $validatedId['image_front_file'] = $frontFile;
-                if ($backFile) $validatedId['image_back_file'] = $backFile;
-                $ids[] = $validatedId;
-            }
-            $step3 = ['identifying_information' => $ids];
 
-            // Step 4
-            $step4 = $this->validateSection($data, [
+                if (! $validated['success']) {
+                    DB::rollBack();
+                    return $respond(false, $validated['message'], $validated['errors']);
+                }
+
+                $front = $processedRequest->file("identifying_information.$i.image_front_file");
+                if (! $front) {
+                    DB::rollBack();
+                    return $respond(false, "ID front image required at index {$i}.");
+                }
+
+                $validated['data']['image_front_file'] = $front;
+
+                $back = $processedRequest->file("identifying_information.$i.image_back_file");
+                if ($back) {
+                    $validated['data']['image_back_file'] = $back;
+                }
+
+                $ids[] = $validated['data'];
+            }
+
+            if (empty($ids)) {
+                DB::rollBack();
+                return $respond(false, 'At least one identifying document is required.');
+            }
+
+            // STEP 4 – Employment, Source of Funds, Account Purpose
+            $step4 = $this->safeValidate($data, [
                 'employment_status'             => 'required',
                 'most_recent_occupation_code'   => 'required|string',
-                'expected_monthly_payments_usd' => ['required', Rule::in(array_keys(config('bridge_data.expected_monthly_payments_usd', [])))],
-                'source_of_funds'               => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds', [])))],
+                'expected_monthly_payments_usd' => 'required',
+                'source_of_funds'               => 'required',
                 'account_purpose'               => 'required',
                 'account_purpose_other'         => 'required_if:account_purpose,other',
                 'acting_as_intermediary'        => 'boolean',
             ]);
 
-            // Step 5
+            if (! $step4['success']) {
+                DB::rollBack();
+                return $respond(false, $step4['message'], $step4['errors']);
+            }
+
+            // STEP 5 – Supporting Documents
             $docs = [];
-            foreach ($data['uploaded_documents'] ?? [] as $idx => $doc) {
-                $type = $doc['type'] ?? 'other';
-                $file = $processedRequest->file("uploaded_documents.{$idx}.file")
-                    ?? ($doc['file'] ?? null);
-                if (!$file) continue;
-                $docs[] = ['type' => $type, 'file' => $file];
-            }
-            // Enforce required types (e.g., proof_of_funds)
-            $uploadedTypes = collect($docs)->pluck('type');
-            if (!$uploadedTypes->contains('proof_of_funds')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Document of type 'proof_of_funds' is required."
-                ], 400);
-            }
-            $step5 = ['uploaded_documents' => $docs];
 
-            // 5. Merge all data and map to model fields
-            $allData = array_merge($step1, $step2, $step3, $step4, $step5);
+            foreach ($data['uploaded_documents'] ?? [] as $i => $doc) {
+                $file = $processedRequest->file("uploaded_documents.$i.file");
 
-            // Reuse your mapping logic by simulating step-by-step
+                if ($file instanceof UploadedFile) {
+                    $docs[] = [
+                        'type' => strtolower($doc['type'] ?? 'other'),
+                        'file' => $file,
+                    ];
+                }
+            }
+
+            $types = collect($docs)->pluck('type');
+
+            if (! $types->contains('proof_of_funds')) {
+                DB::rollBack();
+                return $respond(false, "Document 'proof_of_funds' is required.");
+            }
+
+            // Map into model data using existing mapping logic
             $modelData = [];
-            $tempRequest = new Request();
-            $tempRequest->replace($allData);
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($step1['data'], 1));
+            $modelData = array_merge(
+                $modelData,
+                $this->mapStepDataToModel(['residential_address' => $step2['data']], 2)
+            );
+            $modelData = array_merge(
+                $modelData,
+                $this->mapStepDataToModel(['identifying_information' => $ids], 3)
+            );
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($step4['data'], 4));
+            $modelData = array_merge(
+                $modelData,
+                $this->mapStepDataToModel(['uploaded_documents' => $docs], 5)
+            );
 
-            // Simulate each step mapping
-            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 1), 1));
-            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 2), 2));
-            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 3), 3));
-            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 4), 4));
-            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 5), 5));
-
-            // 6. Save submission
             $submission->fill($modelData);
             $submission->save();
 
-            // 7. Save CustomerDocument records (optional but recommended)
-            // $this->saveCustomerDocuments($submission, $allData);
-
             DB::commit();
 
-            // 8. Dispatch third-party job
-            dispatch(job: new ThirdPartyKycSubmission($submission->toArray()));
+            dispatch(new ThirdPartyKycSubmission($submission->toArray()));
 
-            return response()->json([
-                'success' => true,
-                'message' => 'KYC submitted successfully.',
-                'payload' => $submission
+            return $respond(true, 'KYC submitted successfully.', [
+                'submission' => $submission->fresh(),
             ], 201);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Full KYC API failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Submission failed. Please check your data and try again.',
-                'payload' => $submission
+
+            Log::error('submitFullKyc error', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return $respond(false, 'Unexpected server error.', [
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
+    /**
+     * Safe validator that returns structured array instead of throwing.
+     */
+    private function safeValidate(array $data, array $rules): array
+    {
+        $validator = Validator::make($data, $rules);
+
+        if ($validator->fails()) {
+            return [
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors'  => $validator->errors(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data'    => $validator->validated(),
+        ];
+    }
+
+    /**
+     * Original validateSection kept for backward compatibility.
+     */
     private function validateSection(array $data, array $rules): array
     {
         $validator = Validator::make($data, $rules);
+
         if ($validator->fails()) {
             throw new \Exception(json_encode($validator->errors()->first()));
         }
+
         return $validator->validated();
     }
 
-    private function extractStepData(array $data, int $step): array
-    {
-        // Reuse your existing mapping logic by returning relevant subset
-        switch ($step) {
-            case 1:
-                return Arr::only($data, ['first_name', 'middle_name', 'last_name', 'email', 'phone', 'birth_date', 'nationality', 'gender', 'taxId', 'selfie_image']);
-            case 2:
-                return ['residential_address' => $data['residential_address'] ?? []];
-            case 3:
-                return ['identifying_information' => $data['identifying_information'] ?? []];
-            case 4:
-                return Arr::only($data, ['employment_status', 'most_recent_occupation_code', 'expected_monthly_payments_usd', 'source_of_funds', 'account_purpose', 'account_purpose_other', 'acting_as_intermediary']);
-            case 5:
-                return ['uploaded_documents' => $data['uploaded_documents'] ?? []];
-            default:
-                return [];
-        }
-    }
-
+    /**
+     * Convert any Base64 "data:...;base64,..." string in the request into UploadedFile instances.
+     * Properly supports nested keys like uploaded_documents.0.file, etc.
+     */
     private function convertBase64ToUploadedFiles(Request $request): Request
     {
-        $data = $request->all();
+        $data  = $request->all();
         $files = [];
 
         $this->processBase64InArray($data, $files, '');
 
-        // Merge files into a new request
-        $newRequest = Request::create('', 'POST', $data, [], $files, $request->server->all());
+        $newRequest = Request::create(
+            '',
+            'POST',
+            $data,
+            $request->cookies->all(),
+            $files,
+            $request->server->all()
+        );
+
         return $newRequest;
     }
 
-    private function processBase64InArray(array &$data, array &$files, string $prefix)
+    private function processBase64InArray(array &$data, array &$files, string $prefix): void
     {
         foreach ($data as $key => $value) {
             $fullKey = $prefix ? "{$prefix}.{$key}" : $key;
 
-            if (
-                is_string($value) &&
-                preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)
-            ) {
+            if (is_string($value) &&
+                preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)) {
 
-                $mime = $matches[1];
+                $mime   = $matches[1];
                 $base64 = $matches[2];
                 $binary = base64_decode($base64);
 
-                $tmp = tmpfile();
-                fwrite($tmp, $binary);
-                $path = stream_get_meta_data($tmp)['uri'];
+                if ($binary === false) {
+                    continue;
+                }
 
-                $ext = match (true) {
-                    str_contains($mime, 'jpeg') => 'jpg',
-                    str_contains($mime, 'png') => 'png',
-                    str_contains($mime, 'heic') => 'heic',
-                    str_contains($mime, 'pdf') => 'pdf',
-                    default => 'bin'
+                $temp = tmpfile();
+                fwrite($temp, $binary);
+                $meta = stream_get_meta_data($temp);
+                $path = $meta['uri'];
+
+                $extension = match (true) {
+                    str_contains($mime, 'jpeg'),
+                    str_contains($mime, 'jpg')   => 'jpg',
+                    str_contains($mime, 'png')   => 'png',
+                    str_contains($mime, 'heic')  => 'heic',
+                    str_contains($mime, 'tiff')  => 'tif',
+                    str_contains($mime, 'pdf')   => 'pdf',
+                    default                       => 'bin',
                 };
 
-                $uploaded = new UploadedFile($path, Str::random(20) . ".$ext", $mime, null, true);
+                $fileName     = Str::random(20) . '.' . $extension;
+                $uploadedFile = new UploadedFile($path, $fileName, $mime, null, true);
 
-                // FIX: properly nest file arrays
-                data_set($files, $fullKey, $uploaded);
-                data_set($data,  $fullKey, $uploaded);
+                data_set($files, $fullKey, $uploadedFile);
+                data_set($data,  $fullKey, $uploadedFile);
             } elseif (is_array($value)) {
                 $this->processBase64InArray($value, $files, $fullKey);
                 $data[$key] = $value;
             }
         }
     }
+
+    /**
+     * Scan a single UploadedFile for viruses using ClamAV.
+     * Throws an exception if a virus is found or if ClamAV is unreachable.
+     */
+    private function scanFileForVirus(UploadedFile $file): void
+    {
+        // Adjust this path to your clamd socket path if different
+        $socketPath = '/var/run/clamav/clamd.ctl';
+
+        $errno  = 0;
+        $errstr = '';
+        $conn   = @fsockopen('unix://' . $socketPath, 0, $errno, $errstr);
+
+        if (! $conn) {
+            throw new \RuntimeException("Cannot connect to ClamAV daemon: {$errstr} ({$errno})");
+        }
+
+        $filePath = $file->getRealPath();
+        fwrite($conn, "SCAN {$filePath}\n");
+        $result = fgets($conn);
+        fclose($conn);
+
+        if ($result !== false && str_contains($result, 'FOUND')) {
+            throw new \RuntimeException("Virus detected in uploaded file: {$file->getClientOriginalName()}");
+        }
+    }
+
+    /**
+     * Recursively scan all UploadedFile instances in any nested array structure.
+     */
+    private function scanAllFilesInArray($data): void
+    {
+        if (is_array($data)) {
+            foreach ($data as $value) {
+                $this->scanAllFilesInArray($value);
+            }
+            return;
+        }
+
+        if ($data instanceof UploadedFile) {
+            $this->scanFileForVirus($data);
+        }
+    }
+
     private function saveCustomerDocuments(CustomerSubmission $submission, array $data)
     {
-        // Reuse your file-saving logic or call existing methods with mock request
-        // For brevity, you can call:
-        $mockRequest = new Request();
-        $mockRequest->replace($data);
-        // But since your upload methods expect files in request, and we already processed them,
-        // you may need to refactor or inline the storage logic.
-        // Alternatively, enhance `uploadFileIfExists` to accept direct UploadedFile.
+        // placeholder - you can refactor file logging here if needed
     }
 }
