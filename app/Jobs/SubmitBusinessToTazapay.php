@@ -1,12 +1,15 @@
 <?php
+
 namespace App\Jobs;
 
+use App\Models\Endorsement;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -20,18 +23,20 @@ class SubmitBusinessToTazapay implements ShouldQueue
 
     public function handle(): void
     {
-        $registrationAddress = json_decode($this->businessData['registered_address'], true);
-        $physicalAddress     = json_decode($this->businessData['physical_address'], true);
-        $associatedPersons   = json_decode($this->businessData['associated_persons'], true);
-        $businessDocuments   = json_decode($this->businessData['documents'], true);
-        $identifyingInfo     = json_decode($this->businessData['identifying_information'], true);
+        $registrationAddress = $this->businessData['registered_address'] ?? [];
+        $physicalAddress     = $this->businessData['physical_address'] ?? [];
+        $associatedPersons   = $this->businessData['associated_persons'] ?? [];
+        $businessDocuments   = $this->businessData['documents'] ?? [];
+        $identifyingInfo     = $this->businessData['identifying_information'] ?? [];
 
         // Clean website
-        $website = trim($this->businessData['primary_website']);
+        $website = !empty($this->businessData['primary_website'])
+            ? trim($this->businessData['primary_website'])
+            : null;
 
         // Phone (optional)
         $phone = null;
-        if (! empty($this->businessData['phone_number']) && ! empty($this->businessData['phone_calling_code'])) {
+        if (!empty($this->businessData['phone_number']) && !empty($this->businessData['phone_calling_code'])) {
             $phone = [
                 'calling_code' => $this->businessData['phone_calling_code'],
                 'number'       => preg_replace('/[^0-9]/', '', $this->businessData['phone_number']),
@@ -41,46 +46,59 @@ class SubmitBusinessToTazapay implements ShouldQueue
         // Representatives
         $representatives = [];
         foreach ($associatedPersons as $person) {
+            // Determine roles
             $roles = [];
-            if ($person['is_signer'] ?? false) {
+            if (!empty($person['is_signer'])) {
                 $roles[] = 'signer';
             }
-
-            if ($person['has_control'] ?? false) {
+            if (!empty($person['has_control'])) {
                 $roles[] = 'controller';
             }
-
-            if ($person['has_ownership'] ?? false) {
+            if (!empty($person['has_ownership'])) {
                 $roles[] = 'owner';
             }
 
+            // If no role provided, fallback:
             if (empty($roles)) {
-                $roles = ['other'];
-            }
-
-            // Clean rep phone (US-centric parsing as example)
-            $repPhone = null;
-            if (! empty($person['phone'])) {
-                $num = preg_replace('/[^0-9+]/', '', $person['phone']);
-                if (Str::startsWith($num, '+')) {
-                    $parts       = explode(' ', $num, 2);
-                    $callingCode = substr($num, 0, 3); // naive; improve if needed
-                    $number      = substr(preg_replace('/[^0-9]/', '', $num), 1);
-                    $repPhone    = ['calling_code' => $callingCode, 'number' => $number];
+                // You have is_director = true in your DB
+                if (!empty($person['is_director'])) {
+                    $roles[] = 'director';
+                } else {
+                    $roles[] = 'other';
                 }
             }
 
+            // Representative phone
+            $repPhone = null;
+            if (!empty($person['phone'])) {
+                $num = preg_replace('/[^0-9+]/', '', $person['phone']);
+
+                if (Str::startsWith($num, '+')) {
+                    $callingCode = substr($num, 0, 3);
+                    $number      = substr(preg_replace('/[^0-9]/', '', $num), 1);
+                    $repPhone    = [
+                        'calling_code' => $callingCode,
+                        'number'       => $number
+                    ];
+                }
+            }
+
+            // Representative documents (YOUR MODEL HAS NO FILES)
             $repDoc = [];
-            if (! empty($identifyingInfo)) {
-                $idDoc     = $identifyingInfo[0];
-                $frontFile = $idDoc['image_front'];
-                $repDoc[]  = [
+            if (!empty($identifyingInfo)) {
+                $idDoc = $identifyingInfo[0];
+
+                // Your DB has NO image_front or file paths
+                // So we just send minimal ID doc or skip entirely
+
+                $repDoc[] = [
                     'type'        => 'identity',
-                    'sub_type'    => $idDoc['type'] ?? 'drivers_license',
-                    'tag'         => 'AddressProofDoc',
+                    'sub_type'    => $idDoc['type'] ?? 'passport',
+                    'tag'         => 'identityDoc',
                     'description' => $idDoc['description'] ?? '',
-                    'file_name'   => basename($frontFile),
-                    'url'         => Storage::url($frontFile),
+                    'number'      => $idDoc['number'],
+                    'issuing_country' => $idDoc['issuing_country'],
+                    'expiration'       => $idDoc['expiration'],
                 ];
             }
 
@@ -94,17 +112,16 @@ class SubmitBusinessToTazapay implements ShouldQueue
                 'phone'                => $repPhone,
                 'address'              => [
                     'line1'       => $person['residential_address']['street_line_1'] ?? null,
-                    'line2'       => $person['residential_address']['street_line_2'] ?? null,
                     'city'        => $person['residential_address']['city'] ?? null,
-                    'state'       => $person['residential_address']['subdivision'] ?? null,
+                    'state'       => null,
                     'country'     => $person['residential_address']['country'] ?? null,
-                    'postal_code' => $person['residential_address']['postal_code'] ?? null,
+                    'postal_code' => null,
                 ],
                 'documents'            => $repDoc,
             ];
         }
 
-        // Business documents
+        // Business documents (your DB HAS NO file paths)
         $businessDocs = [];
         foreach ($businessDocuments as $doc) {
             foreach ($doc['purposes'] as $purpose) {
@@ -114,11 +131,9 @@ class SubmitBusinessToTazapay implements ShouldQueue
                     'tag'         => match ($purpose) {
                         'proof_of_address'      => 'registrationProofDoc',
                         'ownership_information' => 'ownershipProofDoc',
-                        default                 => 'otherDoc'
+                        default                 => 'otherDoc',
                     },
-                    'file_name'   => basename($doc['file']),
-                    'description' => $doc['description'],
-                    'url'         => Storage::url($doc['file']),
+                    'description' => $doc['description'] ?? '',
                 ];
             }
         }
@@ -136,40 +151,71 @@ class SubmitBusinessToTazapay implements ShouldQueue
             'statement_descriptor' => $this->businessData['statement_descriptor'],
             'submit'               => true,
             'relationship'         => 'customer',
-            'reference_id'         => $this->businessData['session_id'],
+            'reference_id'         => $this->businessData['customer_id'],
             'registration_address' => [
                 'line1'       => $registrationAddress['street_line_1'] ?? null,
                 'line2'       => null,
                 'city'        => $registrationAddress['city'] ?? null,
                 'state'       => null,
                 'country'     => $registrationAddress['country'] ?? null,
-                'postal_code' => $registrationAddress['postal_code'] ?? null,
+                'postal_code' => null,
             ],
             'operating_address'    => [
                 'line1'       => $physicalAddress['street_line_1'] ?? null,
                 'line2'       => null,
                 'city'        => $physicalAddress['city'] ?? null,
-                'state'       => $physicalAddress['subdivision'] ?? null,
+                'state'       => null,
                 'country'     => $physicalAddress['country'] ?? null,
-                'postal_code' => $physicalAddress['postal_code'] ?? null,
+                'postal_code' => null,
             ],
             'phone'                => $phone,
             'representatives'      => $representatives,
             'documents'            => $businessDocs,
-            'purpose_of_use'       => json_decode($this->businessData['high_risk_activities'], true) ?: ['none_of_the_above'],
+            'purpose_of_use'       => $this->businessData['high_risk_activities'] ?: ['none_of_the_above'],
         ];
 
         $response = Http::withToken(config('services.tazapay.secret'))
             ->withHeaders(['Accept' => 'application/json'])
-            ->post('https://service-sandbox.tazapay.com/v3/entity', $payload);
+            ->post('https://service.tazapay.com/v3/entity', $payload);
 
-        if (! $response->successful()) {
-            \Log::error('Tazapay submission failed', [
+        if (!$response->successful()) {
+            Log::error('Tazapay submission failed', [
                 'session_id' => $this->businessData['session_id'],
                 'status'     => $response->status(),
                 'body'       => $response->body(),
             ]);
-            throw new \Exception('Tazapay submission failed');
+        }
+    }
+
+    public function handleAveniaKyb()
+    {
+        try {
+            $baseUrl = "https://api.avenia.io:10952/v2/kyc/new-level-1/web-sdk";
+            $payload = [
+                "redirectUrl" => "https://kyc.yativo.com/kyb-complete"
+            ];
+            $customerId = $this->businessData['customer_id'];
+            $response = Http::timeout(30)->post($baseUrl, $payload);
+
+            $result = $response->json();
+            if ($response->successful()) {
+                logger(
+                    'avenia kyc successful, now we update the attempt ID to complete the verification',
+                    [
+                        "customer_email" => $this->businessData['email'],
+                        'customer_id' => $this->businessData['customer_id'],
+                        'attempt_id' => $result['attemptId']
+                    ]
+                );
+            }
+
+            // update my Endorsement
+            Endorsement::where(['customer_id' => $customerId, 'service' => 'brl'])->update(['status' => 'pending', 'hosted_kyc_url' => [
+                "authorizedRepresentativeUrl" => $result["authorizedRepresentativeUrl"],
+                "basicCompanyDataUrl" => $result["basicCompanyDataUrl"]
+            ]]);
+        } catch (\Throwable $th) {
+            logger("Error generating avenia KYB link", ['error' => $th->getMessage()]);
         }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Customer;
 use App\Models\Endorsement;
+use App\Services\AveniaIndividualService;
 use App\Services\NoahService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable as FoundationQueueable;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use App\Models\Country;
+use App\Models\CustomerMeta;
+use App\Services\AveniaService;
 use Illuminate\Support\Str;
 
 
@@ -84,7 +87,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
     }
 
 
-
     public function noah(Customer $customer, array $data): void
     {
         try {
@@ -93,11 +95,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 return;
             }
 
-            // Step 1: Initiate onboarding flow
-            $this->initiateNoahOnboarding($customer->customer_id);
-
-            // Step 2: Prefill customer data
+            // Step 1: Prefill customer data
             $this->prefillNoahOnboarding($customer, $data);
+
+            // Step 2: Initiate onboarding flow
+            $this->initiateNoahOnboarding($customer->customer_id);
 
             // Step 3: Submit documents
             $this->submitNoahDocument($customer->customer_id, $data['identifying_information'] ?? []);
@@ -184,66 +186,17 @@ class ThirdPartyKycSubmission implements ShouldQueue
         Log::info('Noah prefill successful', ['customer_id' => $customer->customer_id]);
     }
 
-    protected function initiateNoahOnboarding(string $customerId): void
+    public function initiateNoahOnboarding(string $customerId): void
     {
         Log::info('Initiating Noah onboarding', ['customer_id' => $customerId]);
 
-        $noah = new NoahService();
-        // Onboarding initiation may require an empty body or minimal payload
-        $returnUrl = session()->get('return_url', 'https://app.yativo.com');
-        $payload = [
-            "Metadata" => [
-                "CustomerId" => $customerId
-            ],
-            "ReturnURL" => $returnUrl,
-            "FiatOptions" => [
-                ["FiatCurrencyCode" => "USD"],
-                ["FiatCurrencyCode" => "EUR"],
-            ]
-        ];
-
-        logger('Noah Onboarding Payload:', ['payload' => $payload]);
-
-        $noah = new NoahService();
-        $response = $noah->post("/onboarding/{$customerId}", $payload);
-        $body = $response->json();
-
-        logger('Noah Onboarding Response:', [
-            'status' => $response->status(),
-            'body' => $body,
-            'hosted_kyc_url' => $body['HostedURL'] ?? null,
-        ]);
-
-
-        if ($response->successful()) {
-            $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa'] as $service) {
-                Endorsement::where(
-                    [
-                        'customer_id' => $customerId,
-                        'service' => $service,
-                    ]
-                )->update(
-                    [
-                        'status' => 'pending',
-                        'hosted_kyc_url' => $hostedUrl
-                    ]
-                );
-            }
-
-            Log::info('Noah onboarding initiated', [
-                'customer_id' => $customerId,
-                'hosted_kyc_url' => $hostedUrl,
-            ]);
-
-            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
-        } else {
-            throw new \RuntimeException('Failed to initiate Noah onboarding: ' . $response->body());
-        }
+        $noahService = new NoahService();
+        $noahService->noahOnboardingInit($customerId);
     }
 
     /**
-     * Generate and cache API access token for borderless
+     * Generate and cache API access token for 
+     * Borderless
      */
     public function generateAccessToken(): ?array
     {
@@ -812,129 +765,13 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
-    public function avenia(Customer $customer, array $data = [])
+    public function avenia(Customer $customer, array $data)
     {
         try {
-            $baseUrl = rtrim("https://api.sandbox.avenia.io:10952/v2", " ");
-            $token = 'your_jwt_bearer_token_here'; // Replace with actual token retrieval logic
-
-            //===================================
-            // STEP 1: Request Upload URLs
-            //===================================
-
-            $idInfo = $data['identity_information'][0];
-            $isDoubleSided = !empty($idInfo['back_image_url']);
-
-            // --- Upload Document (e.g., Driver's License) ---
-            $docResponse = Http::withToken($token)
-                ->post("{$baseUrl}/documents/", [
-                    'documentType' => 'DRIVERS-LICENSE',
-                    'isDoubleSided' => $isDoubleSided,
-                ]);
-
-            if (!$docResponse->successful()) {
-                logger('Failed to request document upload URI',  ['response' => $docResponse->body()]);
-            }
-
-            $docData = $docResponse->json();
-            $uploadedDocumentId = $docData['id'];
-
-            // --- Upload Selfie ---
-            $selfieResponse = Http::withToken($token)
-                ->post("{$baseUrl}/documents/", [
-                    'documentType' => 'SELFIE',
-                ]);
-
-            if (!$selfieResponse->successful()) {
-                logger('Failed to request selfie upload URI: ',  ['response' =>  $selfieResponse->body()]);
-            }
-
-            $selfieData = $selfieResponse->json();
-            $uploadedSelfieId = $selfieData['id'];
-            $selfieUploadUrl = $selfieData['uploadURLFront'];
-
-            //===================================
-            // STEP 2: Upload Files
-            //===================================
-
-            // Helper to get image binary from URL or path
-            $getImageBinary = function ($imageUrl) {
-                if (filter_var($imageUrl, FILTER_VALIDATE_URL)) {
-                    return Http::get($imageUrl)->body();
-                } else {
-                    return file_get_contents($imageUrl);
-                }
-            };
-
-            // Upload front of document
-            $frontImageBinary = $getImageBinary($idInfo['front_image_url']);
-            $frontUploadResponse = Http::withHeaders([
-                'Content-Type' => 'image/jpeg', // adjust if PNG
-                'If-None-Match' => '*',
-            ])->put($docData['uploadURLFront'], $frontImageBinary);
-
-            if (!$frontUploadResponse->successful()) {
-                logger('Failed to upload front document: ',  ['response' => $frontUploadResponse->status()]);
-            }
-
-            // Upload back if double-sided
-            if ($isDoubleSided) {
-                $backImageBinary = $getImageBinary($idInfo['back_image_url']);
-                $backUploadResponse = Http::withHeaders([
-                    'Content-Type' => 'image/jpeg',
-                    'If-None-Match' => '*',
-                ])->put($docData['uploadURLBack'], $backImageBinary);
-
-                if (!$backUploadResponse->successful()) {
-                    logger('Failed to upload back document: ',  ['response' => $backUploadResponse->status()]);
-                }
-            }
-
-            // Upload selfie
-            $selfieImageBinary = $getImageBinary($idInfo['selfie_image_url']);
-            $selfieUploadResponse = Http::withHeaders([
-                'Content-Type' => 'image/jpeg',
-                'If-None-Match' => '*',
-            ])->put($selfieUploadUrl, $selfieImageBinary);
-
-            if (!$selfieUploadResponse->successful()) {
-                logger('Failed to upload selfie: ', ['response' => $selfieUploadResponse->status()]);
-            }
-
-            //===================================
-            // STEP 3: Submit KYC Request
-            //===================================
-
-            // Map customer data (adjust based on your Customer model)
-            $payload = [
-                "fullName" => $customer->full_name, // or "{$customer->first_name} {$customer->last_name}"
-                "dateOfBirth" => $customer->date_of_birth->format('Y-m-d'), // ensure it's a Carbon instance or string
-                "countryOfTaxId" => "NGA", // Nigeria ISO 3166-1 alpha-3
-                "taxIdNumber" => $customer->tax_id_number ?? '12345678901', // fallback if missing
-                "email" => $customer->email,
-                "phone" => $customer->phone,
-                "country" => "NGA",
-                "state" => "FC",
-                "city" => "Abuja",
-                "zipCode" => "900107",
-                "streetAddress" => "30 ABC Orjiako Street, Lugbe",
-                "uploadedSelfieId" => $uploadedSelfieId,
-                "uploadedDocumentId" => $uploadedDocumentId,
-            ];
-
-            $kycResponse = Http::withToken($token)
-                ->post("{$baseUrl}/kyc/new-level-1/api", $payload);
-
-            if (!$kycResponse->successful()) {
-                logger('KYC submission failed: ', ['response' => $kycResponse->body()]);
-            }
-
-            $kycResult = $kycResponse->json();
-            // Success! You can now store $kycResult['id'] or trigger next steps
-            return $kycResult;
+            $avenia = new AveniaService();
+            $kyc = $avenia->avenia($customer, $data);
         } catch (Throwable $th) {
-            Log::error('Avenia KYC Error: ' . $th->getMessage(), ['trace' => $th->getTraceAsString()]);
-            throw $th; // or return error response as needed
+            return ['error' => $th->getMessage()];
         }
     }
 

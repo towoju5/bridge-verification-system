@@ -9,4 +9,6 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
+
+Route::post('individual-kyc/submit', [CustomerController::class, 'submitFullKyc']);
 Route::post('individual-kyc/submit-all', [CustomerController::class, 'submitIndividualKycAll']);

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+// declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
+
+
+
 
 class CustomerController extends Controller
 {
@@ -756,319 +761,6 @@ class CustomerController extends Controller
         // Left as placeholder — implement as needed
     }
 
-    public function submitIndividualKycAll(Request $request)
-    {
-        $isJson = $request->isJson();
-
-        $rules = [
-            'customer_id'                                => 'required|string',
-            'first_name'                                 => 'required|string|min:1|max:1024',
-            'middle_name'                                => 'required|string|max:1024',
-            'last_name'                                  => 'required|string|min:1|max:1024',
-            'last_name_native'                           => 'nullable|string|max:1024',
-            'email'                                      => 'required|email|max:1024',
-            'gender'                                     => 'required|in:Male,Female,male,female',
-            'taxId'                                      => 'required|string|max:100',
-            'phone'                                      => 'required|string|regex:/^\+\d{1,15}$/',
-            'birth_date'                                 => 'required|date|before:today',
-            'nationality'                                => 'required|string|size:2',
-            'residential_address.street_line_1'          => 'required|string|max:256',
-            'residential_address.street_line_2'          => 'nullable|string|max:256',
-            'residential_address.city'                   => 'required|string|max:256',
-            'residential_address.state'                  => 'required|string|max:256',
-            'residential_address.postal_code'            => 'required|string|max:256',
-            'residential_address.country'                => 'required|string|size:2',
-            'residential_address.proof_of_address_file'  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
-            'identifying_information'                    => 'required|array',
-            'identifying_information.*.type'             => 'required|string',
-            'identifying_information.*.issuing_country'  => 'required|string|size:2',
-            'identifying_information.*.number'           => 'required|string',
-            'identifying_information.*.date_issued'      => 'required|date|before:today',
-            'identifying_information.*.expiration_date'  => 'required|date|after:today',
-            'identifying_information.*.image_front_file' => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'identifying_information.*.image_back_file'  => $isJson ? 'nullable' : 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'employment_status'                          => 'required',
-            'most_recent_occupation_code'                => 'required|string',
-            'expected_monthly_payments_usd'              => ['required', Rule::in(config('bridge_data.expected_monthly_payments_usd'))],
-            'source_of_funds'                            => ['required', Rule::in(config('bridge_data.source_of_funds'))],
-            'account_purpose'                            => 'required',
-            'account_purpose_other'                      => 'required_if:account_purpose,other',
-            'acting_as_intermediary'                     => 'nullable|boolean',
-            'uploaded_documents'                         => 'required|array',
-            'uploaded_documents.*.type'                  => 'required|string',
-            'uploaded_documents.*.file'                  => $isJson ? 'nullable' : 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ];
-
-        $validated  = $request->validate($rules);
-        $customerId = $validated['customer_id'];
-
-        $submission = CustomerSubmission::firstOrNew([
-            'signed_agreement_id' => $customerId,
-        ]);
-
-        if (! $submission->exists) {
-            $submission->type       = 'individual';
-            $submission->user_agent = $request->userAgent();
-            $submission->ip_address = $request->ip();
-        }
-
-        // Step 1
-        $submission->fill(Arr::only($validated, [
-            'first_name',
-            'middle_name',
-            'last_name',
-            'last_name_native',
-            'email',
-            'phone',
-            'birth_date',
-            'nationality',
-        ]));
-        $submission->endorsements = ['spei', 'base', 'sepa', 'asian'];
-
-        $transliterated = app(\App\Services\TransliterationService::class);
-        foreach (['first_name', 'middle_name', 'last_name'] as $field) {
-            $val                                     = $validated[$field];
-            $submission->{"transliterated_{$field}"} = $val
-                ? ($transliterated->needsTransliteration($val)['transliterated'] ?? null)
-                : null;
-        }
-
-        $saveBase64File = function ($base64String, $folder, $defaultExtension = 'pdf') {
-            if (empty($base64String)) {
-                return null;
-            }
-
-            if (str_starts_with($base64String, 'data:')) {
-                if (! preg_match('/^data:(.*?);base64,(.*)$/', $base64String, $matches)) {
-                    throw new \InvalidArgumentException('Invalid Base64 data URI');
-                }
-                $mime      = $matches[1];
-                $data      = $matches[2];
-                $extension = match (true) {
-                    str_contains($mime, 'jpeg') || str_contains($mime, 'jpg') => 'jpg',
-                    str_contains($mime, 'png')                                => 'png',
-                    str_contains($mime, 'pdf')                                => 'pdf',
-                    str_contains($mime, 'heic')                               => 'heic',
-                    str_contains($mime, 'tiff') || str_contains($mime, 'tif') => 'tif',
-                    default                                                   => $defaultExtension,
-                };
-            } else {
-                $data      = $base64String;
-                $extension = $defaultExtension;
-            }
-            $binary = base64_decode($data, true);
-            if ($binary === false) {
-                throw new \InvalidArgumentException('Invalid Base64 string');
-            }
-            $filename = Str::random(20) . '.' . $extension;
-            $path     = "$folder/$filename";
-            Storage::disk('public')->put($path, $binary);
-            return Storage::url($path);
-        };
-
-        // Step 2
-        $residential = Arr::except($validated['residential_address'], [
-            'proof_of_address_file',
-            'proof_of_address_file_base64',
-        ]);
-
-        $proofFileUrl = null;
-        if ($request->hasFile('residential_address.proof_of_address_file')) {
-            $file         = $request->file('residential_address.proof_of_address_file');
-            $path         = $file->store("customer_documents/{$customerId}", 'public');
-            $proofFileUrl = Storage::url($path);
-            CustomerDocument::create([
-                'customer_submission_id' => $submission->id,
-                'document_type'          => 'proof_of_address',
-                'file_path'              => $path,
-                'file_name'              => $file->getClientOriginalName(),
-                'mime_type'              => $file->getMimeType(),
-                'file_size'              => $file->getSize(),
-            ]);
-        } elseif (! empty($validated['residential_address']['proof_of_address_file_base64'])) {
-            try {
-                $proofFileUrl = $saveBase64File(
-                    $validated['residential_address']['proof_of_address_file_base64'],
-                    "customer_documents/{$customerId}",
-                    'pdf'
-                );
-                if ($proofFileUrl) {
-                    $filename = basename(parse_url($proofFileUrl, PHP_URL_PATH));
-                    CustomerDocument::create([
-                        'customer_submission_id' => $submission->id,
-                        'document_type'          => 'proof_of_address',
-                        'file_path'              => "customer_documents/{$customerId}/$filename",
-                        'file_name' => $filename,
-                        'mime_type' => 'application/pdf',
-                        'file_size' => null,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                return response()->json(['error' => 'Invalid proof_of_address_file_base64'], 400);
-            }
-        }
-
-        $residential['proof_of_address_url'] = $proofFileUrl; // ✅ Consistent key
-        $submission->residential_address     = $residential;
-
-        // Step 3
-        $idDocs = [];
-        foreach ($validated['identifying_information'] as $index => $doc) {
-            $cleanDoc = Arr::except($doc, [
-                'image_front_file',
-                'image_back_file',
-                'image_front_file_base64',
-                'image_back_file_base64',
-            ]);
-
-            // Front
-            $frontUrl = null;
-            if ($request->hasFile("identifying_information.$index.image_front_file")) {
-                $file     = $request->file("identifying_information.$index.image_front_file");
-                $path     = $file->store("customer_documents/{$customerId}/ids", 'public');
-                $frontUrl = Storage::url($path);
-                CustomerDocument::create([
-                    'customer_submission_id' => $submission->id,
-                    'document_type'          => 'identification',
-                    'side'                   => 'front',
-                    'reference_field'        => "identifying_information.$index.image_front_file",
-                    'file_path'              => $path,
-                    'file_name'              => $file->getClientOriginalName(),
-                    'mime_type'              => $file->getMimeType(),
-                    'file_size'              => $file->getSize(),
-                    'issuing_country'        => $doc['issuing_country'] ?? null,
-                ]);
-            } elseif (! empty($doc['image_front_file_base64'])) {
-                try {
-                    $frontUrl = $saveBase64File($doc['image_front_file_base64'], "customer_documents/{$customerId}/ids", 'jpg');
-                    if ($frontUrl) {
-                        $filename = basename(parse_url($frontUrl, PHP_URL_PATH));
-                        CustomerDocument::create([
-                            'customer_submission_id' => $submission->id,
-                            'document_type'          => 'identification',
-                            'side'                   => 'front',
-                            'reference_field'        => "identifying_information.$index.image_front_file_base64",
-                            'file_path'              => "customer_documents/{$customerId}/ids/$filename",
-                            'file_name'       => $filename,
-                            'mime_type'       => 'image/jpeg',
-                            'file_size'       => null,
-                            'issuing_country' => $doc['issuing_country'] ?? null,
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    return response()->json(['error' => "Invalid image_front_file_base64 at index $index"], 400);
-                }
-            }
-            $cleanDoc['image_front'] = $frontUrl;
-
-            // Back
-            $backUrl = null;
-            if ($request->hasFile("identifying_information.$index.image_back_file")) {
-                $file    = $request->file("identifying_information.$index.image_back_file");
-                $path    = $file->store("customer_documents/{$customerId}/ids", 'public');
-                $backUrl = Storage::url($path);
-                CustomerDocument::create([
-                    'customer_submission_id' => $submission->id,
-                    'document_type'          => 'identification',
-                    'side'                   => 'back',
-                    'reference_field'        => "identifying_information.$index.image_back_file",
-                    'file_path'              => $path,
-                    'file_name'              => $file->getClientOriginalName(),
-                    'mime_type'              => $file->getMimeType(),
-                    'file_size'              => $file->getSize(),
-                    'issuing_country'        => $doc['issuing_country'] ?? null,
-                ]);
-            } elseif (! empty($doc['image_back_file_base64'])) {
-                try {
-                    $backUrl = $saveBase64File($doc['image_back_file_base64'], "customer_documents/{$customerId}/ids", 'jpg');
-                    if ($backUrl) {
-                        $filename = basename(parse_url($backUrl, PHP_URL_PATH));
-                        CustomerDocument::create([
-                            'customer_submission_id' => $submission->id,
-                            'document_type'          => 'identification',
-                            'side'                   => 'back',
-                            'reference_field'        => "identifying_information.$index.image_back_file_base64",
-                            'file_path'              => "customer_documents/{$customerId}/ids/$filename",
-                            'file_name'       => $filename,
-                            'mime_type'       => 'image/jpeg',
-                            'file_size'       => null,
-                            'issuing_country' => $doc['issuing_country'] ?? null,
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    return response()->json(['error' => "Invalid image_back_file_base64 at index $index"], 400);
-                }
-            }
-            $cleanDoc['image_back'] = $backUrl;
-            $idDocs[]               = $cleanDoc;
-        }
-        $submission->identifying_information = $idDocs;
-
-        // Step 4
-        $submission->fill(Arr::only($validated, [
-            'employment_status',
-            'most_recent_occupation_code',
-            'expected_monthly_payments_usd',
-            'source_of_funds',
-            'account_purpose',
-            'account_purpose_other',
-            'acting_as_intermediary',
-        ]));
-
-        // Step 5
-        $additionalDocs = [];
-        foreach ($validated['uploaded_documents'] as $index => $doc) {
-            $docUrl = null;
-            if ($request->hasFile("uploaded_documents.$index.file")) {
-                $file   = $request->file("uploaded_documents.$index.file");
-                $path   = $file->store("customer_documents/{$customerId}/additional", 'public');
-                $docUrl = Storage::url($path);
-                CustomerDocument::create([
-                    'customer_submission_id' => $submission->id,
-                    'document_type'          => $doc['type'] ?? 'other',
-                    'file_path'              => $path,
-                    'file_name'              => $file->getClientOriginalName(),
-                    'mime_type'              => $file->getMimeType(),
-                    'file_size'              => $file->getSize(),
-                ]);
-            } elseif (! empty($doc['file_base64'])) {
-                try {
-                    $docUrl = $saveBase64File($doc['file_base64'], "customer_documents/{$customerId}/additional", 'pdf');
-                    if ($docUrl) {
-                        $filename = basename(parse_url($docUrl, PHP_URL_PATH));
-                        CustomerDocument::create([
-                            'customer_submission_id' => $submission->id,
-                            'document_type'          => $doc['type'] ?? 'other',
-                            'file_path'              => "customer_documents/{$customerId}/additional/$filename",
-                            'file_name' => $filename,
-                            'mime_type' => 'application/pdf',
-                            'file_size' => null,
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    return response()->json(['error' => "Invalid file_base64 at uploaded_documents index $index"], 400);
-                }
-            }
-            if ($docUrl) {
-                $additionalDocs[] = ['type' => $doc['type'], 'file' => $docUrl];
-            }
-        }
-        $submission->documents = $additionalDocs;
-
-        // Finalize
-        $submission->status       = 'submitted';
-        $submission->submitted_at = now();
-        $submission->save();
-
-        // initiate the third-party KYC job process
-        dispatch(new ThirdPartyKycSubmission($submission->toArray()));
-
-        return response()->json([
-            'success'     => true,
-            'message'     => 'Individual KYC submitted successfully.',
-            'customer_id' => $customerId,
-        ]);
-    }
 
     private function sanitizeRedirectUrl(?string $url): string
     {
@@ -1084,4 +776,250 @@ class CustomerController extends Controller
 
         return 'https://app.yativo.com';
     }
-};
+
+    public function submitFullKyc(Request $request)
+    {
+        // 1. Validate presence of customer_id
+        $request->validate([
+            'customer_id' => 'required|string|exists:customers,customer_id',
+        ]);
+
+        $customerId = $request->customer_id;
+        $customer = Customer::where('customer_id', $customerId)->firstOrFail();
+
+        DB::beginTransaction();
+
+        try {
+            // 2. Create submission
+            $submission = CustomerSubmission::updateOrCreate(
+                ['customer_id' => $customerId],
+                [
+                    'type'                => 'individual',
+                    'signed_agreement_id' => Str::uuid(),
+                    'user_agent'          => $request->userAgent() ?? 'API',
+                    'ip_address'          => $request->ip(),
+                    'status'              => 'submitted',
+                    'submitted_at'        => now(),
+                ]
+            );
+
+            // 3. Preprocess: convert Base64 to UploadedFile if needed
+            $processedRequest = $this->convertBase64ToUploadedFiles($request);
+
+            // 4. Validate all sections using your existing rules (adapted)
+            $data = $processedRequest->all();
+
+            // Step 1
+            $step1 = $this->validateSection($data, [
+                'first_name'       => 'required|string|min:1|max:1024',
+                'middle_name'      => 'required|string|max:1024',
+                'last_name'        => 'required|string|min:1|max:1024',
+                'email'            => 'required|email|max:1024',
+                'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
+                'birth_date'       => 'required|date|before:today',
+                'nationality'      => 'required|string|size:2',
+                'gender'           => 'required|in:Male,Female,male,female',
+                'taxId'            => 'required|string|max:100',
+            ]);
+            if ($processedRequest->hasFile('selfie_image')) {
+                $step1['selfie_image'] = $processedRequest->file('selfie_image');
+            }
+
+            // Step 2
+            $step2 = $this->validateSection($data['residential_address'] ?? [], [
+                'street_line_1'   => 'required|string|max:256',
+                'city'            => 'required|string|max:256',
+                'state'           => 'required|string|max:256',
+                'postal_code'     => 'required|string|max:256',
+                'country'         => 'required|string|size:2',
+            ]);
+            if (
+                !empty($data['residential_address']['proof_of_address_file']) ||
+                $processedRequest->hasFile('residential_address.proof_of_address_file')
+            ) {
+                $step2['proof_of_address_file'] = $processedRequest->file('residential_address.proof_of_address_file')
+                    ?? $data['residential_address']['proof_of_address_file'];
+            }
+            $step2 = ['residential_address' => $step2];
+
+            // Step 3
+            $ids = [];
+            foreach ($data['identifying_information'] ?? [] as $idx => $idDoc) {
+                $validatedId = $this->validateSection($idDoc, [
+                    'type'            => 'required|string',
+                    'issuing_country' => 'required|string|size:2',
+                    'number'          => 'required|string',
+                    'date_issued'     => 'required|date|before:today',
+                    'expiration_date' => 'required|date|after:today',
+                ]);
+                // Attach files if present
+                $frontFile = $processedRequest->file("identifying_information.{$idx}.image_front_file")
+                    ?? ($idDoc['image_front_file'] ?? null);
+                $backFile = $processedRequest->file("identifying_information.{$idx}.image_back_file")
+                    ?? ($idDoc['image_back_file'] ?? null);
+                if ($frontFile) $validatedId['image_front_file'] = $frontFile;
+                if ($backFile) $validatedId['image_back_file'] = $backFile;
+                $ids[] = $validatedId;
+            }
+            $step3 = ['identifying_information' => $ids];
+
+            // Step 4
+            $step4 = $this->validateSection($data, [
+                'employment_status'             => 'required',
+                'most_recent_occupation_code'   => 'required|string',
+                'expected_monthly_payments_usd' => ['required', Rule::in(array_keys(config('bridge_data.expected_monthly_payments_usd', [])))],
+                'source_of_funds'               => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds', [])))],
+                'account_purpose'               => 'required',
+                'account_purpose_other'         => 'required_if:account_purpose,other',
+                'acting_as_intermediary'        => 'boolean',
+            ]);
+
+            // Step 5
+            $docs = [];
+            foreach ($data['uploaded_documents'] ?? [] as $idx => $doc) {
+                $type = $doc['type'] ?? 'other';
+                $file = $processedRequest->file("uploaded_documents.{$idx}.file")
+                    ?? ($doc['file'] ?? null);
+                if (!$file) continue;
+                $docs[] = ['type' => $type, 'file' => $file];
+            }
+            // Enforce required types (e.g., proof_of_funds)
+            $uploadedTypes = collect($docs)->pluck('type');
+            if (!$uploadedTypes->contains('proof_of_funds')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Document of type 'proof_of_funds' is required."
+                ], 400);
+            }
+            $step5 = ['uploaded_documents' => $docs];
+
+            // 5. Merge all data and map to model fields
+            $allData = array_merge($step1, $step2, $step3, $step4, $step5);
+
+            // Reuse your mapping logic by simulating step-by-step
+            $modelData = [];
+            $tempRequest = new Request();
+            $tempRequest->replace($allData);
+
+            // Simulate each step mapping
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 1), 1));
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 2), 2));
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 3), 3));
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 4), 4));
+            $modelData = array_merge($modelData, $this->mapStepDataToModel($this->extractStepData($allData, 5), 5));
+
+            // 6. Save submission
+            $submission->fill($modelData);
+            $submission->save();
+
+            // 7. Save CustomerDocument records (optional but recommended)
+            // $this->saveCustomerDocuments($submission, $allData);
+
+            DB::commit();
+
+            // 8. Dispatch third-party job
+            dispatch(job: new ThirdPartyKycSubmission($submission->toArray()));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'KYC submitted successfully.',
+                'submission_id' => $submission->id
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Full KYC API failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Submission failed. Please check your data and try again.',
+                'debug'   => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    private function validateSection(array $data, array $rules): array
+    {
+        $validator = Validator::make($data, $rules);
+        if ($validator->fails()) {
+            throw new \Exception(json_encode($validator->errors()->first()));
+        }
+        return $validator->validated();
+    }
+
+    private function extractStepData(array $data, int $step): array
+    {
+        // Reuse your existing mapping logic by returning relevant subset
+        switch ($step) {
+            case 1:
+                return Arr::only($data, ['first_name', 'middle_name', 'last_name', 'email', 'phone', 'birth_date', 'nationality', 'gender', 'taxId', 'selfie_image']);
+            case 2:
+                return ['residential_address' => $data['residential_address'] ?? []];
+            case 3:
+                return ['identifying_information' => $data['identifying_information'] ?? []];
+            case 4:
+                return Arr::only($data, ['employment_status', 'most_recent_occupation_code', 'expected_monthly_payments_usd', 'source_of_funds', 'account_purpose', 'account_purpose_other', 'acting_as_intermediary']);
+            case 5:
+                return ['uploaded_documents' => $data['uploaded_documents'] ?? []];
+            default:
+                return [];
+        }
+    }
+
+    private function convertBase64ToUploadedFiles(Request $request): Request
+    {
+        $data = $request->all();
+        $files = [];
+
+        $this->processBase64InArray($data, $files, '');
+
+        // Merge files into a new request
+        $newRequest = Request::create('', 'POST', $data, [], $files, $request->server->all());
+        return $newRequest;
+    }
+
+    private function processBase64InArray(array &$data, array &$files, string $prefix)
+    {
+        foreach ($data as $key => $value) {
+            $fullKey = $prefix ? "{$prefix}.{$key}" : $key;
+
+            if (is_string($value) && preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)) {
+                $mime = $matches[1];
+                $base64 = $matches[2];
+                $binary = base64_decode($base64);
+                if ($binary === false) continue;
+
+                $tempFile = tmpfile();
+                fwrite($tempFile, $binary);
+                $meta = stream_get_meta_data($tempFile);
+                $filePath = $meta['uri'];
+
+                $extension = match (true) {
+                    str_starts_with($mime, 'image/jpeg') => 'jpg',
+                    str_starts_with($mime, 'image/png')  => 'png',
+                    str_starts_with($mime, 'image/heic') => 'heic',
+                    str_starts_with($mime, 'image/tiff') => 'tif',
+                    str_starts_with($mime, 'application/pdf') => 'pdf',
+                    default => 'bin'
+                };
+
+                $fileName = Str::random(20) . '.' . $extension;
+                $uploadedFile = new UploadedFile($filePath, $fileName, $mime, null, true);
+                $files[$fullKey] = $uploadedFile;
+                $data[$key] = $uploadedFile; // replace with UploadedFile
+            } elseif (is_array($value)) {
+                $this->processBase64InArray($value, $files, $fullKey);
+                $data[$key] = $value;
+            }
+        }
+    }
+
+    private function saveCustomerDocuments(CustomerSubmission $submission, array $data)
+    {
+        // Reuse your file-saving logic or call existing methods with mock request
+        // For brevity, you can call:
+        $mockRequest = new Request();
+        $mockRequest->replace($data);
+        // But since your upload methods expect files in request, and we already processed them,
+        // you may need to refactor or inline the storage logic.
+        // Alternatively, enhance `uploadFileIfExists` to accept direct UploadedFile.
+    }
+}

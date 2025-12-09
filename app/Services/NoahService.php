@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Endorsement;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -71,5 +72,61 @@ class NoahService
         $body = NoahRequestSigner::prepareJsonBody($data);
         [$client, $url] = $this->buildClient('PUT', $path, null, $body);
         return $client->withBody($body, 'application/json')->put($url);
+    }
+
+    public function noahOnboardingInit($customerId)
+    {
+        $noah = new NoahService();
+        // Onboarding initiation may require an empty body or minimal payload
+        $returnUrl = session()->get('return_url', 'https://app.yativo.com');
+        $payload = [
+            "Metadata" => [
+                "CustomerId" => $customerId
+            ],
+            "ReturnURL" => $returnUrl,
+            "FiatOptions" => [
+                ["FiatCurrencyCode" => "USD"],
+                ["FiatCurrencyCode" => "EUR"],
+            ]
+        ];
+
+        logger('Noah Onboarding Payload:', ['payload' => $payload]);
+
+        $noah = new NoahService();
+        $response = $noah->post("/onboarding/{$customerId}", $payload);
+        $body = $response->json();
+
+        logger('Noah Onboarding Response:', [
+            'status' => $response->status(),
+            'body' => $body,
+            'hosted_kyc_url' => $body['HostedURL'] ?? null,
+        ]);
+
+
+        if ($response->successful()) {
+            $hostedUrl = $body['HostedURL'] ?? null;
+            foreach (['base', 'sepa'] as $service) {
+                Endorsement::where(
+                    [
+                        'customer_id' => $customerId,
+                        'service' => $service,
+                    ]
+                )->update(
+                    [
+                        'status' => 'pending',
+                        'hosted_kyc_url' => $hostedUrl
+                    ]
+                );
+            }
+
+            Log::info('Noah onboarding initiated', [
+                'customer_id' => $customerId,
+                'hosted_kyc_url' => $hostedUrl,
+            ]);
+
+            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
+        } else {
+            logger('Failed to initiate Noah onboarding: ' . $response->body());
+        }
     }
 }

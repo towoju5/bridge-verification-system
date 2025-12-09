@@ -13,7 +13,7 @@ class Endorsement extends Model
     use HasFactory, SoftDeletes;
     protected $connection = 'mysql_second';
 
-    protected $table      = "customer_kyc_endorsements";
+    protected $table = "customer_kyc_endorsements";
 
     public const SERVICES = [
         'base',
@@ -61,10 +61,11 @@ class Endorsement extends Model
     ];
 
     protected $casts = [
-        'metadata'                => 'array',
-        'errors'                  => 'array',
-        'requirements_due'        => 'array',
+        'metadata' => 'array',
+        'errors' => 'array',
+        'requirements_due' => 'array',
         'future_requirements_due' => 'array',
+        'hosted_kyc_url' => 'array',
     ];
     protected $keyType = 'string';
 
@@ -72,7 +73,6 @@ class Endorsement extends Model
 
     public $incrementing = false;
 
-    // Automatically generate UUID when creating a new model instance
     protected static function boot()
     {
         parent::boot();

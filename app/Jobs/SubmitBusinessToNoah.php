@@ -1,6 +1,9 @@
 <?php
+
 namespace App\Jobs;
 
+use App\Models\Endorsement;
+use App\Services\NoahService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -14,83 +17,82 @@ class SubmitBusinessToNoah implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $baseUrl;
+
     public function __construct(
         public array $businessData
-    ) {}
+    ) {
+        $baseUrl = 'https://api.noah.com/v1/';
+    }
 
     public function handle(): void
     {
         // Parse registered address (required)
-        $registeredAddressRaw = $this->businessData['registered_address'] ?? null;
-        if (! $registeredAddressRaw) {
-            throw new \Exception('Registered address is missing');
+        $business = $this->businessData;
+        $customerId = $business['customer_id'];
+
+        // Decode JSON fields safely
+        $registeredAddress = $business['registered_address'];
+        $associatedPersons = $business['associated_persons'];
+
+        // Build associates array
+        $associates = [];
+        foreach ($associatedPersons as $person) {
+            $associates[] = [
+                "ID" => $person['id'] ?? null,
+                "RelationshipTypes" => array_filter([
+                    $person['has_ownership'] ? "UBO" : null,
+                    $person['is_director'] ? "Director" : null,
+                    $person['is_signer'] ? "Representative" : null,
+                ]),
+                "FullName" => [
+                    "FirstName" => $person['first_name'] ?? null,
+                    "LastName"  => $person['last_name'] ?? null,
+                ],
+                "DateOfBirth" => $person['birth_date'] ?? null,
+            ];
         }
 
-        $addr = json_decode($registeredAddressRaw, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception('Invalid registered_address JSON');
-        }
+        // Remove null ID fields
+        $associates = array_map(function ($a) {
+            return array_filter($a, fn($v) => $v !== null);
+        }, $associates);
 
-        // Ensure required fields exist
-        $requiredFields = ['street_line_1', 'city', 'postal_code', 'country'];
-        foreach ($requiredFields as $field) {
-            if (empty(Arr::get($addr, $field))) {
-                throw new \Exception("Missing required address field: {$field}");
-            }
-        }
-
-        // Noah requires RegistrationNumber and IncorporationDate
-        if (empty($this->businessData['registration_number'])) {
-            throw new \Exception('RegistrationNumber is required by Noah but missing');
-        }
-        
-        if (empty($this->businessData['incorporation_date'])) {
-            throw new \Exception('IncorporationDate is required by Noah but missing');
-        }
-
-        // Map state: use subdivision if available, otherwise fallback
-        $state = Arr::get($addr, 'subdivision') ?: Arr::get($addr, 'state', '');
-
-        $noahPayload = [
-            'RegisteredName'      => $this->businessData['business_legal_name'],
-            'Email'               => $this->businessData['email'],
-            'RegistrationNumber'  => $this->businessData['registration_number'],
-            'RegistrationCountry' => Arr::get($addr, 'country'),
-            'RegisteredAddress'   => [
-                'Street'   => Arr::get($addr, 'street_line_1'), // >=2 chars enforced by Noah
-                'Street2'  => Arr::get($addr, 'street_line_2', ''),
-                'City'     => Arr::get($addr, 'city'),
-                'PostCode' => Arr::get($addr, 'postal_code'),
-                'State'    => $state,
-                'Country'  => Arr::get($addr, 'country'),
-            ],
-            'IncorporationDate'   => $this->businessData['incorporation_date'], // format: YYYY-MM-DD
+        $payload = [
+            "Type" => "BusinessCustomerPrefill",
+            "RegistrationCountry" => $registeredAddress['country'] ?? "US",
+            "CompanyName" => $business['business_legal_name'],
+            "RegistrationNumber" => $business['registration_number'],
+            "LegalAddress" => array_filter([
+                "Street" => $registeredAddress['street_line_1'] ?? null,
+                "City"   => $registeredAddress['city'] ?? null,
+                "PostCode" => $registeredAddress['postcode'] ?? null,
+                "State" => $registeredAddress['state'] ?? null,
+                "Country" => $registeredAddress['country'] ?? null,
+            ]),
+            "IncorporationDate" => $business['incorporation_date'] ? date("Y-m-d", strtotime($business['incorporation_date'])) : null,
+            "EntityType" => $business['business_type'],   // mapped from 'llc'
+            "TaxID" => $business['tax_id'],
+            "PrimaryWebsite" => $business['primary_website'],
+            "Associates" => $associates,
         ];
 
-        // Validate Noah-specific constraints (optional but safe)
-        if (strlen($noahPayload['RegisteredAddress']['Street']) < 2) {
-            throw new \Exception('Street must be at least 2 characters');
-        }
+        // Remove null / empty fields from top-level payload
+        $payload = array_filter($payload, function ($v) {
+            return !($v === null || $v === "" || $v === []);
+        });
 
-        $response = Http::withToken(config('services.noah.secret'))
-            ->acceptJson()
-            ->post('https://api.noah.com/v1/businesses', $noahPayload);
+        $noah = new NoahService();
+        // Onboarding initiation may require an empty body or minimal payload
+        // $returnUrl = session()->get('return_url', 'https://app.yativo.com');
+        $response = $noah->post("/onboarding/{$customerId}", $payload);
 
-        if (! $response->successful()) {
-            Log::error('Noah submission failed', [
-                'session_id' => $this->businessData['session_id'],
-                'status'     => $response->status(),
-                'errors'     => $response->json('errors', []),
-                'payload'    => $noahPayload,
-            ]);
-            throw new \Exception('Noah API submission failed: ' . $response->body());
-        }
 
-        // Optionally store Noah business ID
-        $noahBusinessId = $response->json('id');
-        if ($noahBusinessId) {
-            // E.g., BusinessSubmission::where('session_id', $this->businessData['session_id'])
-            //     ->update(['noah_business_id' => $noahBusinessId]);
+        if ($response->successful()) {
+            // generate the onboarding url
+            logger("generating onboarding session url for business", ['business' => $business]);
+            $noahService = new NoahService();
+            $noahService->noahOnboardingInit($customerId);
         }
     }
 }
