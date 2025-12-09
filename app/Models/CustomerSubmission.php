@@ -96,7 +96,7 @@ class CustomerSubmission extends Model
         'documents',
         'uploaded_documents',
         'submit_bridge_kyc',
-        'gender',file:///home/ignite/Documents/new-kyc-response.json
+        'gender',
         
         'customer_id',
         'selfie_image'
