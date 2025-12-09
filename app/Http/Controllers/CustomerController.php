@@ -21,6 +21,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Database\Schema\Blueprint;
 
 class CustomerController extends Controller
 {
@@ -46,6 +47,18 @@ class CustomerController extends Controller
         if (! Schema::hasColumn('customer_submissions', 'selfie_image')) {
             Schema::table('customer_submissions', function ($table) {
                 $table->json('selfie_image')->nullable()->after('email');
+            });
+        }
+
+
+        if (!Schema::hasTable('customer_meta_data')) {
+            Schema::create('customer_meta_data', function (Blueprint $table) {
+                $table->uuid('customer_id'); // customer_id is a uuid column in the customers table
+                $table->string('key');
+                $table->json('value');
+                $table->timestamps();
+                $table->softDeletes();
+                $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('cascade');
             });
         }
     }
