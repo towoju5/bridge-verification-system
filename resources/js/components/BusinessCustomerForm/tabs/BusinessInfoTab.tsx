@@ -38,7 +38,7 @@ export const BusinessInfoTab: React.FC<Props> = ({ data, onChange, errors }) => 
         />
 
         <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-white">
                 Business Description *
             </label>
             <textarea
@@ -94,7 +94,7 @@ export const BusinessInfoTab: React.FC<Props> = ({ data, onChange, errors }) => 
         </div>
 
         <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-white">
                 Business Industry *
             </label>
             <select

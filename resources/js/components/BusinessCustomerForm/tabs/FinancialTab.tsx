@@ -92,7 +92,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
       />
 
       <div className="sm:col-span-2">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 dark:text-white">
           Source of Funds Description
         </label>
         <textarea
@@ -105,7 +105,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
 
       {/* High-risk activities */}
       <div className="sm:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
           High-Risk Activities
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -131,7 +131,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
       {(!data.high_risk_activities.includes('none_of_the_above') ||
         data.high_risk_activities.length > 1) && (
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
             High-Risk Activities Explanation *
           </label>
           <textarea
@@ -159,7 +159,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
             onChange={(e) => onChange('conducts_money_services', e.target.checked)}
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-1"
           />
-          <span className="ml-2 block text-sm font-medium text-gray-700">
+          <span className="ml-2 block text-sm font-medium text-gray-700 dark:text-white">
             This business offers money services, investment products, and/or other
             financial services
           </span>
@@ -169,7 +169,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
       {data.conducts_money_services && (
         <>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-white">
               Description of Money Services Offered *
             </label>
             <textarea
@@ -188,7 +188,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-white">
               Compliance Screening Explanation *
             </label>
             <textarea
@@ -216,7 +216,7 @@ export const FinancialTab: React.FC<Props> = ({ data, onChange, errors }) => {
                 }
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-1"
               />
-              <span className="ml-2 block text-sm font-medium text-gray-700">
+              <span className="ml-2 block text-sm font-medium text-gray-700 dark:text-white">
                 Plans to conduct money services using its Bridge account
               </span>
             </label>

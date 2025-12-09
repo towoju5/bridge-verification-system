@@ -83,9 +83,8 @@ class SubmitBusinessToNoah implements ShouldQueue
         });
 
         $noah = new NoahService();
-        // Onboarding initiation may require an empty body or minimal payload
-        // $returnUrl = session()->get('return_url', 'https://app.yativo.com');
-        $response = $noah->post("/onboarding/{$customerId}", $payload);
+        // submitting prefil kyb data
+        $response = $noah->post("/onboarding/{$customerId}/prefill", $payload);
 
 
         if ($response->successful()) {
@@ -93,6 +92,14 @@ class SubmitBusinessToNoah implements ShouldQueue
             logger("generating onboarding session url for business", ['business' => $business]);
             $noahService = new NoahService();
             $noahService->noahOnboardingInit($customerId);
+
+            // Step 3: Submit documents
+            $this->submitNoahDocument($customerId, $data['identifying_information'] ?? []);
         }
+    }
+
+    public function submitNoahDocument(string $customerId, array $data)
+    {
+        //
     }
 }

@@ -1582,7 +1582,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
-                                    <label htmlFor="business_legal_name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="business_legal_name" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Legal Name *
                                     </label>
                                     <input
@@ -1598,7 +1598,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="business_trade_name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="business_trade_name" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Trade Name (DBA) *
                                     </label>
                                     <input
@@ -1614,7 +1614,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label htmlFor="business_description" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="business_description" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Description *
                                     </label>
                                     <textarea
@@ -1630,7 +1630,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Email *
                                     </label>
                                     <input
@@ -1646,7 +1646,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="primary_website" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="primary_website" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Primary Website
                                     </label>
                                     <input
@@ -1659,7 +1659,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="business_type" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="business_type" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Type *
                                     </label>
                                     <select
@@ -1693,7 +1693,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label htmlFor="business_industry" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="business_industry" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Business Industry *
                                     </label>
                                     <select
@@ -1726,7 +1726,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                     <h3 className="text-md font-medium text-gray-900 mb-2">Registered Address *</h3>
                                     <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="registered_street_line_1" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_street_line_1" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Street Line 1 *
                                             </label>
                                             <input
@@ -1742,7 +1742,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="registered_street_line_2" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_street_line_2" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Street Line 2
                                             </label>
                                             <input
@@ -1755,7 +1755,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="registered_city" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_city" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 City *
                                             </label>
                                             <input
@@ -1771,7 +1771,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="registered_subdivision" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_subdivision" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 State/Province
                                             </label>
                                             <input
@@ -1785,7 +1785,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="registered_postal_code" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_postal_code" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Postal Code
                                             </label>
                                             <input
@@ -1798,7 +1798,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="registered_country" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="registered_country" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Country *
                                             </label>
                                             <select
@@ -1824,7 +1824,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                     <p className="text-sm text-gray-500 mb-2">This must be a physical address and cannot be a PO Box.</p>
                                     <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="physical_street_line_1" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_street_line_1" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Street Line 1 *
                                             </label>
                                             <input
@@ -1840,7 +1840,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="physical_street_line_2" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_street_line_2" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Street Line 2
                                             </label>
                                             <input
@@ -1853,7 +1853,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="physical_city" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_city" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 City *
                                             </label>
                                             <input
@@ -1869,7 +1869,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="physical_subdivision" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_subdivision" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 State/Province
                                             </label>
                                             <input
@@ -1883,7 +1883,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="physical_postal_code" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_postal_code" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Postal Code
                                             </label>
                                             <input
@@ -1896,7 +1896,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor="physical_country" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="physical_country" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Country *
                                             </label>
                                             <input
@@ -1951,7 +1951,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                                     <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                         <div>
-                                            <label htmlFor={`first_name_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`first_name_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 First Name *
                                             </label>
                                             <input
@@ -1964,7 +1964,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`last_name_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`last_name_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Last Name *
                                             </label>
                                             <input
@@ -1977,7 +1977,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`birth_date_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`birth_date_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Date of Birth *
                                             </label>
                                             <input
@@ -1990,7 +1990,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`email_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`email_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Email *
                                             </label>
                                             <input
@@ -2003,7 +2003,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`phone_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`phone_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Phone
                                             </label>
                                             <input
@@ -2017,7 +2017,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`title_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`title_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Title
                                             </label>
                                             <input
@@ -2030,7 +2030,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`ownership_percentage_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`ownership_percentage_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Ownership Percentage
                                             </label>
                                             <input
@@ -2045,7 +2045,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div>
-                                            <label htmlFor={`relationship_established_at_${index}`} className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor={`relationship_established_at_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Relationship Established At *
                                             </label>
                                             <input
@@ -2061,7 +2061,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                             <h4 className="text-sm font-medium text-gray-900 mb-2">Residential Address *</h4>
                                             <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
                                                 <div className="sm:col-span-2">
-                                                    <label htmlFor={`res_street_1_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_street_1_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         Street Line 1 *
                                                     </label>
                                                     <input
@@ -2074,7 +2074,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                 </div>
 
                                                 <div className="sm:col-span-2">
-                                                    <label htmlFor={`res_street_2_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_street_2_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         Street Line 2
                                                     </label>
                                                     <input
@@ -2087,7 +2087,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                 </div>
 
                                                 <div>
-                                                    <label htmlFor={`res_city_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_city_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         City *
                                                     </label>
                                                     <input
@@ -2100,7 +2100,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                 </div>
 
                                                 <div>
-                                                    <label htmlFor={`res_subdivision_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_subdivision_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         State/Province
                                                     </label>
                                                     <input
@@ -2114,7 +2114,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                 </div>
 
                                                 <div>
-                                                    <label htmlFor={`res_postal_code_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_postal_code_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         Postal Code
                                                     </label>
                                                     <input
@@ -2127,7 +2127,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                 </div>
 
                                                 <div>
-                                                    <label htmlFor={`res_country_${index}`} className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor={`res_country_${index}`} className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         Country *
                                                     </label>
                                                     <input
@@ -2219,7 +2219,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
-                                    <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Account Purpose *
                                     </label>
                                     <select
@@ -2242,7 +2242,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                                 {formData.account_purpose === 'other' && (
                                     <div>
-                                        <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700 dark:text-white">
                                             Specify Account Purpose *
                                         </label>
                                         <input
@@ -2259,7 +2259,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 )}
 
                                 <div>
-                                    <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Source of Funds *
                                     </label>
                                     <select
@@ -2281,7 +2281,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="source_of_funds_description" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="source_of_funds_description" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Source of Funds Description
                                     </label>
                                     <textarea
@@ -2294,7 +2294,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div className="sm:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">High Risk Activities</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">High Risk Activities</label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                         {highRiskActivities.map(activity => (
                                             <label key={activity} className="flex items-center">
@@ -2318,7 +2318,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                                 {(!formData.high_risk_activities.includes('none_of_the_above') || formData.high_risk_activities.length > 1) && (
                                     <div className="sm:col-span-2">
-                                        <label htmlFor="high_risk_activities_explanation" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="high_risk_activities_explanation" className="block text-sm font-medium text-gray-700 dark:text-white">
                                             High Risk Activities Explanation *
                                         </label>
                                         <textarea
@@ -2343,7 +2343,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-1"
                                         />
                                         <div className="ml-2">
-                                            <span className="block text-sm font-medium text-gray-700">
+                                            <span className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 This business offers money services, investment products, and/or other financial services
                                             </span>
                                             <p className="text-sm text-gray-500">Check this if your business provides financial services</p>
@@ -2354,7 +2354,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 {formData.conducts_money_services && (
                                     <>
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="conducts_money_services_description" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="conducts_money_services_description" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Description of Money Services Offered *
                                             </label>
                                             <textarea
@@ -2370,7 +2370,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                         </div>
 
                                         <div className="sm:col-span-2">
-                                            <label htmlFor="compliance_screening_explanation" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="compliance_screening_explanation" className="block text-sm font-medium text-gray-700 dark:text-white">
                                                 Compliance Screening Explanation *
                                             </label>
                                             <textarea
@@ -2394,7 +2394,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-1"
                                                 />
                                                 <div className="ml-2">
-                                                    <span className="block text-sm font-medium text-gray-700">
+                                                    <span className="block text-sm font-medium text-gray-700 dark:text-white">
                                                         This business plans to conduct money services, investment products, and/or other financial services using its Bridge account
                                                     </span>
                                                 </div>
@@ -2404,7 +2404,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 )}
 
                                 <div>
-                                    <label htmlFor="estimated_annual_revenue_usd" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="estimated_annual_revenue_usd" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Estimated Annual Revenue (USD)
                                     </label>
                                     <select
@@ -2423,7 +2423,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Expected Monthly Payments (USD)
                                     </label>
                                     <input
@@ -2437,7 +2437,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="operates_in_prohibited_countries" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="operates_in_prohibited_countries" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Operates in Prohibited Countries?
                                     </label>
                                     <select
@@ -2452,7 +2452,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="ownership_threshold" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="ownership_threshold" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Ownership Threshold
                                     </label>
                                     <select
@@ -2491,7 +2491,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
 
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
-                                    <label htmlFor="regulated_activities_description" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="regulated_activities_description" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Regulated Activities Description
                                     </label>
                                     <textarea
@@ -2507,7 +2507,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="primary_regulatory_authority_country" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="primary_regulatory_authority_country" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Primary Regulatory Authority Country
                                     </label>
                                     <input
@@ -2524,7 +2524,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="primary_regulatory_authority_name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="primary_regulatory_authority_name" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         Primary Regulatory Authority Name
                                     </label>
                                     <input
@@ -2540,7 +2540,7 @@ const BusinessCustomerForm: React.FC<BusinessCustomerFormProps> = ({ onSubmit, i
                                 </div>
 
                                 <div>
-                                    <label htmlFor="license_number" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="license_number" className="block text-sm font-medium text-gray-700 dark:text-white">
                                         License Number
                                     </label>
                                     <input

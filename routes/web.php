@@ -21,27 +21,6 @@ use Illuminate\Support\Facades\Artisan;
 */
 
 
-// Route::get('un', function() {
-//     $query = CustomerSubmission::query();
-//     if(request()->has('customerId')) {
-//         $customerSubmission = $query->where('customer_id', request('customerId'));
-//     } else {
-//         $customerSubmission = $query->latest()->first();
-//     }
-//     dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
-// });
-
-
-// Route::get('ccu', function(){
-//     $customer = CustomerSubmission::whereId(12)->first();
-//     if($customer) {
-//         $payload = $customer->toArray();
-//         dispatch(new ThirdPartyKycSubmission($payload));
-//         return response()->json(['status' => 'Job dispatched', 'customer_id' => $customer->id]);
-//     }
-// });
-
-
 Route::get('/', function(){
     return redirect()->to('https://yativo.com');
 })->name('home');

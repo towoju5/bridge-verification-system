@@ -333,7 +333,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
         <h3 className="text-xl font-semibold mb-4">Step 1: Personal Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">First Name</label>
+                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-white">First Name</label>
                 <input
                     type="text"
                     id="first_name"
@@ -344,7 +344,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="middle_name" className="block text-sm font-medium text-gray-700">Middle Name</label>
+                <label htmlFor="middle_name" className="block text-sm font-medium text-gray-700 dark:text-white">Middle Name</label>
                 <input
                     type="text"
                     id="middle_name"
@@ -355,7 +355,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">Last Name</label>
+                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name</label>
                 <input
                     type="text"
                     id="last_name"
@@ -366,7 +366,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="last_name_native" className="block text-sm font-medium text-gray-700">Last Name (Native)</label>
+                <label htmlFor="last_name_native" className="block text-sm font-medium text-gray-700 dark:text-white">Last Name (Native)</label>
                 <input
                     type="text"
                     id="last_name_native"
@@ -378,7 +378,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 <p className="mt-1 text-xs text-gray-500">Required if Last Name contains non-Latin characters.</p>
             </div>
             <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-white">Email Address</label>
                 <input
                     type="email"
                     id="email"
@@ -389,7 +389,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-white">Phone Number</label>
                 <input
                     type="tel"
                     id="phone"
@@ -401,7 +401,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 dark:text-white">Date of Birth</label>
                 <input
                     type="date"
                     id="birth_date"
@@ -412,7 +412,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                 />
             </div>
             <div>
-                <label htmlFor="country" className="block text-sm font-medium text-gray-700">Nationality</label>
+                <label htmlFor="country" className="block text-sm font-medium text-gray-700 dark:text-white">Nationality</label>
                 <select
                     id="country"
                     value={data.nationality || ''}
@@ -440,7 +440,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
             <h3 className="text-xl font-semibold mb-4">Step 2: Residential Address</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                    <label htmlFor="street_line_1" className="block text-sm font-medium text-gray-700">Street Line 1</label>
+                    <label htmlFor="street_line_1" className="block text-sm font-medium text-gray-700 dark:text-white">Street Line 1</label>
                     <input
                         type="text"
                         id="street_line_1"
@@ -450,7 +450,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div className="md:col-span-2">
-                    <label htmlFor="street_line_2" className="block text-sm font-medium text-gray-700">Street Line 2</label>
+                    <label htmlFor="street_line_2" className="block text-sm font-medium text-gray-700 dark:text-white">Street Line 2</label>
                     <input
                         type="text"
                         id="street_line_2"
@@ -460,7 +460,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700">City</label>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-white">City</label>
                     <input
                         type="text"
                         id="city"
@@ -470,7 +470,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700">State/Province</label>
+                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 dark:text-white">State/Province</label>
                     <input
                         type="text"
                         id="state"
@@ -480,7 +480,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div>
-                    <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700">Postal Code</label>
+                    <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700 dark:text-white">Postal Code</label>
                     <input
                         type="text"
                         id="postal_code"
@@ -490,7 +490,7 @@ const AddressStep: React.FC<StepProps> = ({ data, onDataChange, onNestedChange, 
                     />
                 </div>
                 <div>
-                    <label htmlFor="country" className="block text-sm font-medium text-gray-700">Country</label>
+                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 dark:text-white">Country</label>
                     <select
                         id="country"
                         value={address.country || ''}
@@ -533,7 +533,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onDataChange, onArrayCh
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Issuing Country</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-white">Issuing Country</label>
                             <select
                                 value={doc?.issuing_country || ''}
                                 onChange={(e) => handleDocChange(index, 'issuing_country', e.target.value)}
@@ -546,7 +546,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onDataChange, onArrayCh
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Document Type</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-white">Document Type</label>
                             <select
                                 value={doc?.type || ''}
                                 onChange={(e) => handleDocChange(index, 'type', e.target.value)}
@@ -563,7 +563,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onDataChange, onArrayCh
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Document Number</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-white">Document Number</label>
                             <input
                                 type="text"
                                 value={doc?.number || ''}
@@ -573,7 +573,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onDataChange, onArrayCh
                         </div>
                         {(doc?.type === 'other' || !doc?.type) && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Description</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-white">Description</label>
                                 <input
                                     type="text"
                                     value={doc?.description || ''}
@@ -583,7 +583,7 @@ const IdentificationStep: React.FC<StepProps> = ({ data, onDataChange, onArrayCh
                             </div>
                         )}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Expiration Date</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-white">Expiration Date</label>
                             <input
                                 type="date"
                                 value={doc?.expiration_date || ''}
@@ -611,7 +611,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
         <h3 className="text-xl font-semibold mb-4">Step 4: Employment & Finances</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label htmlFor="employment_status" className="block text-sm font-medium text-gray-700">Employment Status</label>
+                <label htmlFor="employment_status" className="block text-sm font-medium text-gray-700 dark:text-white">Employment Status</label>
                 <input
                     type="text"
                     id="employment_status"
@@ -622,7 +622,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                 />
             </div>
             <div>
-                <label htmlFor="most_recent_occupation_code" className="block text-sm font-medium text-gray-700">Most Recent Occupation</label>
+                <label htmlFor="most_recent_occupation_code" className="block text-sm font-medium text-gray-700 dark:text-white">Most Recent Occupation</label>
                 <select
                     id="most_recent_occupation_code"
                     name="most_recent_occupation_code"
@@ -637,7 +637,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                 </select>
             </div>
             <div>
-                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700 dark:text-white">
                         Expected Monthly Payments (USD)
                     </label>
                     <select
@@ -654,7 +654,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                     </select>
                 </div>
             <div>
-                <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700">Source of Funds</label>
+                <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700 dark:text-white">Source of Funds</label>
                 <select
                     id="source_of_funds"
                     name="source_of_funds"
@@ -669,7 +669,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
                 </select>
             </div>
             <div>
-                <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700">Account Purpose</label>
+                <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700 dark:text-white">Account Purpose</label>
                 <select
                     id="account_purpose"
                     name="account_purpose"
@@ -685,7 +685,7 @@ const EmploymentFinancesStep: React.FC<StepProps> = ({ data, onDataChange, occup
             </div>
             {data.account_purpose === 'other' && (
                 <div>
-                    <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700">Account Purpose (Other)</label>
+                    <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700 dark:text-white">Account Purpose (Other)</label>
                     <input
                         type="text"
                         id="account_purpose_other"
@@ -718,7 +718,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
         <h3 className="text-xl font-semibold mb-4">Step 4: Employment & Finances</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label htmlFor="employment_status" className="block text-sm font-medium text-gray-700">Employment Status</label>
+                <label htmlFor="employment_status" className="block text-sm font-medium text-gray-700 dark:text-white">Employment Status</label>
                 <input
                     type="text"
                     id="employment_status"
@@ -729,7 +729,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
                 />
             </div>
             <div>
-                <label htmlFor="most_recent_occupation_code" className="block text-sm font-medium text-gray-700">Most Recent Occupation</label>
+                <label htmlFor="most_recent_occupation_code" className="block text-sm font-medium text-gray-700 dark:text-white">Most Recent Occupation</label>
                 <select
                     id="most_recent_occupation_code"
                     name="most_recent_occupation_code"
@@ -744,7 +744,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
                 </select>
             </div>
             <div>
-                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="expected_monthly_payments_usd" className="block text-sm font-medium text-gray-700 dark:text-white">
                         Expected Monthly Payments (USD)
                     </label>
                     <select
@@ -761,7 +761,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
                     </select>
                 </div>
             <div>
-                <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700">Source of Funds</label>
+                <label htmlFor="source_of_funds" className="block text-sm font-medium text-gray-700 dark:text-white">Source of Funds</label>
                 <select
                     id="source_of_funds"
                     name="source_of_funds"
@@ -776,7 +776,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
                 </select>
             </div>
             <div>
-                <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700">Account Purpose</label>
+                <label htmlFor="account_purpose" className="block text-sm font-medium text-gray-700 dark:text-white">Account Purpose</label>
                 <select
                     id="account_purpose"
                     name="account_purpose"
@@ -792,7 +792,7 @@ const DocumentsUploadStep: React.FC<StepProps> = ({ data, onDataChange, occupati
             </div>
             {data.account_purpose === 'other' && (
                 <div>
-                    <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700">Account Purpose (Other)</label>
+                    <label htmlFor="account_purpose_other" className="block text-sm font-medium text-gray-700 dark:text-white">Account Purpose (Other)</label>
                     <input
                         type="text"
                         id="account_purpose_other"

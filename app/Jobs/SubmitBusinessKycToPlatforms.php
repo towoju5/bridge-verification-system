@@ -2,6 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\BusinessCustomer;
+use App\Services\AveniaBusinessService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -202,6 +203,13 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             ]);
             return ['status' => 'failed', 'error' => $e->getMessage()];
         }
+    }
+
+    protected function avenia()
+    {
+        // firstly create sub account
+        $avenia = new AveniaBusinessService();
+        $avenia->businessCreateSubaccount($this->business->business_legal_name);
     }
 
     protected function submitToTransfi()

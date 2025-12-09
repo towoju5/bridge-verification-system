@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\CustomerMeta;
+
 if (!function_exists('array_filter_recursive')) {
     function array_filter_recursive($array)
     {
@@ -62,5 +64,31 @@ if (!function_exists('normalizeNoahApiUrl')) {
         // $path = rtrim($path, '/');
 
         return 'https://api.noah.com' . $path;
+    }
+}
+
+if (!function_exists('add_customer_meta')) {
+    function add_customer_meta($customerId, $key, $value)
+    {
+        $meta = CustomerMeta::updateOrCreate([
+            'customer_id' => $customerId,
+            'key' => $key
+        ], [
+            'value' => $value
+        ]);
+
+        return $meta;
+    }
+}
+
+if (!function_exists('get_customer_meta')) {
+    function get_customer_meta($customerId, $key)
+    {
+        $meta = CustomerMeta::where([
+            'customer_id' => $customerId,
+            'key' => $key
+        ])->first();
+
+        return $meta;
     }
 }

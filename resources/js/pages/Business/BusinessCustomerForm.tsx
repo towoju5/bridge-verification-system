@@ -1,156 +1,238 @@
-// BusinessCustomerForm.tsx
-import React, { useState } from 'react';
-import axios from 'axios';
-import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
-/* ----------  import existing step components  ---------- */
-import BusinessInfo from './components/BusinessInfo';
-import Address from './components/Address';
-import AssociatedPersons from './components/AssociatedPersons';
-import FinancialInformation from './components/FinancialInformation';
-import Regulatory from './components/Regulatory';
-import DocumentsTab from './components/DocumentsTab';
-import IdentifyingInfoTab from './components/IdentifyingInfoTab';
-import ReviewStep from './components/ReviewStep';
-/* ----------  types  ---------- */
-interface Country { code: string; name: string }
-interface Props {
-    onSubmit: (data: any) => void;
-    countries?: Country[];
-}
-/* ----------  constants  ---------- */
-const businessTypes = ['cooperative', 'corporation', 'llc', 'partnership', 'sole_prop', 'trust', 'other'];
-const industryCodes = [
-    { code: '541511', description: 'Custom Computer Programming Services' },
-    { code: '541512', description: 'Computer Systems Design Services' },
-    { code: '541519', description: 'Other Computer Related Services' },
-];
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import BusinessInfo from "./components/BusinessInfo";
+import Address from "./components/Address";
+import AssociatedPersons from "./components/AssociatedPersons";
+import FinancialInformation from "./components/FinancialInformation";
+import Regulatory from "./components/Regulatory";
+import DocumentsTab from "./components/DocumentsTab";
+import IdentifyingInfoTab from "./components/IdentifyingInfoTab";
+import ExtraDocumentsTab from "./components/ExtraDocumentsTab";
+import ReviewStep from "./components/ReviewStep";
+import NavBar from "./components/NavBar";
+import AppLayout from "@/Layouts/AppLayout";
 
-export const accountPurposes = [
-    { code: 'CharitableDonations', description: 'Charitable Donations' },
-    { code: 'EcommerceRetailPayments', description: 'Ecommerce Retail Payments' },
-    { code: 'InvestmentPurposes', description: 'Investment Purposes' },
-    { code: 'OperatingACompany', description: 'Operating a Company' },
-    { code: 'Other', description: 'Other' },
-    { code: 'PaymentsToFriendsOrFamilyAbroad', description: 'Payments To Friends Or Family Abroad' },
-    { code: 'PersonalOrLivingExpenses', description: 'Personal Or Living Expenses' },
-    { code: 'ProtectWealth', description: 'Protect Wealth' },
-    { code: 'PurchaseGoodsAndServices', description: 'Purchase Goods and Services' },
-    { code: 'ReceivePaymentForFreelancing', description: 'Receive Payment for Freelancing' },
-    { code: 'ReceiveSalary', description: 'Receive Salary' }
-] as const;
+// import NavBar from "./NavBar";
+// import BusinessInfo from "./BusinessInfo";
+// import Address from "./Address";
+// import AssociatedPersons from "./AssociatedPersons";
+// import FinancialInformation from "./FinancialInformation";
+// import Regulatory from "./Regulatory";
+// import DocumentsTab from "./DocumentsTab";
+// import IdentifyingInfoTab from "./IdentifyingInfoTab";
+// import ExtraDocumentsTab from "./ExtraDocumentsTab";
+// import ReviewStep from "./ReviewStep";
 
-
-const estimatedRevenueOptions = [
-    'under_10000',
-    '10000_to_99999',
-    '100000_to_499999',
-    '500000_to_999999',
-    '1000000_to_4999999',
-    '5000000_to_9999999',
-    '10000000_plus'
-];
-const documentPurposes = [
-    { value: 'business_formation', label: 'Business formation' },
-    { value: 'ownership_information', label: 'Ownership information' },
-    { value: 'proof_of_address', label: 'Proof of address' },
-    { value: 'other', label: 'Other' },
-];
-const idTypes = ['passport', 'drivers_license', 'national_id', 'other'];
-const steps = [
-    { id: 'business-info', label: 'Business Information', component: BusinessInfo },
-    { id: 'addresses', label: 'Addresses', component: Address },
-    { id: 'persons', label: 'Associated Persons', component: AssociatedPersons },
-    { id: 'financial', label: 'Financial Information', component: FinancialInformation },
-    { id: 'regulatory', label: 'Regulatory', component: Regulatory },
-    { id: 'documents', label: 'Documents', component: DocumentsTab },
-    { id: 'identifying_information', label: 'Identity Information', component: IdentifyingInfoTab },
-    { id: 'review', label: 'Review', component: ReviewStep },
-];
-/* ----------  main form  ---------- */
-export default function BusinessCustomerForm({ onSubmit, countries = [] }: Props) {
-    const [formData, setFormData] = useState<any>({
-        type: 'business',
-        business_legal_name: '',
-        business_trade_name: '',
-        business_description: '',
-        email: '',
-        business_type: '',
-        primary_website: '',
-        registered_address: {},
-        physical_address: {},
-        associated_persons: [],
-        business_industry: '',
-        account_purpose: '',
-        source_of_funds: '',
-        high_risk_activities: ['none_of_the_above'],
-        regulated_activity: {},
-        documents: [],
-        identifying_information: [],
-        is_dao: false,
-    });
-    const [activeTab, setActiveTab] = useState('business-info');
-    const [completed, setCompleted] = useState<Record<string, boolean>>({});
+export default function BusinessCustomerForm() {
+    const [activeTab, setActiveTab] = useState("business-info");
     const [saving, setSaving] = useState(false);
-    /* ----------  helpers  ---------- */
-    const handleStepComplete = (stepId: string) => setCompleted(prev => ({ ...prev, [stepId]: true }));
-    const postStep = async (stepNum: number, payload: any) => {
-        setSaving(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const [formData, setFormData] = useState<any>({});
+    const [countries, setCountries] = useState([]);
+    const [idTypes, setIdTypes] = useState([]);
+    const [documentPurposes, setDocumentPurposes] = useState([]);
+    const [extraDocumentTypes, setExtraDocumentTypes] = useState([]);
+
+    const [completed, setCompleted] = useState<Record<string, boolean>>({});
+
+    /** ---------------------------------------------------
+     * Load initial shared dropdown data
+     * ---------------------------------------------------*/
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [c, dp] = await Promise.all([
+                    axios.get("/api/countries"),
+                    axios.get("/api/business/document-purposes")
+                ]);
+
+                setCountries(c.data);
+                setDocumentPurposes(dp.data);
+
+                // Example: extra document types (editable)
+                setExtraDocumentTypes([
+                    { value: "business_registration", label: "Business Registration", required: true },
+                    { value: "operating_address_proof", label: "Operating Address Proof", required: false },
+                    { value: "tax_statement", label: "Tax Statement", required: false }
+                ]);
+
+                setIdTypes([
+                    "passport",
+                    "drivers_license",
+                    "national_id",
+                    "residence_permit",
+                    "other"
+                ]);
+            } catch (err) {
+                console.error("Startup load failed", err);
+            }
+        };
+
+        load();
+    }, []);
+
+    /** ---------------------------------------------------
+     * Handle error display (child to parent)
+     * ---------------------------------------------------*/
+    const showError = (msg: string) => {
+        setError(msg);
+        setTimeout(() => setError(null), 5000);
+    };
+
+    /** ---------------------------------------------------
+     * Step auto-advance helper
+     * ---------------------------------------------------*/
+    const goToStep = (step: string) => {
+        setCompleted(prev => ({ ...prev, [activeTab]: true }));
+        setActiveTab(step);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    /** ---------------------------------------------------
+     * Final wizard submission (API full-submit)
+     * ---------------------------------------------------*/
+    const finalize = async () => {
         try {
-            await axios.post(`/api/business-customer/step/${stepNum}`, payload);
+            setSaving(true);
+            setError(null);
+
+            const res = await axios.post("/api/business-customer/submit-all", formData);
+            console.log("Final submit:", res.data);
+
+            alert("Business KYC submitted successfully!");
+        } catch (err: any) {
+            console.error(err);
+            showError(err.response?.data?.message || "Submission error.");
         } finally {
             setSaving(false);
         }
     };
-    const next = async (stepNum: number, nextTab: string) => {
-        await postStep(stepNum, formData);
-        handleStepComplete(activeTab);
-        setActiveTab(nextTab);
-    };
-    /* ----------  nav bar  ---------- */
-    const NavBar = () => (
-        <nav className="flex space-x-8 border-b">
-            {steps.map((step, idx) => {
-                const isCurrent = step.id === activeTab;
-                const isDisabled = idx > 0 && !completed[steps[idx - 1].id];
+
+    /** ---------------------------------------------------
+     * Render active step
+     * ---------------------------------------------------*/
+    const renderStep = () => {
+        switch (activeTab) {
+            case "business-info":
                 return (
-                    <button
-                        key={step.id}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => !isDisabled && setActiveTab(step.id)}
-                        className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${isCurrent ? 'border-indigo-500 text-indigo-600' : isDisabled ? 'border-transparent text-gray-300 cursor-not-allowed' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                    >
-                        {step.label}
-                    </button>
+                    <BusinessInfo
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
                 );
-            })}
-        </nav>
-    );
-    /* ----------  render  ---------- */
-    const CurrentStep = steps.find(s => s.id === activeTab)?.component;
-    if (!CurrentStep) return null;
-    const props = {
-        formData,
-        setFormData,
-        setActiveTab,
-        countries: countries || [],
-        businessTypes,
-        industryCodes,
-        accountPurposes,
-        estimatedRevenueOptions,
-        documentPurposes,
-        idTypes,
+
+            case "addresses":
+                return (
+                    <Address
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        countries={countries}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "persons":
+                return (
+                    <AssociatedPersons
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        countries={countries}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "financial":
+                return (
+                    <FinancialInformation
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "regulatory":
+                return (
+                    <Regulatory
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        countries={countries}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "documents":
+                return (
+                    <DocumentsTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        documentPurposes={documentPurposes}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "identifying_information":
+                return (
+                    <IdentifyingInfoTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        idTypes={idTypes}
+                        countries={countries}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "extra_documents":
+                return (
+                    <ExtraDocumentsTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        extraDocumentTypes={extraDocumentTypes}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "review":
+                return <ReviewStep formData={formData} finalize={finalize} saving={saving} />;
+
+            default:
+                return <p>Invalid step</p>;
+        }
     };
+
     return (
-        <AppLayout title="Business Account Registration">
-            <Head title="Business Account Registration" />
-            <div className="max-w-6xl mx-auto p-6">
-                <h1 className="text-2xl font-bold mb-6">Business (K.Y.B)</h1>
-                <NavBar />
-                <form onSubmit={(e) => e.preventDefault()} className="mt-6 space-y-6">
-                    <CurrentStep {...props} />
-                </form>
+        <AppLayout title="Select Account Type">
+            <div className="w-full mx-auto py-10 px-4">
+                <div className="flex justify-center items-center">
+                    <NavBar activeTab={activeTab} setActiveTab={setActiveTab} completed={completed} />
+                </div>
+
+                {error && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded">
+                        {error}
+                    </div>
+                )}
+
+                <div className="max-w-6xl mx-auto py-3 px-2">
+                    {renderStep()}
+                </div>
             </div>
         </AppLayout>
     );

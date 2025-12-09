@@ -1,235 +1,357 @@
-// BusinessInfo.tsx
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import axios from "axios";
 
 interface Props {
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
-  setActiveTab: (tab: string) => void;
-  businessTypes: string[];
-  industryCodes: { code: string; description: string }[];
+  saving: boolean;
+  goToStep: (step: string) => void;
+  showError: (msg: string) => void;
 }
 
 export default function BusinessInfo({
   formData,
   setFormData,
-  setActiveTab,
-  businessTypes,
-  industryCodes,
+  saving,
+  goToStep,
+  showError,
 }: Props) {
   const [local, setLocal] = useState({
-    business_legal_name: formData.business_legal_name || '',
-    business_trade_name: formData.business_trade_name || '',
-    business_description: formData.business_description || '',
-    email: formData.email || '',
-    business_type: formData.business_type || '',
-    primary_website: formData.primary_website || '',
+    business_legal_name: formData.business_legal_name || "",
+    business_trade_name: formData.business_trade_name || "",
+    business_description: formData.business_description || "",
+    email: formData.email || "",
+    business_type: formData.business_type || "",
+    registration_number: formData.registration_number || "",
+    tax_id: formData.tax_id || "",
+    incorporation_date: formData.incorporation_date || "",
+    phone_calling_code: formData.phone_calling_code || "",
+    phone_number: formData.phone_number || "",
+    business_industry: formData.business_industry || "",
+    primary_website: formData.primary_website || "",
     is_dao: formData.is_dao || false,
-    business_industry: formData.business_industry || '',
-    registration_number: formData.registration_number || '',
-    incorporation_date: formData.incorporation_date || '',
-    tax_id: formData.tax_id || '',
-    statement_descriptor: formData.statement_descriptor || '',
-    phone_calling_code: formData.phone_calling_code || '+234',
-    phone_number: formData.phone_number || '',
+    statement_descriptor: formData.statement_descriptor || "",
   });
+
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const update = (field: string, value: any) => {
+    setLocal((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  /** -------------------------------------------
+   * Validate required fields before submission
+   * ------------------------------------------- */
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!local.business_legal_name.trim()) e.business_legal_name = 'Required';
-    if (!local.business_trade_name.trim()) e.business_trade_name = 'Required';
-    if (!local.business_description.trim()) e.business_description = 'Required';
-    if (!local.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(local.email))
-      e.email = 'Valid email required';
-    if (!local.business_type) e.business_type = 'Required';
-    if (!local.registration_number.trim()) e.registration_number = 'Required';
-    if (!local.incorporation_date) e.incorporation_date = 'Required';
-    if (!local.tax_id.trim()) e.tax_id = 'Required';
-    if (!local.phone_number.trim()) e.phone_number = 'Required';
+
+    if (!local.business_legal_name.trim())
+      e.business_legal_name = "Legal name is required.";
+
+    if (!local.business_trade_name.trim())
+      e.business_trade_name = "Trade name is required.";
+
+    if (!local.business_description.trim())
+      e.business_description = "Business description is required.";
+
+    if (!local.email.trim())
+      e.email = "Email is required.";
+
+    if (!local.business_type.trim())
+      e.business_type = "Business type is required.";
+
+    if (!local.registration_number.trim())
+      e.registration_number = "Registration number is required.";
+
+    if (!local.phone_calling_code) {
+      errors.phone_calling_code = 'Required';
+    } else if (!/^\+[1-9]\d{0,3}$/.test(local.phone_calling_code)) {
+      errors.phone_calling_code = 'Invalid calling code (e.g. +234)';
+    }
+
+    if (!local.incorporation_date.trim())
+      e.incorporation_date = "Incorporation date is required.";
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const next = async () => {
+  /** -------------------------------------------
+   * Submit step 1
+   * ------------------------------------------- */
+  const save = async () => {
     if (!validate()) return;
-    const payload = {
-      business_legal_name: local.business_legal_name,
-      business_trade_name: local.business_trade_name,
-      business_description: local.business_description,
-      email: local.email,
-      business_type: local.business_type,
-      registration_number: local.registration_number,
-      incorporation_date: local.incorporation_date,
-      tax_id: local.tax_id,
-      statement_descriptor: local.statement_descriptor,
-      phone_calling_code: local.phone_calling_code,
-      phone_number: local.phone_number,
-      primary_website: local.primary_website,
-      is_dao: local.is_dao,
-      business_industry: local.business_industry,
-    };
-    await axios.post('/api/business-customer/step/1', payload);
-    setFormData((prev: any) => ({ ...prev, ...local }));
-    setActiveTab('addresses');
+
+    try {
+      const payload = { ...local };
+
+      await axios.post("/api/business-customer/step/1", payload);
+
+      setFormData((prev: any) => ({ ...prev, ...local }));
+      goToStep("addresses");
+    } catch (err: any) {
+      console.error(err);
+      showError(err.response?.data?.message || "Unable to save step 1.");
+    }
   };
 
   return (
     <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
-      <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-4">Business Information</h2>
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+        Business Information
+      </h2>
+
       <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Business Legal Name *</label>
+        {/* Legal Name */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
+            Legal Business Name *
+          </label>
           <input
             value={local.business_legal_name}
-            onChange={(e) => setLocal({ ...local, business_legal_name: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_legal_name ? 'border-red-300' : 'border-gray-300'}`}
+            onChange={(e) => update("business_legal_name", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 
+                            ${errors.business_legal_name ? "border-red-300" : "border-gray-300"}
+                        `}
           />
-          {errors.business_legal_name && <p className="text-sm text-red-600">{errors.business_legal_name}</p>}
+          {errors.business_legal_name && (
+            <p className="text-red-600 text-sm">{errors.business_legal_name}</p>
+          )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Business Trade Name (DBA) *</label>
+
+        {/* Trade Name */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
+            Trade Name *
+          </label>
           <input
             value={local.business_trade_name}
-            onChange={(e) => setLocal({ ...local, business_trade_name: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_trade_name ? 'border-red-300' : 'border-gray-300'}`}
+            onChange={(e) => update("business_trade_name", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.business_trade_name ? "border-red-300" : "border-gray-300"}
+                        `}
           />
-          {errors.business_trade_name && <p className="text-sm text-red-600">{errors.business_trade_name}</p>}
+          {errors.business_trade_name && (
+            <p className="text-red-600 text-sm">{errors.business_trade_name}</p>
+          )}
         </div>
+
+        {/* Description */}
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Business Description *</label>
+          <label className="block text-sm font-medium">Business Description *</label>
           <textarea
             rows={3}
             value={local.business_description}
-            onChange={(e) => setLocal({ ...local, business_description: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_description ? 'border-red-300' : 'border-gray-300'}`}
+            onChange={(e) => update("business_description", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.business_description ? "border-red-300" : "border-gray-300"}
+                        `}
           />
-          {errors.business_description && <p className="text-sm text-red-600">{errors.business_description}</p>}
+          {errors.business_description && (
+            <p className="text-red-600 text-sm">{errors.business_description}</p>
+          )}
         </div>
+
+        {/* Email */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Business Email *</label>
+          <label className="block text-sm font-medium">Email *</label>
           <input
             type="email"
             value={local.email}
-            onChange={(e) => setLocal({ ...local, email: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.email ? 'border-red-300' : 'border-gray-300'}`}
+            onChange={(e) => update("email", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.email ? "border-red-300" : "border-gray-300"}
+                        `}
           />
-          {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-red-600 text-sm">{errors.email}</p>
+          )}
         </div>
+
+        {/* Business Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Website</label>
+          <label className="block text-sm font-medium">Business Type *</label>
+          <select
+            value={local.business_type}
+            onChange={(e) => update("business_type", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.business_type ? "border-red-300" : "border-gray-300"}
+                        `}
+          >
+            <option value="">Select type</option>
+            <option value="cooperative">Cooperative</option>
+            <option value="corporation">Corporation</option>
+            <option value="llc">LLC</option>
+            <option value="partnership">Partnership</option>
+            <option value="sole_prop">Sole Proprietor</option>
+            <option value="trust">Trust</option>
+            <option value="other">Other</option>
+          </select>
+          {errors.business_type && (
+            <p className="text-red-600 text-sm">{errors.business_type}</p>
+          )}
+        </div>
+
+        {/* Registration Number */}
+        <div>
+          <label className="block text-sm font-medium">
+            Registration Number *
+          </label>
           <input
-            type="url"
-            value={local.primary_website}
-            onChange={(e) => setLocal({ ...local, primary_website: e.target.value })}
+            value={local.registration_number}
+            onChange={(e) => update("registration_number", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.registration_number ? "border-red-300" : "border-gray-300"}
+                        `}
+          />
+          {errors.registration_number && (
+            <p className="text-red-600 text-sm">{errors.registration_number}</p>
+          )}
+        </div>
+
+        {/* Tax ID */}
+        <div>
+          <label className="block text-sm font-medium">Tax ID</label>
+          <input
+            value={local.tax_id}
+            onChange={(e) => update("tax_id", e.target.value)}
             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
           />
         </div>
+
+        {/* Incorporation date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Business Type *</label>
-          <select
-            value={local.business_type}
-            onChange={(e) => setLocal({ ...local, business_type: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_type ? 'border-red-300' : 'border-gray-300'}`}
-          >
-            <option value="">Select business type</option>
-            {businessTypes.map((t) => (
-              <option key={t} value={t}>
-                {t.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-              </option>
-            ))}
-          </select>
-          {errors.business_type && <p className="text-sm text-red-600">{errors.business_type}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Registration Number *</label>
-          <input
-            value={local.registration_number}
-            onChange={(e) => setLocal({ ...local, registration_number: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.registration_number ? 'border-red-300' : 'border-gray-300'}`}
-          />
-          {errors.registration_number && <p className="text-sm text-red-600">{errors.registration_number}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Incorporation Date *</label>
+          <label className="block text-sm font-medium">Incorporation Date *</label>
           <input
             type="date"
             value={local.incorporation_date}
-            onChange={(e) => setLocal({ ...local, incorporation_date: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.incorporation_date ? 'border-red-300' : 'border-gray-300'}`}
+            onChange={(e) => update("incorporation_date", e.target.value)}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+                            ${errors.incorporation_date ? "border-red-300" : "border-gray-300"}
+                        `}
           />
-          {errors.incorporation_date && <p className="text-sm text-red-600">{errors.incorporation_date}</p>}
+          {errors.incorporation_date && (
+            <p className="text-red-600 text-sm">{errors.incorporation_date}</p>
+          )}
         </div>
+
+        {/* Phone */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Tax ID (e.g., IRD) *</label>
-          <input
-            value={local.tax_id}
-            onChange={(e) => setLocal({ ...local, tax_id: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.tax_id ? 'border-red-300' : 'border-gray-300'}`}
-          />
-          {errors.tax_id && <p className="text-sm text-red-600">{errors.tax_id}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Statement Descriptor</label>
-          <input
-            value={local.statement_descriptor}
-            onChange={(e) => setLocal({ ...local, statement_descriptor: e.target.value })}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-            placeholder="e.g., TECHSOLUTIONS"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Business Phone *</label>
-          <div className="flex space-x-2">
-            <input
-              value={local.phone_calling_code}
-              onChange={(e) => setLocal({ ...local, phone_calling_code: e.target.value })}
-              className="w-24 border border-gray-300 rounded-md shadow-sm py-2 px-3"
-              placeholder="+234"
-            />
-            <input
-              value={local.phone_number}
-              onChange={(e) => setLocal({ ...local, phone_number: e.target.value })}
-              className={`flex-1 border rounded-md shadow-sm py-2 px-3 ${errors.phone_number ? 'border-red-300' : 'border-gray-300'}`}
-              placeholder="8039395114"
-            />
-          </div>
-          {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number}</p>}
-        </div>
-        <div className="sm:col-span-2">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={local.is_dao}
-              onChange={(e) => setLocal({ ...local, is_dao: e.target.checked })}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <span className="ml-2 block text-sm text-gray-700">This business is a DAO</span>
+          <label className="block text-sm font-medium">
+            Phone Calling Code *
           </label>
+          <input
+            placeholder="+234"
+            value={local.phone_calling_code}
+            onChange={(e) => {
+              let value = e.target.value;
+
+              // Allow empty or only '+' at start
+              if (value === '') {
+                update("phone_calling_code", value);
+                return;
+              }
+
+              // Enforce format: must start with '+', followed only by digits
+              if (value.startsWith('+')) {
+                // Keep only '+' and digits
+                const cleaned = '+' + value.slice(1).replace(/[^0-9]/g, '');
+                // Limit total length to 5 chars (+1234)
+                if (cleaned.length <= 5) {
+                  update("phone_calling_code", cleaned);
+                }
+              } else if (value === '+') {
+                update("phone_calling_code", '+');
+              }
+              // Ignore all other input (e.g. letters, symbols)
+            }}
+            onBlur={() => {
+              const val = local.phone_calling_code;
+              const isValid = /^\+[1-9]\d{0,3}$/.test(val);
+              if (val && !isValid) {
+                setErrors(prev => ({
+                  ...prev,
+                  phone_calling_code: 'Invalid format (e.g. +234)'
+                }));
+              }
+            }}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.phone_calling_code ? 'border-red-300' : 'border-gray-300'
+              }`}
+          />
+          {errors.phone_calling_code && (
+            <p className="text-sm text-red-600 mt-1">{errors.phone_calling_code}</p>
+          )}
         </div>
+
+        <div>
+          <label className="block text-sm font-medium">Phone Number</label>
+          <input
+            value={local.phone_number}
+            onChange={(e) => update("phone_number", e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+          />
+        </div>
+
+        {/* Industry */}
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Business Industry *</label>
-          <select
+          <label className="block text-sm font-medium">Business Industry</label>
+          <input
             value={local.business_industry}
-            onChange={(e) => setLocal({ ...local, business_industry: e.target.value })}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_industry ? 'border-red-300' : 'border-gray-300'}`}
-          >
-            {industryCodes.map((i) => (
-              <option key={i.code} value={i.code}>
-                {i.description}
-              </option>
-            ))}
-          </select>
-          {errors.business_industry && <p className="text-sm text-red-600">{errors.business_industry}</p>}
+            onChange={(e) => update("business_industry", e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+          />
+        </div>
+
+        {/* Website */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium">Primary Website</label>
+          <input
+            type="url"
+            value={local.primary_website}
+            onChange={(e) => update("primary_website", e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+          />
+        </div>
+
+        {/* DAO */}
+        <div className="sm:col-span-2 flex items-center space-x-2 mt-4">
+          <input
+            type="checkbox"
+            checked={local.is_dao}
+            onChange={(e) => update("is_dao", e.target.checked)}
+            className="h-4 w-4 text-indigo-600"
+          />
+          <label className="text-sm">Is this a DAO?</label>
+        </div>
+
+        {/* Statement Descriptor */}
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium">
+            Statement Descriptor (max 22 chars)
+          </label>
+          <input
+            maxLength={22}
+            value={local.statement_descriptor}
+            onChange={(e) => update("statement_descriptor", e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+          />
         </div>
       </div>
-      <div className="mt-6 flex justify-end">
+
+      {/* NEXT BUTTON */}
+      <div className="mt-8 flex justify-end">
         <button
-          onClick={next}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+          onClick={save}
+          disabled={saving}
+          className={`inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white 
+                        ${saving ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"}
+                    `}
         >
-          Next
+          {saving ? "Saving..." : "Next"}
         </button>
       </div>
     </div>

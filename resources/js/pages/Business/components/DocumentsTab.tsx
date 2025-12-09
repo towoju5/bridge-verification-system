@@ -1,139 +1,286 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-
-interface Document {
-	purposes: string[];
-	file: File | null;
-	description: string;
-}
+import React, { useState } from "react";
+import axios from "axios";
 
 interface Props {
-	formData: any;
-	setFormData: React.Dispatch<React.SetStateAction<any>>;
-	setActiveTab: (tab: string) => void;
-	documentPurposes: { value: string; label: string }[];
+    formData: any;
+    setFormData: React.Dispatch<React.SetStateAction<any>>;
+    saving: boolean;
+    goToStep: (step: string) => void;
+    showError: (msg: string) => void;
 }
 
-export default function DocumentsTab({ formData, setFormData, setActiveTab, documentPurposes }: Props) {
-	const [docs, setDocs] = useState<Document[]>(formData.documents || []);
+export default function DocumentsTab({
+    formData,
+    setFormData,
+    saving,
+    goToStep,
+    showError,
+}: Props) {
 
-	const add = () => setDocs([...docs, { purposes: [], file: null, description: '' }]);
-	const remove = (idx: number) => setDocs(docs.filter((_, i) => i !== idx));
+    const [documents, setDocuments] = useState<any[]>(
+        formData.documents?.length
+            ? formData.documents
+            : [
+                  {
+                      description: "",
+                      purposes: [],
+                      file: null,
+                  },
+              ]
+    );
 
-	const update = (idx: number, field: keyof Document, val: any) => {
-		const copy = [...docs];
-		copy[idx] = { ...copy[idx], [field]: val };
-		setDocs(copy);
-	};
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-	const next = async () => {
-		try {
-			const formDataToSend = new FormData();
+    const purposeOptions = [
+        "proof_of_address",
+        "business_registration",
+        "tax_documents",
+        "compliance_documents",
+        "financial_statements",
+    ];
 
-			docs.forEach((doc, i) => {
-				// ----- Purposes as array -----
-				doc.purposes.forEach((p) => {
-					formDataToSend.append(`documents[${i}][purposes][]`, p);
-				});
+    /** ----------------------------------------------------
+     * Add new document
+     * ---------------------------------------------------- */
+    const addDocument = () => {
+        setDocuments((prev) => [
+            ...prev,
+            { description: "", purposes: [], file: null },
+        ]);
+    };
 
-				// ----- File -----
-				if (doc.file) {
-					formDataToSend.append(`documents[${i}][file]`, doc.file);
-				}
+    /** ----------------------------------------------------
+     * Remove document
+     * ---------------------------------------------------- */
+    const removeDocument = (index: number) => {
+        if (documents.length === 1) {
+            showError("At least one document is required.");
+            return;
+        }
+        setDocuments((prev) => prev.filter((_, i) => i !== index));
+    };
 
-				// ----- Description -----
-				formDataToSend.append(`documents[${i}][description]`, doc.description);
-			});
+    /** ----------------------------------------------------
+     * Update field
+     * ---------------------------------------------------- */
+    const update = (index: number, field: string, value: any) => {
+        setDocuments((prev) =>
+            prev.map((doc, i) =>
+                i === index ? { ...doc, [field]: value } : doc
+            )
+        );
 
-			await axios.post('/api/business-customer/step/6', formDataToSend, {
-				headers: { 'Content-Type': 'multipart/form-data' }
-			});
+        if (errors[`documents.${index}.${field}`]) {
+            setErrors((prev) => ({
+                ...prev,
+                [`documents.${index}.${field}`]: "",
+            }));
+        }
+    };
 
-			setFormData((prev: any) => ({ ...prev, documents: docs }));
-			setActiveTab('identifying_information');
-		} catch (err) {
-			console.error('Upload error:', err);
-		}
-	};
+    /** ----------------------------------------------------
+     * Toggle a purpose item
+     * ---------------------------------------------------- */
+    const togglePurpose = (index: number, purpose: string) => {
+        const doc = documents[index];
+        const exists = doc.purposes.includes(purpose);
 
-	return (
-		<div className="bg-white p-6 rounded-lg shadow-md">
+        const updated = exists
+            ? doc.purposes.filter((p: string) => p !== purpose)
+            : [...doc.purposes, purpose];
 
-			<div className="flex justify-between items-center mb-4">
-				<h2 className="text-lg font-bold">Documents</h2>
-				<button
-					type="button"
-					onClick={add}
-					className="px-4 py-2 bg-blue-600 text-white rounded"
-				>
-					Add Document
-				</button>
-			</div>
+        update(index, "purposes", updated);
+    };
 
-			{docs.map((doc, idx) => (
-				<div key={idx} className="mb-4 border p-4 rounded bg-gray-50 relative">
-					<button
-						type="button"
-						onClick={() => remove(idx)}
-						className="absolute top-2 right-2 text-red-500"
-					>
-						Remove
-					</button>
+    /** ----------------------------------------------------
+     * VALIDATION
+     * ---------------------------------------------------- */
+    const validate = () => {
+        const e: Record<string, string> = {};
 
-					{/* Purposes */}
-					<label className="block text-sm font-medium mb-1">Purposes</label>
-					<select
-						className="w-full border rounded p-2"
-						value={doc.purposes}
-						onChange={(e) =>
-							update(
-								idx,
-								'purposes',
-								Array.from(e.target.selectedOptions, (o) => o.value)
-							)
-						}
-					>
-						<option disabled value="">
-							Select purposes
-						</option>
+        documents.forEach((doc, idx) => {
+            if (!doc.description.trim())
+                e[`documents.${idx}.description`] = "Description is required.";
 
-						{documentPurposes.map((p) => (
-							<option key={p.value} value={p.value}>
-								{p.label}
-							</option>
-						))}
-					</select>
+            if (!doc.purposes.length)
+                e[`documents.${idx}.purposes`] = "Select at least one purpose.";
+        });
 
-					{/* File */}
-					<label className="block mt-2 text-sm font-medium">File</label>
-					<input
-						type="file"
-						className="w-full border rounded p-2"
-						accept=".pdf,.jpg,.jpeg,.png"
-						onChange={(e) =>
-							update(idx, 'file', (e.target as HTMLInputElement).files?.[0] || null)
-						}
-					/>
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
 
-					{/* Description */}
-					<label className="block mt-2 text-sm font-medium">Description</label>
-					<input
-						type="text"
-						className="w-full border rounded p-2"
-						value={doc.description}
-						onChange={(e) => update(idx, 'description', e.target.value)}
-					/>
-				</div>
-			))}
+    return (
+        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                Documents Upload
+            </h2>
 
-			<div className="mt-6 flex justify-end">
-				<button
-					onClick={next}
-					className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-				>
-					Next
-				</button>
-			</div>
-		</div>
-	);
+            {documents.map((doc, idx) => (
+                <div
+                    key={idx}
+                    className="border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-lg p-6 mb-8"
+                >
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-md font-medium text-gray-900 dark:text-white">
+                            Document #{idx + 1}
+                        </h3>
+
+                        {documents.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={() => removeDocument(idx)}
+                                className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+                            >
+                                Remove
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium">Description *</label>
+                        <input
+                            value={doc.description}
+                            onChange={(e) =>
+                                update(idx, "description", e.target.value)
+                            }
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                errors[`documents.${idx}.description`]
+                                    ? "border-red-300"
+                                    : "border-gray-300"
+                            }`}
+                        />
+                        {errors[`documents.${idx}.description`] && (
+                            <p className="text-sm text-red-600">
+                                {errors[`documents.${idx}.description`]}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Purposes */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium">
+                            Select Purposes *
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                            {purposeOptions.map((p) => (
+                                <label key={p} className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={doc.purposes.includes(p)}
+                                        onChange={() => togglePurpose(idx, p)}
+                                        className="h-4 w-4 text-indigo-600"
+                                    />
+                                    <span className="text-sm capitalize">
+                                        {p.replaceAll("_", " ")}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+
+                        {errors[`documents.${idx}.purposes`] && (
+                            <p className="text-sm text-red-600">
+                                {errors[`documents.${idx}.purposes`]}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* File Upload */}
+                    <div>
+                        <label className="block text-sm font-medium">
+                            Upload File (PDF, JPG, PNG)
+                        </label>
+                        <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="mt-2"
+                            onChange={(e) =>
+                                update(
+                                    idx,
+                                    "file",
+                                    e.target.files?.[0] ?? null
+                                )
+                            }
+                        />
+                    </div>
+                </div>
+            ))}
+            {/* ADD DOCUMENT BUTTON */}
+            <div className="flex justify-start mb-6">
+                <button
+                    type="button"
+                    onClick={addDocument}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
+                >
+                    + Add Another Document
+                </button>
+            </div>
+
+            {/* BUTTONS */}
+            <div className="mt-10 flex justify-between">
+                {/* PREVIOUS */}
+                <button
+                    onClick={() => goToStep("regulatory")}
+                    disabled={saving}
+                    className="inline-flex items-center px-6 py-2 border border-gray-300 
+                    text-sm font-medium rounded-md shadow-sm bg-white hover:bg-gray-50"
+                >
+                    Previous
+                </button>
+
+                {/* NEXT */}
+                <button
+                    onClick={async () => {
+                        if (!validate()) return;
+
+                        try {
+                            const fd = new FormData();
+
+                            documents.forEach((doc, idx) => {
+                                fd.append(`documents[${idx}][description]`, doc.description);
+
+                                doc.purposes.forEach((p: string, pidx: number) => {
+                                    fd.append(`documents[${idx}][purposes][${pidx}]`, p);
+                                });
+
+                                if (doc.file) {
+                                    fd.append(
+                                        `documents[${idx}][file]`,
+                                        doc.file
+                                    );
+                                }
+                            });
+
+                            await axios.post("/api/business-customer/step/6", fd, {
+                                headers: { "Content-Type": "multipart/form-data" },
+                            });
+
+                            setFormData((prev: any) => ({
+                                ...prev,
+                                documents: documents,
+                            }));
+
+                            goToStep("identifying-info");
+                        } catch (err: any) {
+                            console.error(err);
+                            showError(
+                                err.response?.data?.message ||
+                                    "Unable to save document uploads."
+                            );
+                        }
+                    }}
+                    disabled={saving}
+                    className={`inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium 
+                    rounded-md shadow-sm text-white ${
+                        saving
+                            ? "bg-gray-400"
+                            : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                >
+                    {saving ? "Saving..." : "Next"}
+                </button>
+            </div>
+        </div>
+    );
 }

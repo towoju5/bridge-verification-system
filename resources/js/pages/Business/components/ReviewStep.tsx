@@ -1,294 +1,217 @@
-// ReviewStep.tsx
-
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 
-interface Country {
-    code: string;
-    name: string;
+interface Props {
+    formData: any;
+    saving: boolean;
+    goToStep: (step: string) => void;
+    showError: (msg: string) => void;
 }
 
-interface Address {
-    street_line_1?: string;
-    street_line_2?: string;
-    city?: string;
-    subdivision?: string;
-    postal_code?: string;
-    country?: string;
-    proof_of_address_file?: string;
-}
+export default function ReviewStep({ formData, saving, goToStep, showError }: Props) {
+    const [submitting, setSubmitting] = useState(false);
 
-interface AssociatedPerson {
-    first_name: string;
-    last_name: string;
-    birth_date?: string;
-    email?: string;
-    phone?: string;
-    title?: string;
-    ownership_percentage?: number;
-    is_director?: boolean;
-}
+    /** ---------------------------------------------------
+     * Final Submit → triggers server processing
+     * --------------------------------------------------- */
+    const submitFinal = async () => {
+        setSubmitting(true);
 
-interface DocumentItem {
-    purposes: string[];
-    description?: string;
-    file?: string;
-}
+        try {
+            const res = await axios.post("/api/business-customer/submit-final");
+            // You may redirect or show success message after this.
+            alert("KYC successfully submitted!");
+        } catch (err: any) {
+            console.error(err);
+            showError(err.response?.data?.message || "Final submission failed.");
+        }
 
-interface IdentifyingInformation {
-    type: string;
-    issuing_country: string;
-    number?: string;
-    description?: string;
-    expiration?: string;
-    image_front?: string;
-    image_back?: string;
-}
-
-interface ReviewData {
-    business_legal_name: string;
-    business_trade_name?: string;
-    business_description?: string;
-    email?: string;
-    primary_website?: string;
-    business_type?: string;
-    business_industry?: string;
-    registered_address?: Address;
-    physical_address?: Address;
-    associated_persons?: AssociatedPerson[];
-    documents?: DocumentItem[];
-    identifying_information?: IdentifyingInformation[];
-}
-
-interface InitialData {
-    countries: Country[];
-}
-
-interface ReviewStepProps {
-    setActiveTab: (tab: string) => void;
-    onComplete: () => void;
-}
-
-export default function ReviewStep({ onComplete }: ReviewStepProps) {
-    const [data, setData] = useState<ReviewData | null>(null);
-    const [initialData, setInitialData] = useState<InitialData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const getCountryName = useCallback(
-        (code?: string) => {
-            if (!code || !initialData?.countries) return "Not specified";
-            return initialData.countries.find(c => c.code === code)?.name || code;
-        },
-        [initialData]
-    );
-
-    const getAddressString = useCallback(
-        (address?: Address) => {
-            if (!address) return "Not provided";
-            const parts = [
-                address.street_line_1,
-                address.street_line_2,
-                address.city,
-                address.subdivision,
-                address.postal_code,
-                getCountryName(address.country),
-            ].filter(Boolean);
-
-            return parts.length ? parts.join(", ") : "Not provided";
-        },
-        [getCountryName]
-    );
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const res = await axios.get("/api/business-customer/step/8");
-
-                setData(res.data?.data ?? res.data?.business_data ?? null);
-                setInitialData(res.data?.initialData ?? res.data?.business_data ?? null);
-
-                console.log(res.data);
-                console.log(res.data.business_data);
-                
-                if (!res.data?.business_data) {
-                    setError("No review data received.");
-                }
-            } catch (err) {
-                console.error("Review fetch error:", err);
-                setError("Failed to load review information. Try again later.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    if (loading) {
-        return <p className="text-gray-600 animate-pulse">Loading review information...</p>;
-    }
-
-    if (error) {
-        return <p className="text-red-600 font-medium">{error}</p>;
-    }
-
-    if (!data || !initialData) {
-        return <p className="text-red-600">Unable to load information. Please retry.</p>;
-    }
+        setSubmitting(false);
+    };
 
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-800">Step 8: Review Information</h3>
-            <p className="text-sm text-gray-600">
-                Please verify all information before submitting.
+        <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+                Review Your Information
+            </h2>
+
+            <p className="text-gray-600 dark:text-gray-300 mb-8">
+                Please review all your provided information carefully before submitting.
             </p>
 
-            {/* BUSINESS INFO */}
-            <Section title="Business Information">
-                <Grid>
-                    <Info label="Legal Name" value={data.business_legal_name} />
-                    <Info label="Trade Name" value={data.business_trade_name} />
-                    <Info label="Description" value={data.business_description} />
-                    <Info label="Email" value={data.email} />
-                    <Info label="Website" value={data.primary_website} />
-                    <Info label="Type" value={data.business_type} />
-                    <Info label="Industry" value={data.business_industry} />
-                </Grid>
+            {/* ------------------ BUSINESS INFO ------------------ */}
+            <Section title="Business Information" onEdit={() => goToStep("business-info")}>
+                <Row label="Legal Name" value={formData.business_legal_name} />
+                <Row label="Trade Name" value={formData.business_trade_name} />
+                <Row label="Email" value={formData.email} />
+                <Row label="Phone" value={`${formData.phone_calling_code || ""} ${formData.phone_number || ""}`} />
+                <Row label="Business Type" value={formData.business_type} />
+                <Row label="Registration Number" value={formData.registration_number} />
+                <Row label="Incorporation Date" value={formData.incorporation_date} />
+                <Row label="Industry" value={formData.business_industry} />
+                <Row label="Website" value={formData.primary_website} />
             </Section>
 
-            {/* ADDRESSES */}
-            <Section title="Addresses">
-                <div className="space-y-4 text-sm">
-                    <AddressBlock
-                        title="Registered Address"
-                        address={data.registered_address}
-                        getAddressString={getAddressString}
-                    />
-                    <AddressBlock
-                        title="Physical Address"
-                        address={data.physical_address}
-                        getAddressString={getAddressString}
-                    />
-                </div>
+            {/* ------------------ ADDRESSES ------------------ */}
+            <Section title="Registered Address" onEdit={() => goToStep("addresses")}>
+                <AddressBlock data={formData.registered_address} />
             </Section>
 
-            {/* ASSOCIATED PERSONS */}
-            <Section title="Associated Persons">
-                {data.associated_persons?.length ? (
-                    data.associated_persons.map((p, idx) => (
-                        <div key={idx} className="mb-3 border-b pb-2 text-sm">
-                            <Info label="Name" value={`${p.first_name} ${p.last_name}`} />
-                            <Info label="Birth Date" value={p.birth_date} />
-                            <Info label="Email" value={p.email} />
-                            <Info label="Phone" value={p.phone} />
-                            <Info label="Title" value={p.title} />
-                            <Info label="Ownership %" value={p.ownership_percentage} />
-                            <Info label="Director" value={p.is_director ? "Yes" : "No"} />
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-600">No associated persons added.</p>
+            <Section title="Physical Address" onEdit={() => goToStep("addresses")}>
+                <AddressBlock data={formData.physical_address} />
+            </Section>
+
+            {/* ------------------ ASSOCIATED PERSONS ------------------ */}
+            <Section title="Associated Persons" onEdit={() => goToStep("persons")}>
+                {formData.associated_persons?.map((p: any, idx: number) => (
+                    <div key={idx} className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 mb-4">
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                            Person #{idx + 1}
+                        </h4>
+                        <Row label="Name" value={`${p.first_name} ${p.last_name}`} />
+                        <Row label="Email" value={p.email} />
+                        <Row label="Nationality" value={p.nationality} />
+                        <Row label="Ownership %" value={p.ownership_percentage} />
+                        <AddressBlock data={p.residential_address} />
+                    </div>
+                ))}
+            </Section>
+
+            {/* ------------------ FINANCIAL INFO ------------------ */}
+            <Section title="Financial Information" onEdit={() => goToStep("financial")}>
+                <Row label="Account Purpose" value={formData.account_purpose} />
+                {formData.account_purpose === "Other" && (
+                    <Row label="Other Purpose" value={formData.account_purpose_other} />
                 )}
+                <Row label="Source of Funds" value={formData.source_of_funds} />
+                <Row label="High Risk Activities" value={formData.high_risk_activities?.join(", ")} />
+                <Row label="Annual Revenue" value={formData.estimated_annual_revenue_usd} />
+                <Row label="Monthly Payments" value={formData.expected_monthly_payments_usd} />
             </Section>
 
-            {/* DOCUMENTS */}
-            <Section title="Documents">
-                {data.documents?.length ? (
-                    data.documents.map((doc, idx) => (
-                        <div key={idx} className="mb-3 border-b pb-2 text-sm">
-                            <Info label="Purposes" value={doc.purposes.join(", ")} />
-                            <Info label="Description" value={doc.description} />
-                            {doc.file && <FileLink label="View File" file={doc.file} />}
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-600">No documents uploaded.</p>
-                )}
+            {/* ------------------ REGULATORY ------------------ */}
+            <Section title="Regulatory Information" onEdit={() => goToStep("regulatory")}>
+                <Row
+                    label="Description of Regulated Activities"
+                    value={formData.regulated_activities_description}
+                />
+                <Row
+                    label="Authority Country"
+                    value={formData.primary_regulatory_authority_country}
+                />
+                <Row
+                    label="Authority Name"
+                    value={formData.primary_regulatory_authority_name}
+                />
+                <Row label="License Number" value={formData.license_number} />
             </Section>
 
-            {/* IDENTIFYING INFORMATION */}
-            <Section title="Identifying Information">
-                {data.identifying_information?.length ? (
-                    data.identifying_information.map((id, idx) => (
-                        <div key={idx} className="mb-3 border-b pb-2 text-sm">
-                            <Info label="Type" value={id.type} />
-                            <Info label="Issuing Country" value={getCountryName(id.issuing_country)} />
-                            <Info label="Number" value={id.number} />
-                            <Info label="Description" value={id.description} />
-                            <Info label="Expiration" value={id.expiration} />
+            {/* ------------------ DOCUMENTS ------------------ */}
+            <Section title="Uploaded Documents" onEdit={() => goToStep("documents")}>
+                {formData.documents?.map((d: any, idx: number) => (
+                    <div key={idx} className="mb-4 p-3 border rounded">
+                        <Row label="Description" value={d.description} />
+                        <Row label="Purposes" value={d.purposes?.join(", ")} />
+                        <Row label="File" value={d.file_name || d.file} />
+                    </div>
+                ))}
+            </Section>
 
-                            {id.image_front && <FileLink label="View Front" file={id.image_front} />}
-                            {id.image_back && (
-                                <FileLink label="View Back" file={id.image_back} extraClass="ml-2" />
-                            )}
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-600">No identifying information available.</p>
-                )}
+            {/* ------------------ IDENTIFYING INFO ------------------ */}
+            <Section title="Identifying Information" onEdit={() => goToStep("identifying-info")}>
+                {formData.identifying_information?.map((id: any, idx: number) => (
+                    <div key={idx} className="mb-4 p-3 border rounded">
+                        <Row label="Type" value={id.type} />
+                        <Row label="Issuing Country" value={id.issuing_country} />
+                        <Row label="Number" value={id.number} />
+                        <Row label="Expiration" value={id.expiration} />
+                        <Row label="Description" value={id.description} />
+                    </div>
+                ))}
+            </Section>
+
+            {/* ------------------ EXTRA DOCUMENTS ------------------ */}
+            <Section title="Extra Documents" onEdit={() => goToStep("extra-documents")}>
+                {formData.extra_documents?.map((d: any, idx: number) => (
+                    <div key={idx} className="mb-4 p-3 border rounded">
+                        <Row label="Description" value={d.description} />
+                        <Row label="File" value={d.file_name || d.file} />
+                    </div>
+                ))}
             </Section>
 
             {/* SUBMIT BUTTON */}
-            <div className="mt-6 flex justify-end">
+            <div className="mt-10 flex justify-end">
                 <button
-                    onClick={onComplete}
-                    className="inline-flex items-center px-4 py-2 border border-transparent 
-                    text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 
-                    hover:bg-indigo-700"
+                    onClick={submitFinal}
+                    disabled={saving || submitting}
+                    className={`px-6 py-3 rounded-md text-white text-lg font-medium shadow 
+                    ${
+                        saving || submitting
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700"
+                    }`}
                 >
-                    Finish
+                    {submitting ? "Submitting..." : "Submit KYC"}
                 </button>
             </div>
         </div>
     );
 }
 
-/* -------------------- Reusable Components -------------------- */
+/* ============================================================
+ * SHARED COMPONENTS
+ * ============================================================ */
 
-const Section = ({ title, children }: { title: string; children: any }) => (
-    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-        <h4 className="font-medium text-gray-700 mb-3">{title}</h4>
-        {children}
-    </div>
-);
-
-const Grid = ({ children }: { children: any }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm">{children}</div>
-);
-
-const Info = ({ label, value }: { label: string; value: any }) => (
-    <p>
-        <span className="font-semibold">{label}:</span> {value || "Not provided"}
-    </p>
-);
-
-const FileLink = ({ label, file, extraClass }: any) => (
-    <a
-        href={`/storage/${file}`}
-        target="_blank"
-        rel="noreferrer"
-        className={`text-blue-600 text-xs ${extraClass ?? ""}`}
-    >
-        {label}
-    </a>
-);
-
-const AddressBlock = ({
+function Section({
     title,
-    address,
-    getAddressString,
+    onEdit,
+    children,
 }: {
     title: string;
-    address?: Address;
-    getAddressString: (a?: Address) => string;
-}) => (
-    <div>
-        <p className="font-semibold">{title}</p>
-        <p className="text-sm">{getAddressString(address)}</p>
+    onEdit?: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="mb-10">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+                {onEdit && (
+                    <button
+                        onClick={onEdit}
+                        className="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                    >
+                        Edit
+                    </button>
+                )}
+            </div>
+            <div className="space-y-2">{children}</div>
+        </div>
+    );
+}
 
-        {address?.proof_of_address_file && (
-            <FileLink label="View Proof of Address" file={address.proof_of_address_file} />
-        )}
-    </div>
-);
+function Row({ label, value }: { label: string; value: any }) {
+    if (value === undefined || value === null || value === "") return null;
+
+    return (
+        <div className="flex justify-between text-sm py-1 border-b border-gray-200 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-300">{label}</span>
+            <span className="font-medium text-gray-900 dark:text-white">{value}</span>
+        </div>
+    );
+}
+
+function AddressBlock({ data }: any) {
+    if (!data) return null;
+
+    return (
+        <div className="p-3 border border-gray-200 dark:border-gray-700 rounded mt-2">
+            <Row label="Street 1" value={data.street_line_1} />
+            <Row label="Street 2" value={data.street_line_2} />
+            <Row label="City" value={data.city} />
+            <Row label="Subdivision" value={data.subdivision} />
+            <Row label="Postal Code" value={data.postal_code} />
+            <Row label="Country" value={data.country} />
+        </div>
+    );
+}

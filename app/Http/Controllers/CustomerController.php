@@ -66,10 +66,12 @@ class CustomerController extends Controller
         try {
             $submissionId = session('customer_submission_id', $customerId);
 
-            $customer = Customer::whereCustomerId($customerId);
+            if (!env('IS_LOCAL_ENV')) {
+                $customer = Customer::whereCustomerId($customerId);
 
-            if (! $customer->exists()) {
-                abort(404, "Customer with provided ID {$customerId} not found.");
+                if (! $customer->exists()) {
+                    abort(404, "Customer with provided ID {$customerId} not found.");
+                }
             }
 
             if (! $submissionId) {
@@ -93,9 +95,6 @@ class CustomerController extends Controller
             }
 
             if ($customer_type == 'business') {
-                $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
-                // if a valid url was returned then redirect customer to the URI
-
                 session([
                     'type'                   => 'business',
                     'signed_agreement_id'    => $customer_id,
@@ -110,6 +109,7 @@ class CustomerController extends Controller
                     'session_id' => $customer_id,
                     'customer_id' => $customer_id
                 ]);
+                $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
 
                 if (filter_var($url, FILTER_VALIDATE_URL)) {
                     return redirect()->to($url);
@@ -121,7 +121,7 @@ class CustomerController extends Controller
             abort(400, "Invalid customer type. {$customer_type} provided.");
         } catch (\Throwable $th) {
             return view('errors', [
-                'message' => "Error Encountered, Please contact support",
+                'message' => $th->getMessage() ?? "Error Encountered, Please contact support",
                 'code'    => $th->getCode(),
             ]);
         }
@@ -131,10 +131,12 @@ class CustomerController extends Controller
     {
         $signedAgreementId = $request->signed_agreement_id ?? Str::uuid();
         $customerId        = $request->customer_id;
-        $customer          = Customer::whereCustomerId($customerId);
+        if (!env('IS_LOCAL_ENV')) {
+            $customer          = Customer::whereCustomerId($customerId);
 
-        if (! $customer->exists()) {
-            abort(404, "Customer with provided ID {$customerId} not found.");
+            if (! $customer->exists()) {
+                abort(404, "Customer with provided ID {$customerId} not found.");
+            }
         }
 
         // var_dump('Starting business verification...');
@@ -665,7 +667,7 @@ class CustomerController extends Controller
             if (is_array($value)) {
                 $value = $this->dotToNestedArray($value);
             }
-            if ($value instanceof \Illuminate\Http\UploadedFile  || $value === null) {
+            if ($value instanceof UploadedFile  || $value === null) {
                 data_set($result, $key, $value);
                 continue;
             }
@@ -781,11 +783,15 @@ class CustomerController extends Controller
     {
         // 1. Validate presence of customer_id
         $request->validate([
-            'customer_id' => 'required|string|exists:customers,customer_id',
+            'customer_id' => 'required|string',
         ]);
 
         $customerId = $request->customer_id;
-        $customer = Customer::where('customer_id', $customerId)->firstOrFail();
+        $customer = Customer::where('customer_id', $customerId)->first();
+
+        if (!$customer) {
+            return response()->json(['error' => 'Customer with provided customer_id not found'], 404);
+        }
 
         DB::beginTransaction();
 

@@ -106,6 +106,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             // Mark as registered and create endorsements
             $customer->update(['is_noah_registered' => true]);
+            add_customer_meta($customer->customer_id, 'noah_customer_id', $customer->customer_id);
             Log::info('Noah KYC completed successfully', ['customer_id' => $customer->customer_id]);
         } catch (Throwable $e) {
             Log::error('Noah KYC error', [
@@ -309,6 +310,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             Log::info('Borderless KYC submitted', ['customer_id' => $customer->customer_id, 'identity_id' => $identityId]);
+            add_customer_meta($customer->customer_id, 'borderless_customer_id', $identityId);
 
             // --- Step 2: Upload Documents ---
             $this->uploadBorderlessDocuments($identityId, $idInfo, $addr, $data['customer_id']);
@@ -595,7 +597,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ]);
                     return;
                 }
-
+                add_customer_meta($customer->customer_id, 'transfi_user_id', $transfiUserId);
                 $customer->update(['transfi_user_id' => $transfiUserId]);
             }
 
@@ -750,6 +752,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ['customer_id' => $customer->customer_id, 'service' => 'virtual_card'],
                     ['status' => 'approved']
                 );
+                add_customer_meta($customer->customer_id, 'bitnob_customer_id', $response['data']['id']);
                 Log::info('Bitnob KYC success', ['customer_id' => $customer->customer_id]);
             } else {
                 Log::error('Bitnob KYC failed', [
@@ -884,7 +887,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
         return null;
     }
 
-    private function getCustomer(string $customerId): ?Customer
+    public function getCustomer(string $customerId): ?Customer
     {
         return Customer::where('customer_id', $customerId)->first();
     }

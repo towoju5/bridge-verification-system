@@ -40,6 +40,8 @@ class AveniaService
         $response = Http::timeout(20)->post($baseUrl, $payload);
 
         if ($response->successful()) {
+            // add customer sub account ID
+            add_customer_meta($customer->customer_id, 'avenia_customer_id', $response->json()['id']);
             return true;
         }
 
