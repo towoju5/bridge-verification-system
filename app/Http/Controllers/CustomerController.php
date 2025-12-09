@@ -374,7 +374,15 @@ class CustomerController extends Controller
                     'most_recent_occupation_code'   => 'required|string',
                     'expected_monthly_payments_usd' => ['required', Rule::in(array_keys(config('bridge_data.expected_monthly_payments_usd')))],
                     'source_of_funds'               => ['required', Rule::in(array_keys(config('bridge_data.source_of_funds')))],
-                    'account_purpose'               => ['required'],
+                    'account_purpose'               => [
+                        'required',
+                        function ($attribute, $value, $fail) {
+                            $allowed = array_map('strtolower', array_keys(config('bridge_data.account_purposes')));
+                            if (! in_array(strtolower($value), $allowed)) {
+                                $fail("Invalid account purpose.");
+                            }
+                        }
+                    ],
                     'account_purpose_other'         => 'required_if:account_purpose,other',
                     'acting_as_intermediary'        => 'sometimes|boolean',
                 ];
@@ -651,7 +659,7 @@ class CustomerController extends Controller
         if (request()->hasFile($key)) {
             $file = request()->file($key);
         } elseif (request()->hasFile(str_replace('.', '_', $key))) {
-            $file = request()->file(str_replace('.', '_', $key));
+            $file = request()->file($key);
         }
         if ($file) {
             $path = $file->store($folder, 'public');
@@ -929,7 +937,7 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'KYC submitted successfully.',
-                'submission_id' => $submission->id
+                'payload' => $submission
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -937,7 +945,7 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Submission failed. Please check your data and try again.',
-                'debug'   => config('app.debug') ? $e->getMessage() : null
+                'payload' => $submission
             ], 500);
         }
     }
@@ -987,37 +995,38 @@ class CustomerController extends Controller
         foreach ($data as $key => $value) {
             $fullKey = $prefix ? "{$prefix}.{$key}" : $key;
 
-            if (is_string($value) && preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)) {
+            if (
+                is_string($value) &&
+                preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)
+            ) {
+
                 $mime = $matches[1];
                 $base64 = $matches[2];
                 $binary = base64_decode($base64);
-                if ($binary === false) continue;
 
-                $tempFile = tmpfile();
-                fwrite($tempFile, $binary);
-                $meta = stream_get_meta_data($tempFile);
-                $filePath = $meta['uri'];
+                $tmp = tmpfile();
+                fwrite($tmp, $binary);
+                $path = stream_get_meta_data($tmp)['uri'];
 
-                $extension = match (true) {
-                    str_starts_with($mime, 'image/jpeg') => 'jpg',
-                    str_starts_with($mime, 'image/png')  => 'png',
-                    str_starts_with($mime, 'image/heic') => 'heic',
-                    str_starts_with($mime, 'image/tiff') => 'tif',
-                    str_starts_with($mime, 'application/pdf') => 'pdf',
+                $ext = match (true) {
+                    str_contains($mime, 'jpeg') => 'jpg',
+                    str_contains($mime, 'png') => 'png',
+                    str_contains($mime, 'heic') => 'heic',
+                    str_contains($mime, 'pdf') => 'pdf',
                     default => 'bin'
                 };
 
-                $fileName = Str::random(20) . '.' . $extension;
-                $uploadedFile = new UploadedFile($filePath, $fileName, $mime, null, true);
-                $files[$fullKey] = $uploadedFile;
-                $data[$key] = $uploadedFile; // replace with UploadedFile
+                $uploaded = new UploadedFile($path, Str::random(20) . ".$ext", $mime, null, true);
+
+                // FIX: properly nest file arrays
+                data_set($files, $fullKey, $uploaded);
+                data_set($data,  $fullKey, $uploaded);
             } elseif (is_array($value)) {
                 $this->processBase64InArray($value, $files, $fullKey);
                 $data[$key] = $value;
             }
         }
     }
-
     private function saveCustomerDocuments(CustomerSubmission $submission, array $data)
     {
         // Reuse your file-saving logic or call existing methods with mock request
