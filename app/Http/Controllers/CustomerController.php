@@ -53,12 +53,12 @@ class CustomerController extends Controller
 
         if (!Schema::hasTable('customer_meta_data')) {
             Schema::create('customer_meta_data', function (Blueprint $table) {
-                $table->uuid('customer_id'); // customer_id is a uuid column in the customers table
+                $table->uuid('customer_id');
                 $table->string('key');
                 $table->json('value');
                 $table->timestamps();
                 $table->softDeletes();
-                $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('cascade');
+                // $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('cascade');
             });
         }
     }
