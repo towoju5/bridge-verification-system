@@ -17,7 +17,7 @@ return new class extends Migration
             $table->json('value');
             $table->timestamps();
             $table->softDeletes();
-            $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('cascade');
+            // $table->foreign('customer_id')->references('customer_id')->on('customers')->onDelete('cascade');
         });
     }
 
