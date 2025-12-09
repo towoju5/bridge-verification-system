@@ -1089,59 +1089,70 @@ class CustomerController extends Controller
         $data  = $request->all();
         $files = [];
 
-        $process = function (&$array, $prefix = '') use (&$process, &$files) {
+        $convert = function (&$value, $keyPath) use (&$convert, &$files) {
 
-            foreach ($array as $key => $value) {
-                $full = $prefix ? "$prefix.$key" : $key;
+            // Detect if value is Base64 image/file
+            if (is_string($value) && preg_match('/^data:(.+);base64,(.*)$/', $value, $m)) {
 
-                if (is_string($value) && preg_match('/^data:([^;]+);base64,(.*)$/', $value, $m)) {
-                    $mime = $m[1];
-                    $base64 = $m[2];
+                $mime = $m[1];
+                $base64Data = $m[2];
 
-                    $binary = base64_decode($base64);
-                    if ($binary === false) continue;
+                $binary = base64_decode($base64Data);
+                if ($binary === false) return;
 
-                    // Determine extension from mime
-                    $extension = match (true) {
-                        str_contains($mime, 'jpeg') => 'jpg',
-                        str_contains($mime, 'png')  => 'png',
-                        str_contains($mime, 'pdf')  => 'pdf',
-                        default => 'bin'
-                    };
+                // Detect extension from mime
+                $extension = match (true) {
+                    str_contains($mime, 'jpeg') => 'jpg',
+                    str_contains($mime, 'png')  => 'png',
+                    str_contains($mime, 'pdf')  => 'pdf',
+                    default => 'bin',
+                };
 
-                    // 🔥 FIX: persistent file path
-                    $filePath = sys_get_temp_dir() . '/' . Str::uuid() . '.' . $extension;
-                    file_put_contents($filePath, $binary);
+                // Create a persistent temp file (fix for stat() errors)
+                $tmpPath = sys_get_temp_dir() . '/' . Str::uuid() . '.' . $extension;
+                file_put_contents($tmpPath, $binary);
 
-                    // Build UploadedFile object
-                    $file = new UploadedFile(
-                        $filePath,
-                        basename($filePath),
-                        $mime,
-                        null,
-                        true
-                    );
+                // Build UploadedFile instance
+                $uploaded = new UploadedFile(
+                    $tmpPath,
+                    basename($tmpPath),
+                    $mime,
+                    null,
+                    true
+                );
 
-                    $files[$full] = $file;
-                    $array[$key]  = $file;
-                } elseif (is_array($value)) {
-                    $process($value, $full);
-                    $array[$key] = $value;
+                // Store in Symfony file bag
+                Arr::set($files, $keyPath, $uploaded);
+
+                // Replace value in request data
+                $value = $uploaded;
+
+                return;
+            }
+
+            // Recurse into arrays
+            if (is_array($value)) {
+                foreach ($value as $k => $v) {
+                    $convert($value[$k], $keyPath ? "$keyPath.$k" : $k);
                 }
             }
         };
 
-        $process($data);
+        foreach ($data as $k => $v) {
+            $convert($data[$k], $k);
+        }
 
+        // Rebuild the request object
         return Request::create(
-            '',
-            'POST',
+            $request->getPathInfo(),
+            $request->getMethod(),
             $data,
             $request->cookies->all(),
             $files,
             $request->server->all()
         );
     }
+
 
 
     private function processBase64InArray(array &$data, array &$files, string $prefix): void
