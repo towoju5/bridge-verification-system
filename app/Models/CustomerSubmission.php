@@ -57,7 +57,9 @@ class CustomerSubmission extends Model
     protected $hidden = [
         'endorsements',
         'updated_at',
-        'verified_at'
+        'verified_at',
+        'id',
+        'verified_at',
     ];
 
     protected $fillable = [
@@ -94,7 +96,8 @@ class CustomerSubmission extends Model
         'documents',
         'uploaded_documents',
         'submit_bridge_kyc',
-        'gender',
+        'gender',file:///home/ignite/Documents/new-kyc-response.json
+        
         'customer_id',
         'selfie_image'
     ];
