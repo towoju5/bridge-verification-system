@@ -840,7 +840,7 @@ class CustomerController extends Controller
         response()->json([
             'success' => $success,
             'message' => $message,
-            'errors'  => $errors,
+            'data'  => $errors,
         ], $code);
 
         // Basic validation for customer_id
@@ -1041,9 +1041,7 @@ class CustomerController extends Controller
 
             dispatch(new ThirdPartyKycSubmission($submission->toArray()));
             $this->saveCustomerDocuments($submission, $data);
-            return $respond(true, 'KYC submitted successfully.', [
-                'submission' => $submission->fresh(),
-            ], 201);
+            return $respond(true, 'KYC submitted successfully.', (array)$submission->fresh(), 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
