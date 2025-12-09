@@ -531,7 +531,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $dob = null;
             if (!empty($data['birth_date'])) {
                 try {
-                    $dob = Carbon::parse($data['birth_date'])->format('Y-m-d');
+                    $dob = Carbon::parse($data['birth_date'])->format('d-m-Y');
                 } catch (\Exception $e) {
                     $dob = null; // invalid date
                     Log::info('Date of birth is null');
@@ -610,7 +610,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
-                'dob' => $dob,
+                'dob' => Carbon::parse($data['birth_date'])->format('Y-m-d'),
                 'email' => $data['email'] ?? '',
                 'gender' => $gender,
                 'phoneNo' => $data['phone'] ?? '',
