@@ -74,7 +74,7 @@ if (!function_exists('add_customer_meta')) {
             'customer_id' => $customerId,
             'key' => $key
         ], [
-            'value' => $value
+            'value' => (array)$value
         ]);
 
         return $meta;
