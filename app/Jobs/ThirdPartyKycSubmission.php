@@ -589,6 +589,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                         ],
                         'customer_id' => $customer->customer_id,
                         'response' => $res->body(),
+                        'payload' => $userPayload
                     ]);
                     return;
                 }
