@@ -4,21 +4,60 @@ namespace App\Models;
 
 use App\Jobs\ThirdPartyKycSubmission;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CustomerSubmission extends Model
 {
     protected $casts = [
-        'residential_address' => 'array',
-        'transliterated_residential_address' => 'array',
-        'identifying_information' => 'array',
-        'endorsements' => 'array',
-        'birth_date' => 'date',
-        'submitted_at' => 'datetime',
-        'verified_at' => 'datetime',
-        'documents' => 'array',
-        'uploaded_documents' => 'array',
-        'submit_bridge_kyc' => 'boolean'
+        // arrays
+        'residential_address'               => 'encrypted:array',
+        'transliterated_residential_address'=> 'encrypted:array',
+        'identifying_information'           => 'encrypted:array',
+        'endorsements'                      => 'encrypted:array',
+        'documents'                         => 'encrypted:array',
+        'uploaded_documents'                => 'encrypted:array',
+
+        // booleans
+        'submit_bridge_kyc'                 => 'encrypted:boolean',
+        'acting_as_intermediary'            => 'encrypted:boolean',
+
+        // dates / datetimes
+        'birth_date'                        => 'encrypted:date',
+        'submitted_at'                      => 'encrypted:datetime',
+        'verified_at'                       => 'encrypted:datetime',
+
+        // ALL OTHER FIELDS AS ENCRYPTED STRINGS
+        'type'                              => 'encrypted',
+        'signed_agreement_id'               => 'encrypted',
+        'first_name'                        => 'encrypted',
+        'middle_name'                       => 'encrypted',
+        'last_name'                         => 'encrypted',
+        'second_last_name'                  => 'encrypted',
+        'last_name_native'                  => 'encrypted',
+        'transliterated_first_name'         => 'encrypted',
+        'transliterated_middle_name'        => 'encrypted',
+        'transliterated_last_name'          => 'encrypted',
+        'taxId'                             => 'encrypted',
+        'email'                             => 'encrypted',
+        'phone'                             => 'encrypted',
+        'nationality'                       => 'encrypted',
+        'employment_status'                 => 'encrypted',
+        'most_recent_occupation_code'       => 'encrypted',
+        'expected_monthly_payments_usd'     => 'encrypted',
+        'source_of_funds'                   => 'encrypted',
+        'account_purpose'                   => 'encrypted',
+        'account_purpose_other'             => 'encrypted',
+        'status'                            => 'encrypted',
+        'ip_address'                        => 'encrypted',
+        'user_agent'                        => 'encrypted',
+        'gender'                            => 'encrypted',
+        'customer_id'                       => 'encrypted',
+        'selfie_image'                      => 'encrypted',
+    ];
+
+    protected $hidden = [
+        'endorsements',
+        'updated_at',
+        'verified_at'
     ];
 
     protected $fillable = [
@@ -60,22 +99,14 @@ class CustomerSubmission extends Model
         'selfie_image'
     ];
 
-    // public function documents(): HasMany
-    // {
-    //     return $this->hasMany(CustomerDocument::class);
-    // }
-
     protected static function booted()
     {
         static::created(function ($customerSubmission) {
-            if($customerSubmission->submitted_at != null && $customerSubmission->status == 'submitted') {
-                // initiate all job queues to submit to all third party services.
+            if ($customerSubmission->submitted_at && $customerSubmission->status === 'submitted') {
+
+                // Dispatch job with decrypted data automatically 
                 dispatch(new ThirdPartyKycSubmission($customerSubmission->toArray()));
             }
-        });
-
-        static::updating(function ($customerSubmission) {
-            // You can add any logic that needs to happen before updating a record
         });
     }
 }
