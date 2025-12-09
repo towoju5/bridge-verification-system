@@ -83,3 +83,9 @@ Route::get('/{accountType}/{customerId}', [CustomerController::class, 'showAccou
 Route::get('/{any}', function () {
     return redirect()->to('https://yativo.com');
 })->where('any', '.*');
+
+
+
+Route::fallback(function () {
+    return redirect()->to('https://yativo.com');
+})->where('any', '.*');
