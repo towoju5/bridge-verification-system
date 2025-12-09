@@ -95,12 +95,12 @@ class CustomerController extends Controller
                     'ip_address'                  => request()->ip(),
                     'customer_id'                 => $customerId,
                     'customer_submission_id'      => $customerId,
-                    'business_customer_session_id'=> $customerId,
+                    'business_customer_session_id' => $customerId,
                 ]);
 
                 BusinessCustomer::firstOrCreate([
                     'session_id' => $customer_id,
-                    'customer_id'=> $customer_id,
+                    'customer_id' => $customer_id,
                 ]);
 
                 $url = $this->startBusinessVerification(request()->merge(['customer_id' => $customer_id]));
@@ -420,7 +420,7 @@ class CustomerController extends Controller
                 $validator->after(function ($validator) use ($request, $requiredTypes) {
                     $uploadedTypes = collect($request->uploaded_documents ?? [])
                         ->pluck('type')
-                        ->map(fn ($t) => strtolower(trim($t)));
+                        ->map(fn($t) => strtolower(trim($t)));
 
                     foreach ($requiredTypes as $type) {
                         if (! $uploadedTypes->contains(strtolower($type))) {
@@ -484,7 +484,7 @@ class CustomerController extends Controller
             case 2:
                 if (isset($validatedData['residential_address'])) {
                     $addr                             = Arr::except($validatedData['residential_address'], ['proof_of_address_file']);
-                    $modelData['residential_address'] = array_filter($addr, fn ($v) => ! empty($v));
+                    $modelData['residential_address'] = array_filter($addr, fn($v) => ! empty($v));
 
                     $fileUrl = $this->uploadFileIfExists(
                         'residential_address.proof_of_address_file',
@@ -502,7 +502,7 @@ class CustomerController extends Controller
             case 3:
                 if (! empty($validatedData['identifying_information'])) {
                     $modelData['identifying_information'] = collect($validatedData['identifying_information'])->map(function ($doc, $index) {
-                        $cleaned = array_filter($doc, fn ($v) => ! empty($v));
+                        $cleaned = array_filter($doc, fn($v) => ! empty($v));
 
                         foreach (['image_front_file', 'image_back_file'] as $fileField) {
                             $fileUrl = $this->uploadFileIfExists(
@@ -823,12 +823,12 @@ class CustomerController extends Controller
      */
     public function submitFullKyc(Request $request)
     {
-        $respond = fn ($success, $message, $errors = null, $code = 422) =>
-            response()->json([
-                'success' => $success,
-                'message' => $message,
-                'errors'  => $errors,
-            ], $code);
+        $respond = fn($success, $message, $errors = null, $code = 422) =>
+        response()->json([
+            'success' => $success,
+            'message' => $message,
+            'errors'  => $errors,
+        ], $code);
 
         // Basic validation for customer_id
         $v = Validator::make($request->all(), [
@@ -1027,7 +1027,7 @@ class CustomerController extends Controller
             DB::commit();
 
             dispatch(new ThirdPartyKycSubmission($submission->toArray()));
-
+            $this->saveCustomerDocuments($submission, $data);
             return $respond(true, 'KYC submitted successfully.', [
                 'submission' => $submission->fresh(),
             ], 201);
@@ -1089,9 +1089,51 @@ class CustomerController extends Controller
         $data  = $request->all();
         $files = [];
 
-        $this->processBase64InArray($data, $files, '');
+        $process = function (&$array, $prefix = '') use (&$process, &$files) {
 
-        $newRequest = Request::create(
+            foreach ($array as $key => $value) {
+                $full = $prefix ? "$prefix.$key" : $key;
+
+                if (is_string($value) && preg_match('/^data:([^;]+);base64,(.*)$/', $value, $m)) {
+                    $mime = $m[1];
+                    $base64 = $m[2];
+
+                    $binary = base64_decode($base64);
+                    if ($binary === false) continue;
+
+                    // Determine extension from mime
+                    $extension = match (true) {
+                        str_contains($mime, 'jpeg') => 'jpg',
+                        str_contains($mime, 'png')  => 'png',
+                        str_contains($mime, 'pdf')  => 'pdf',
+                        default => 'bin'
+                    };
+
+                    // 🔥 FIX: persistent file path
+                    $filePath = sys_get_temp_dir() . '/' . Str::uuid() . '.' . $extension;
+                    file_put_contents($filePath, $binary);
+
+                    // Build UploadedFile object
+                    $file = new UploadedFile(
+                        $filePath,
+                        basename($filePath),
+                        $mime,
+                        null,
+                        true
+                    );
+
+                    $files[$full] = $file;
+                    $array[$key]  = $file;
+                } elseif (is_array($value)) {
+                    $process($value, $full);
+                    $array[$key] = $value;
+                }
+            }
+        };
+
+        $process($data);
+
+        return Request::create(
             '',
             'POST',
             $data,
@@ -1099,17 +1141,18 @@ class CustomerController extends Controller
             $files,
             $request->server->all()
         );
-
-        return $newRequest;
     }
+
 
     private function processBase64InArray(array &$data, array &$files, string $prefix): void
     {
         foreach ($data as $key => $value) {
             $fullKey = $prefix ? "{$prefix}.{$key}" : $key;
 
-            if (is_string($value) &&
-                preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)) {
+            if (
+                is_string($value) &&
+                preg_match('/^data:([^;]+);base64,(.*)$/', $value, $matches)
+            ) {
 
                 $mime   = $matches[1];
                 $base64 = $matches[2];
@@ -1190,8 +1233,116 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * Save ALL uploaded documents (selfie, ID docs, proof of address, additional docs)
+     * into the customer_documents table. This supports submitFullKyc API processing.
+     */
     private function saveCustomerDocuments(CustomerSubmission $submission, array $data)
     {
-        // placeholder - you can refactor file logging here if needed
+        // 1️⃣ Selfie Image
+        if (isset($data['selfie_image']) && $data['selfie_image'] instanceof UploadedFile) {
+            $file = $data['selfie_image'];
+
+            $path = $file->store("customer_documents/{$submission->id}/selfie", 'public');
+            $url  = Storage::url($path);
+
+            CustomerDocument::create([
+                'customer_submission_id' => $submission->id,
+                'document_type'          => 'selfie',
+                'file_path'              => $path,
+                'file_name'              => $file->getClientOriginalName(),
+                'mime_type'              => $file->getMimeType(),
+                'file_size'              => $file->getSize(),
+            ]);
+        }
+
+        // 2️⃣ Proof of Address
+        if (
+            isset($data['residential_address']['proof_of_address_file']) &&
+            $data['residential_address']['proof_of_address_file'] instanceof UploadedFile
+        ) {
+            $file = $data['residential_address']['proof_of_address_file'];
+
+            $path = $file->store("customer_documents/{$submission->id}/address", 'public');
+            $url  = Storage::url($path);
+
+            CustomerDocument::create([
+                'customer_submission_id' => $submission->id,
+                'document_type'          => 'proof_of_address',
+                'file_path'              => $path,
+                'file_name'              => $file->getClientOriginalName(),
+                'mime_type'              => $file->getMimeType(),
+                'file_size'              => $file->getSize(),
+            ]);
+        }
+
+        // 3️⃣ Identification Documents
+        if (isset($data['identifying_information']) && is_array($data['identifying_information'])) {
+
+            foreach ($data['identifying_information'] as $idx => $doc) {
+                // Front
+                if (isset($doc['image_front_file']) && $doc['image_front_file'] instanceof UploadedFile) {
+                    $file = $doc['image_front_file'];
+
+                    $path = $file->store("customer_documents/{$submission->id}/ids", 'public');
+                    $url  = Storage::url($path);
+
+                    CustomerDocument::create([
+                        'customer_submission_id' => $submission->id,
+                        'document_type'          => 'identification_front',
+                        'reference_field'        => "identifying_information.{$idx}.image_front_file",
+                        'file_path'              => $path,
+                        'file_name'              => $file->getClientOriginalName(),
+                        'mime_type'              => $file->getMimeType(),
+                        'file_size'              => $file->getSize(),
+                        'issuing_country'        => $doc['issuing_country'] ?? null,
+                    ]);
+                }
+
+                // Back
+                if (isset($doc['image_back_file']) && $doc['image_back_file'] instanceof UploadedFile) {
+                    $file = $doc['image_back_file'];
+
+                    $path = $file->store("customer_documents/{$submission->id}/ids", 'public');
+                    $url  = Storage::url($path);
+
+                    CustomerDocument::create([
+                        'customer_submission_id' => $submission->id,
+                        'document_type'          => 'identification_back',
+                        'reference_field'        => "identifying_information.{$idx}.image_back_file",
+                        'file_path'              => $path,
+                        'file_name'              => $file->getClientOriginalName(),
+                        'mime_type'              => $file->getMimeType(),
+                        'file_size'              => $file->getSize(),
+                        'issuing_country'        => $doc['issuing_country'] ?? null,
+                    ]);
+                }
+            }
+        }
+
+        // 4️⃣ Additional Uploaded Documents
+        if (isset($data['uploaded_documents']) && is_array($data['uploaded_documents'])) {
+
+            foreach ($data['uploaded_documents'] as $idx => $doc) {
+                if (!isset($doc['file']) || !($doc['file'] instanceof UploadedFile)) {
+                    continue;
+                }
+
+                $file = $doc['file'];
+                $type = $doc['type'] ?? 'other';
+
+                $path = $file->store("customer_documents/{$submission->id}/additional", 'public');
+                $url  = Storage::url($path);
+
+                CustomerDocument::create([
+                    'customer_submission_id' => $submission->id,
+                    'document_type'          => $type,
+                    'file_path'              => $path,
+                    'file_name'              => $file->getClientOriginalName(),
+                    'mime_type'              => $file->getMimeType(),
+                    'file_size'              => $file->getSize(),
+                ]);
+            }
+        }
     }
 }
