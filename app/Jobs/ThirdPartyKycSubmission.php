@@ -16,6 +16,7 @@ use App\Models\Country;
 use App\Models\CustomerMeta;
 use App\Services\AveniaService;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 
 
@@ -529,11 +530,14 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // Normalize DOB
             $dob = null;
             if (!empty($data['birth_date'])) {
-                $dob = substr($data['birth_date'], 0, 10);
-                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
-                    $dob = null;
+                try {
+                    $dob = Carbon::parse($data['birth_date'])->format('Y-m-d');
+                } catch (\Exception $e) {
+                    $dob = null; // invalid date
+                    Log::info('Date of birth is null');
                 }
             }
+
 
             // Normalize ID type
             $idType = strtolower($idInfo['type'] ?? 'id_card');
