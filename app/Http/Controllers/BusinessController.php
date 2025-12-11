@@ -143,31 +143,37 @@ class BusinessController extends Controller
                 }
                 $data['identifying_information'] = $finalIds;
             }
+            if ((int) $step === 8) {
 
-            // step 8: extra_documents (object of files)
-            if ((int)$step === 8) {
                 $extra = $business->extra_documents ?? [];
-                foreach ($request->files->all() as $key => $value) {
-                    // expecting keys like extra_documents[bank_statement] or extra_documents => array
-                    if (strpos($key, 'extra_documents') === 0) {
-                        if (is_array($value)) {
-                            foreach ($value as $k => $file) {
-                                if ($file) {
-                                    $path = $file->store("public/business_documents/{$business->id}");
-                                    $extra[$k] = basename($path);
-                                }
-                            }
-                        }
+
+                // Loop through the nested extra_documents array
+                foreach ($request->file('extra_documents', []) as $index => $item) {
+
+                    // $item is an array: [ 'file' => UploadedFile ]
+                    if (isset($item['file']) && $item['file'] instanceof \Illuminate\Http\UploadedFile) {
+
+                        $storedPath = $item['file']->store("public/business_documents/{$business->id}");
+
+                        $extra[$index] = [
+                            'type'        => $request->input("extra_documents.$index.type"),
+                            'description' => $request->input("extra_documents.$index.description"),
+                            'file'        => basename($storedPath),
+                        ];
+                    } else {
+                        // If no file uploaded but metadata exists, still store metadata
+                        $extra[$index] = [
+                            'type'        => $request->input("extra_documents.$index.type"),
+                            'description' => $request->input("extra_documents.$index.description"),
+                            'file'        => $extra[$index]['file'] ?? null,
+                        ];
                     }
                 }
-                // a more defensive approach: check for direct files in request->file('extra_documents')
-                if ($request->hasFile('extra_documents')) {
-                    $files = $request->file('extra_documents');
-                    foreach ($files as $k => $f) {
-                        $path = $f->store("public/business_documents/{$business->id}");
-                        $extra[$k] = basename($path);
-                    }
-                }
+
+                // Save to business JSON column
+                $business->extra_documents = $extra;
+                $business->save();
+
                 $data['extra_documents'] = $extra;
             }
         }
@@ -193,6 +199,13 @@ class BusinessController extends Controller
             'business_data' => $business->fresh(),
         ]);
     }
+
+
+    public function submitKyc()
+    {
+        $this->saveBusinessVerificationStep(request(), 9);
+    }
+
 
     /**
      * Submit all data in a single API call (full payload + files).
@@ -236,16 +249,12 @@ class BusinessController extends Controller
             $merged = array_merge_recursive($merged, $mapped);
         }
 
-        // process files in request (addresses, documents, ids, extra_documents)
-        // Reuse logic from above
-        // addresses
         foreach (['registered_address', 'physical_address'] as $addr) {
             if ($request->hasFile("{$addr}.proof_of_address_file")) {
                 $file = $request->file("{$addr}.proof_of_address_file");
                 $path = $file->store("public/business_documents/{$business->id}");
                 Arr::set($merged, "{$addr}.proof_of_address_file", basename($path));
             }
-            // if non-file address fields exist, they are already in $merged
         }
 
         // documents array files
@@ -377,7 +386,7 @@ class BusinessController extends Controller
                     'estimated_annual_revenue_usd'        => 'nullable|string',
                     'expected_monthly_payments_usd'       => 'nullable|integer|min:0',
                     'operates_in_prohibited_countries'    => 'nullable|in:yes,no',
-                    'ownership_threshold'                 => 'nullable|integer|min:5|max:25',
+                    'ownership_threshold'                 => 'nullable|integer|min:5|max:100',
                     'has_material_intermediary_ownership' => 'boolean',
                 ];
             case 5:
@@ -390,7 +399,7 @@ class BusinessController extends Controller
             case 6:
                 return [
                     'documents'                     => 'required|array|min:1',
-                    'documents.*.purposes'          => 'required|array|min:1',
+                    'documents.*.purpose'          => 'required|string|min:1',
                     'documents.*.description'       => 'required|string',
                     'documents.*.file'              => 'nullable|file',
                 ];
@@ -417,6 +426,58 @@ class BusinessController extends Controller
                 return [];
         }
     }
+
+    public function step8(Request $request)
+    {
+        $businessId = session('business_customer_id');
+
+        // Load the business customer
+        $business = BusinessCustomer::find($businessId);
+
+        if (!$business) {
+            return response()->json(['message' => 'Invalid business session.'], 400);
+        }
+
+        $storedDocuments = [];
+
+        foreach ($request->extra_documents as $idx => $item) {
+            $filePath = null;
+            $fileName = null;
+            $mime = null;
+            $size = null;
+
+            if ($request->hasFile("extra_documents.$idx.file")) {
+                $file = $request->file("extra_documents.$idx.file");
+
+                $fileName = $file->getClientOriginalName();
+                $mime = $file->getClientMimeType();
+                $size = $file->getSize();
+
+                // Store file
+                $filePath = $file->store(
+                    'business_extra_documents/' . $businessId,
+                    'public'
+                );
+            }
+
+            $storedDocuments[] = [
+                'type'        => $item['type'] ?? null,
+                'description' => $item['description'] ?? null,
+                'file_path'   => $filePath,
+                'file_name'   => $fileName,
+                'mime_type'   => $mime,
+                'file_size'   => $size,
+            ];
+        }
+
+        // Save JSON into business_customers.extra_documents column
+        $business->extra_documents = $storedDocuments;
+        $business->save();
+
+        return response()->json(['message' => 'Extra documents saved.'], 200);
+    }
+
+
 
     private function mapBusinessStepDataToModel(array $data, int $step)
     {

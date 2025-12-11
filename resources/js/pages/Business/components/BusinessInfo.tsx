@@ -114,7 +114,7 @@ export default function BusinessInfo({
           <input
             value={local.business_legal_name}
             onChange={(e) => update("business_legal_name", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 
                             ${errors.business_legal_name ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -131,7 +131,7 @@ export default function BusinessInfo({
           <input
             value={local.business_trade_name}
             onChange={(e) => update("business_trade_name", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.business_trade_name ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -147,7 +147,7 @@ export default function BusinessInfo({
             rows={3}
             value={local.business_description}
             onChange={(e) => update("business_description", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.business_description ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -163,7 +163,7 @@ export default function BusinessInfo({
             type="email"
             value={local.email}
             onChange={(e) => update("email", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.email ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -178,7 +178,7 @@ export default function BusinessInfo({
           <select
             value={local.business_type}
             onChange={(e) => update("business_type", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.business_type ? "border-red-300" : "border-gray-300"}
                         `}
           >
@@ -204,7 +204,7 @@ export default function BusinessInfo({
           <input
             value={local.registration_number}
             onChange={(e) => update("registration_number", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.registration_number ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -230,7 +230,7 @@ export default function BusinessInfo({
             type="date"
             value={local.incorporation_date}
             onChange={(e) => update("incorporation_date", e.target.value)}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600
                             ${errors.incorporation_date ? "border-red-300" : "border-gray-300"}
                         `}
           />
@@ -279,7 +279,7 @@ export default function BusinessInfo({
                 }));
               }
             }}
-            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.phone_calling_code ? 'border-red-300' : 'border-gray-300'
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${errors.phone_calling_code ? 'border-red-300' : 'border-gray-300'
               }`}
           />
           {errors.phone_calling_code && (

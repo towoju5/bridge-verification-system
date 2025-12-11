@@ -127,7 +127,7 @@ export default function Regulatory({
                                     e.target.value
                                 )
                             }
-                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                 errors.primary_regulatory_authority_country
                                     ? "border-red-300"
                                     : "border-gray-300"
@@ -152,7 +152,7 @@ export default function Regulatory({
                                 )
                             }
                             placeholder="US"
-                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                 errors.primary_regulatory_authority_country
                                     ? "border-red-300"
                                     : "border-gray-300"

@@ -16,11 +16,33 @@ export default function ExtraDocumentsTab({
     goToStep,
     showError,
 }: Props) {
+
+    /** ---------------------------------------------------------
+     * DOCUMENT TYPES (key → label)
+     * --------------------------------------------------------- */
+    const documentTypes = [
+        { key: "business_registration", label: "Business Registration (HK BR Copy + Certificate of Incorporate + AOA)" },
+        { key: "operating_address_proof", label: "Operating Address Proof (Bank Statement / Utility Bill / Tenancy Agreement – last 3 months)" },
+        { key: "residential_address_proof", label: "Residential Address Proof of directors/shareholders" },
+        { key: "shareholding_structure", label: "Business Shareholding Structure (latest NAR1)" },
+        { key: "articles_of_association", label: "Articles of Association" },
+        { key: "identity_proof", label: "Identity Proof of Applicant / UBO / Directors > 25%" },
+        { key: "latest_invoices", label: "Latest invoices showing major product" },
+        { key: "bank_statement", label: "Bank Statement" },
+        { key: "source_of_funds", label: "Source of Funds (Optional)" },
+        { key: "licensing", label: "Licensing (Optional)" },
+        { key: "aml_policy", label: "AML Policy (Optional)" },
+    ];
+
+    /** ---------------------------------------------------------
+     * State
+     * --------------------------------------------------------- */
     const [extraDocs, setExtraDocs] = useState<any[]>(
         formData.extra_documents?.length
             ? formData.extra_documents
             : [
                   {
+                      type: "",
                       description: "",
                       file: null,
                   },
@@ -29,37 +51,30 @@ export default function ExtraDocumentsTab({
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    /** ---------------------------------------------
-     * Add new entry
-     * --------------------------------------------- */
+    /** Add a new row */
     const addExtra = () => {
         setExtraDocs((prev) => [
             ...prev,
-            {
-                description: "",
-                file: null,
-            },
+            { type: "", description: "", file: null },
         ]);
     };
 
-    /** ---------------------------------------------
-     * Remove entry
-     * --------------------------------------------- */
+    /** Remove row */
     const removeExtra = (idx: number) => {
         if (extraDocs.length === 1) {
-            showError("At least one record must be kept.");
+            showError("At least one document must be kept.");
             return;
         }
         setExtraDocs((prev) => prev.filter((_, i) => i !== idx));
     };
 
-    /** ---------------------------------------------
-     * Update field
-     * --------------------------------------------- */
+    /** Update helper */
     const update = (idx: number, field: string, value: any) => {
         setExtraDocs((prev) =>
             prev.map((item, i) =>
-                i === idx ? { ...item, [field]: value } : item
+                i === idx
+                    ? { ...item, [field]: value }
+                    : item
             )
         );
 
@@ -71,30 +86,34 @@ export default function ExtraDocumentsTab({
         }
     };
 
-    /** ---------------------------------------------
-     * Validation
-     * --------------------------------------------- */
+    /** Drag drop handler */
+    const handleDrop = (e: any, idx: number) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file) update(idx, "file", file);
+    };
+
+    /** Validation */
     const validate = () => {
         const e: Record<string, string> = {};
 
         extraDocs.forEach((item, idx) => {
-            if (!item.description.trim())
-                e[`extra.${idx}.description`] = "Description is required.";
+            if (!item.type)
+                e[`extra.${idx}.type`] = "Document type is required.";
         });
 
         setErrors(e);
         return Object.keys(e).length === 0;
     };
 
-    /** ---------------------------------------------
-     * Submit Step 8 (Final Step)
-     * --------------------------------------------- */
+    /** Submit */
     const submit = async () => {
         if (!validate()) return;
 
         const fd = new FormData();
 
         extraDocs.forEach((item, idx) => {
+            fd.append(`extra_documents[${idx}][type]`, item.type);
             fd.append(`extra_documents[${idx}][description]`, item.description);
 
             if (item.file) {
@@ -112,19 +131,16 @@ export default function ExtraDocumentsTab({
                 extra_documents: extraDocs,
             }));
 
-            // Final step → navigate to review
             goToStep("review");
         } catch (err: any) {
             console.error(err);
-            showError(
-                err.response?.data?.message ||
-                    "Unable to save extra documents."
-            );
+            showError(err.response?.data?.message || "Unable to save extra documents.");
         }
     };
 
     return (
         <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
+
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
                 Extra Documents
             </h2>
@@ -134,6 +150,8 @@ export default function ExtraDocumentsTab({
                     key={idx}
                     className="border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-lg p-6 mb-8"
                 >
+
+                    {/* HEADER */}
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-md font-medium text-gray-900 dark:text-white">
                             Extra Document #{idx + 1}
@@ -150,46 +168,78 @@ export default function ExtraDocumentsTab({
                         )}
                     </div>
 
-                    {/* Description */}
+                    {/* DOCUMENT TYPE SELECT */}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium">
-                            Description *
-                        </label>
-                        <input
-                            value={item.description}
-                            onChange={(e) =>
-                                update(idx, "description", e.target.value)
-                            }
-                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                errors[`extra.${idx}.description`]
-                                    ? "border-red-300"
-                                    : "border-gray-300"
+                        <label className="block text-sm font-medium">Document Type *</label>
+
+                        <select
+                            value={item.type}
+                            onChange={(e) => {
+                                const selectedKey = e.target.value;
+                                update(idx, "type", selectedKey);
+
+                                const doc = documentTypes.find((d) => d.key === selectedKey);
+
+                                if (doc) {
+                                    // Auto-fill description and lock it
+                                    update(idx, "description", doc.label);
+                                }
+                            }}
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
+                                errors[`extra.${idx}.type`] ? "border-red-300" : "border-gray-300"
                             }`}
-                        />
-                        {errors[`extra.${idx}.description`] && (
+                        >
+                            <option value="">Select Document Type</option>
+                            {documentTypes.map((d) => (
+                                <option key={d.key} value={d.key}>
+                                    {d.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        {errors[`extra.${idx}.type`] && (
                             <p className="text-sm text-red-600">
-                                {errors[`extra.${idx}.description`]}
+                                {errors[`extra.${idx}.type`]}
                             </p>
                         )}
                     </div>
 
-                    {/* File upload */}
-                    <div>
-                        <label className="block text-sm font-medium">
-                            Upload File (optional)
-                        </label>
+                    {/* DESCRIPTION (READ-ONLY) */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium">Description (auto-filled)</label>
                         <input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            className="mt-2"
-                            onChange={(e) =>
-                                update(
-                                    idx,
-                                    "file",
-                                    e.target.files?.[0] ?? null
-                                )
-                            }
+                            value={item.description}
+                            readOnly
+                            className="mt-1 block w-full border rounded-md shadow-sm py-2 px-3 bg-gray-200 text-gray-700 cursor-not-allowed"
                         />
+                    </div>
+
+                    {/* FILE UPLOAD - DRAG & DROP */}
+                    <div>
+                        <label className="block text-sm font-medium">Upload File</label>
+
+                        <div
+                            onDrop={(e) => handleDrop(e, idx)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onClick={() => document.getElementById(`file-input-${idx}`)?.click()}
+                            className="mt-2 p-6 border-2 border-dashed rounded-lg text-center bg-white dark:bg-gray-800 cursor-pointer hover:border-indigo-500 transition"
+                        >
+                            {item.file ? (
+                                <p className="text-green-600">
+                                    {item.file.name} (ready to upload)
+                                </p>
+                            ) : (
+                                <p className="text-gray-500">Drag & Drop file here or click to select</p>
+                            )}
+
+                            <input
+                                type="file"
+                                id={`file-input-${idx}`}
+                                className="hidden"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => update(idx, "file", e.target.files?.[0] ?? null)}
+                            />
+                        </div>
                     </div>
                 </div>
             ))}
@@ -205,32 +255,28 @@ export default function ExtraDocumentsTab({
                 </button>
             </div>
 
-            {/* BUTTONS */}
+            {/* FOOTER BUTTONS */}
             <div className="mt-10 flex justify-between">
-                {/* PREVIOUS */}
                 <button
-                    onClick={() => goToStep("identifying-info")}
+                    onClick={() => goToStep("identifying_information")}
                     disabled={saving}
-                    className="inline-flex items-center px-6 py-2 border border-gray-300 
-                    text-sm font-medium rounded-md shadow-sm bg-white hover:bg-gray-50"
+                    className="inline-flex items-center px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-white hover:bg-gray-50"
                 >
                     Previous
                 </button>
 
-                {/* SUBMIT */}
                 <button
                     onClick={submit}
                     disabled={saving}
                     className={`inline-flex items-center px-6 py-2 border border-transparent 
                     text-sm font-medium rounded-md shadow-sm text-white ${
-                        saving
-                            ? "bg-gray-400"
-                            : "bg-indigo-600 hover:bg-indigo-700"
+                        saving ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"
                     }`}
                 >
                     {saving ? "Submitting..." : "Complete & Review"}
                 </button>
             </div>
+
         </div>
     );
 }

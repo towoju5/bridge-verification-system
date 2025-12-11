@@ -16,27 +16,27 @@ export default function DocumentsTab({
     goToStep,
     showError,
 }: Props) {
-
     const [documents, setDocuments] = useState<any[]>(
         formData.documents?.length
             ? formData.documents
             : [
-                  {
-                      description: "",
-                      purposes: [],
-                      file: null,
-                  },
-              ]
+                {
+                    description: "",
+                    purpose: "", // ← single string now (not array)
+                    file: null,
+                },
+            ]
     );
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    // Purpose options as value/label pairs for clarity
     const purposeOptions = [
-        "proof_of_address",
-        "business_registration",
-        "tax_documents",
-        "compliance_documents",
-        "financial_statements",
+        { value: "proof_of_address", label: "Proof of Address" },
+        { value: "business_registration", label: "Business Registration" },
+        { value: "tax_documents", label: "Tax Documents" },
+        { value: "compliance_documents", label: "Compliance Documents" },
+        { value: "financial_statements", label: "Financial Statements" },
     ];
 
     /** ----------------------------------------------------
@@ -45,7 +45,7 @@ export default function DocumentsTab({
     const addDocument = () => {
         setDocuments((prev) => [
             ...prev,
-            { description: "", purposes: [], file: null },
+            { description: "", purpose: "", file: null },
         ]);
     };
 
@@ -65,31 +65,13 @@ export default function DocumentsTab({
      * ---------------------------------------------------- */
     const update = (index: number, field: string, value: any) => {
         setDocuments((prev) =>
-            prev.map((doc, i) =>
-                i === index ? { ...doc, [field]: value } : doc
-            )
+            prev.map((doc, i) => (i === index ? { ...doc, [field]: value } : doc))
         );
 
-        if (errors[`documents.${index}.${field}`]) {
-            setErrors((prev) => ({
-                ...prev,
-                [`documents.${index}.${field}`]: "",
-            }));
+        const errorKey = `documents.${index}.${field}`;
+        if (errors[errorKey]) {
+            setErrors((prev) => ({ ...prev, [errorKey]: "" }));
         }
-    };
-
-    /** ----------------------------------------------------
-     * Toggle a purpose item
-     * ---------------------------------------------------- */
-    const togglePurpose = (index: number, purpose: string) => {
-        const doc = documents[index];
-        const exists = doc.purposes.includes(purpose);
-
-        const updated = exists
-            ? doc.purposes.filter((p: string) => p !== purpose)
-            : [...doc.purposes, purpose];
-
-        update(index, "purposes", updated);
     };
 
     /** ----------------------------------------------------
@@ -102,8 +84,8 @@ export default function DocumentsTab({
             if (!doc.description.trim())
                 e[`documents.${idx}.description`] = "Description is required.";
 
-            if (!doc.purposes.length)
-                e[`documents.${idx}.purposes`] = "Select at least one purpose.";
+            if (!doc.purpose)
+                e[`documents.${idx}.purpose`] = "Please select a purpose.";
         });
 
         setErrors(e);
@@ -141,15 +123,13 @@ export default function DocumentsTab({
                     <div className="mb-4">
                         <label className="block text-sm font-medium">Description *</label>
                         <input
+                            type="text"
                             value={doc.description}
-                            onChange={(e) =>
-                                update(idx, "description", e.target.value)
-                            }
-                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                errors[`documents.${idx}.description`]
+                            onChange={(e) => update(idx, "description", e.target.value)}
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${errors[`documents.${idx}.description`]
                                     ? "border-red-300"
                                     : "border-gray-300"
-                            }`}
+                                }`}
                         />
                         {errors[`documents.${idx}.description`] && (
                             <p className="text-sm text-red-600">
@@ -158,30 +138,27 @@ export default function DocumentsTab({
                         )}
                     </div>
 
-                    {/* Purposes */}
+                    {/* Purpose Dropdown */}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium">
-                            Select Purposes *
-                        </label>
-                        <div className="mt-2 flex flex-wrap gap-3">
-                            {purposeOptions.map((p) => (
-                                <label key={p} className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={doc.purposes.includes(p)}
-                                        onChange={() => togglePurpose(idx, p)}
-                                        className="h-4 w-4 text-indigo-600"
-                                    />
-                                    <span className="text-sm capitalize">
-                                        {p.replaceAll("_", " ")}
-                                    </span>
-                                </label>
+                        <label className="block text-sm font-medium">Purpose *</label>
+                        <select
+                            value={doc.purpose}
+                            onChange={(e) => update(idx, "purpose", e.target.value)}
+                            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${errors[`documents.${idx}.purpose`]
+                                    ? "border-red-300"
+                                    : "border-gray-300"
+                                }`}
+                        >
+                            <option value="">Select Purpose</option>
+                            {purposeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
                             ))}
-                        </div>
-
-                        {errors[`documents.${idx}.purposes`] && (
+                        </select>
+                        {errors[`documents.${idx}.purpose`] && (
                             <p className="text-sm text-red-600">
-                                {errors[`documents.${idx}.purposes`]}
+                                {errors[`documents.${idx}.purpose`]}
                             </p>
                         )}
                     </div>
@@ -194,18 +171,18 @@ export default function DocumentsTab({
                         <input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            className="mt-2"
-                            onChange={(e) =>
-                                update(
-                                    idx,
-                                    "file",
-                                    e.target.files?.[0] ?? null
-                                )
-                            }
+                            className="mt-2 block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-indigo-50 file:text-indigo-700
+                hover:file:bg-indigo-100"
+                            onChange={(e) => update(idx, "file", e.target.files?.[0] ?? null)}
                         />
                     </div>
                 </div>
             ))}
+
             {/* ADD DOCUMENT BUTTON */}
             <div className="flex justify-start mb-6">
                 <button
@@ -221,16 +198,17 @@ export default function DocumentsTab({
             <div className="mt-10 flex justify-between">
                 {/* PREVIOUS */}
                 <button
+                    type="button"
                     onClick={() => goToStep("regulatory")}
                     disabled={saving}
-                    className="inline-flex items-center px-6 py-2 border border-gray-300 
-                    text-sm font-medium rounded-md shadow-sm bg-white hover:bg-gray-50"
+                    className="inline-flex items-center px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm bg-white hover:bg-gray-50"
                 >
                     Previous
                 </button>
 
                 {/* NEXT */}
                 <button
+                    type="button"
                     onClick={async () => {
                         if (!validate()) return;
 
@@ -239,16 +217,9 @@ export default function DocumentsTab({
 
                             documents.forEach((doc, idx) => {
                                 fd.append(`documents[${idx}][description]`, doc.description);
-
-                                doc.purposes.forEach((p: string, pidx: number) => {
-                                    fd.append(`documents[${idx}][purposes][${pidx}]`, p);
-                                });
-
+                                fd.append(`documents[${idx}][purpose]`, doc.purpose); // single value
                                 if (doc.file) {
-                                    fd.append(
-                                        `documents[${idx}][file]`,
-                                        doc.file
-                                    );
+                                    fd.append(`documents[${idx}][file]`, doc.file);
                                 }
                             });
 
@@ -261,22 +232,17 @@ export default function DocumentsTab({
                                 documents: documents,
                             }));
 
-                            goToStep("identifying-info");
+                            goToStep("identifying_information"); // ✅ Ensure this matches your step name!
                         } catch (err: any) {
                             console.error(err);
                             showError(
-                                err.response?.data?.message ||
-                                    "Unable to save document uploads."
+                                err.response?.data?.message || "Unable to save document uploads."
                             );
                         }
                     }}
                     disabled={saving}
-                    className={`inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium 
-                    rounded-md shadow-sm text-white ${
-                        saving
-                            ? "bg-gray-400"
-                            : "bg-indigo-600 hover:bg-indigo-700"
-                    }`}
+                    className={`inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${saving ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"
+                        }`}
                 >
                     {saving ? "Saving..." : "Next"}
                 </button>

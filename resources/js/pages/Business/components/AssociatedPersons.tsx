@@ -216,7 +216,7 @@ export default function AssociatedPersons({
                                 onChange={(e) =>
                                     update(idx, "first_name", e.target.value)
                                 }
-                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                     errors[`persons.${idx}.first_name`]
                                         ? "border-red-300"
                                         : "border-gray-300"
@@ -237,7 +237,7 @@ export default function AssociatedPersons({
                                 onChange={(e) =>
                                     update(idx, "last_name", e.target.value)
                                 }
-                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                     errors[`persons.${idx}.last_name`]
                                         ? "border-red-300"
                                         : "border-gray-300"
@@ -259,7 +259,7 @@ export default function AssociatedPersons({
                                 onChange={(e) =>
                                     update(idx, "birth_date", e.target.value)
                                 }
-                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                     errors[`persons.${idx}.birth_date`]
                                         ? "border-red-300"
                                         : "border-gray-300"
@@ -282,7 +282,7 @@ export default function AssociatedPersons({
                                     onChange={(e) =>
                                         update(idx, "nationality", e.target.value)
                                     }
-                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                         errors[`persons.${idx}.nationality`]
                                             ? "border-red-300"
                                             : "border-gray-300"
@@ -302,7 +302,7 @@ export default function AssociatedPersons({
                                         update(idx, "nationality", e.target.value)
                                     }
                                     placeholder="US"
-                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                         errors[`persons.${idx}.nationality`]
                                             ? "border-red-300"
                                             : "border-gray-300"
@@ -326,7 +326,7 @@ export default function AssociatedPersons({
                                 onChange={(e) =>
                                     update(idx, "email", e.target.value)
                                 }
-                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                     errors[`persons.${idx}.email`]
                                         ? "border-red-300"
                                         : "border-gray-300"
@@ -374,7 +374,7 @@ export default function AssociatedPersons({
                                 onChange={(e) =>
                                     update(idx, "ownership_percentage", e.target.value)
                                 }
-                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                     errors[`persons.${idx}.ownership_percentage`]
                                         ? "border-red-300"
                                         : "border-gray-300"
@@ -473,7 +473,7 @@ export default function AssociatedPersons({
                                     onChange={(e) =>
                                         updateAddress(idx, "street_line_1", e.target.value)
                                     }
-                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                         errors[`persons.${idx}.residential_address.street_line_1`]
                                             ? "border-red-300"
                                             : "border-gray-300"
@@ -506,7 +506,7 @@ export default function AssociatedPersons({
                                     onChange={(e) =>
                                         updateAddress(idx, "city", e.target.value)
                                     }
-                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                    className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                         errors[`persons.${idx}.residential_address.city`]
                                             ? "border-red-300"
                                             : "border-gray-300"
@@ -553,7 +553,7 @@ export default function AssociatedPersons({
                                         onChange={(e) =>
                                             updateAddress(idx, "country", e.target.value)
                                         }
-                                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                             errors[`persons.${idx}.residential_address.country`]
                                                 ? "border-red-300"
                                                 : "border-gray-300"
@@ -573,7 +573,7 @@ export default function AssociatedPersons({
                                             updateAddress(idx, "country", e.target.value)
                                         }
                                         placeholder="US"
-                                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
+                                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${
                                             errors[`persons.${idx}.residential_address.country`]
                                                 ? "border-red-300"
                                                 : "border-gray-300"

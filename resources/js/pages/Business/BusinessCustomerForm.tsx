@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+
 import BusinessInfo from "./components/BusinessInfo";
 import Address from "./components/Address";
 import AssociatedPersons from "./components/AssociatedPersons";
@@ -10,18 +11,8 @@ import IdentifyingInfoTab from "./components/IdentifyingInfoTab";
 import ExtraDocumentsTab from "./components/ExtraDocumentsTab";
 import ReviewStep from "./components/ReviewStep";
 import NavBar from "./components/NavBar";
-import AppLayout from "@/Layouts/AppLayout";
 
-// import NavBar from "./NavBar";
-// import BusinessInfo from "./BusinessInfo";
-// import Address from "./Address";
-// import AssociatedPersons from "./AssociatedPersons";
-// import FinancialInformation from "./FinancialInformation";
-// import Regulatory from "./Regulatory";
-// import DocumentsTab from "./DocumentsTab";
-// import IdentifyingInfoTab from "./IdentifyingInfoTab";
-// import ExtraDocumentsTab from "./ExtraDocumentsTab";
-// import ReviewStep from "./ReviewStep";
+import AppLayout from "@/Layouts/AppLayout";
 
 export default function BusinessCustomerForm() {
     const [activeTab, setActiveTab] = useState("business-info");
@@ -29,40 +20,65 @@ export default function BusinessCustomerForm() {
     const [error, setError] = useState<string | null>(null);
 
     const [formData, setFormData] = useState<any>({});
+
+    // Loaded shared lookup data
     const [countries, setCountries] = useState([]);
-    const [idTypes, setIdTypes] = useState([]);
     const [documentPurposes, setDocumentPurposes] = useState([]);
+    const [occupations, setOccupations] = useState([]);
+    const [accountPurposes, setAccountPurposes] = useState([]);
+    const [sourceOfFunds, setSourceOfFunds] = useState([]);
+    const [idTypes, setIdTypes] = useState([]);
+
+    // Additional documents list
     const [extraDocumentTypes, setExtraDocumentTypes] = useState([]);
 
     const [completed, setCompleted] = useState<Record<string, boolean>>({});
 
-    /** ---------------------------------------------------
-     * Load initial shared dropdown data
-     * ---------------------------------------------------*/
+    /** ---------------------------------------------------------
+     * Load ALL shared dropdown data from backend APIs
+     * --------------------------------------------------------- */
     useEffect(() => {
         const load = async () => {
             try {
-                const [c, dp] = await Promise.all([
-                    axios.get("/api/countries"),
-                    axios.get("/api/business/document-purposes")
+                const [
+                    countriesRes,
+                    occupationsRes,
+                    accountPurposesRes,
+                    sourceOfFundsRes,
+                    // purposesRes,
+                    // idTypesRes
+                ] = await Promise.all([
+                    axios.get("/api/data/countries"),
+                    axios.get("/api/data/occupations"),
+                    axios.get("/api/data/account-purposes"),
+                    axios.get("/api/data/source-of-funds"),
+                    // axios.get("/api/data/business/document-purposes"),
+                    // axios.get("/api/data/id-types/global")
                 ]);
 
-                setCountries(c.data);
-                setDocumentPurposes(dp.data);
+                // console.log(accountPurposes);
+                
 
-                // Example: extra document types (editable)
+                setCountries(countriesRes.data);
+                setOccupations(occupationsRes.data);
+                setAccountPurposes(accountPurposesRes.data);
+                setSourceOfFunds(sourceOfFundsRes.data);
+                // setDocumentPurposes(purposesRes.data);
+                // setIdTypes(idTypesRes.data);
+
+                // Example extra doc types; still customizable
                 setExtraDocumentTypes([
-                    { value: "business_registration", label: "Business Registration", required: true },
-                    { value: "operating_address_proof", label: "Operating Address Proof", required: false },
-                    { value: "tax_statement", label: "Tax Statement", required: false }
-                ]);
-
-                setIdTypes([
-                    "passport",
-                    "drivers_license",
-                    "national_id",
-                    "residence_permit",
-                    "other"
+                    { value: "business_registration", label: "Business Registration (HK BR Copy + Certificate of Incorporation + AOA)", required: true },
+                    { value: "operating_address_proof", label: "Operating Address Proof (can be Bank statement or Utility Bill or Tenancy Agreement dated in recent 3 months)", required: true },
+                    { value: "residential_address_proof", label: "Residential Address Proof of director and shareholders (can be Bank statement or Utility Bill or Tenancy Agreement dated in recent 3 months)", required: true },
+                    { value: "shareholding_structure", label: "Business Shareholding Structure (latest NAR1)", required: true },
+                    { value: "articles_of_association", label: "Articles of Association", required: true },
+                    { value: "identity_proof", label: "Identity proof of the applicant (please submit for all UBOs/Directors with more than 25% share)", required: true },
+                    { value: "latest_invoices", label: "One set of latest invoices showing the major product", required: true },
+                    { value: "bank_statement", label: "Bank statement", required: true },
+                    { value: "source_of_funds", label: "Source of Funds", required: false },
+                    { value: "licensing", label: "Licensing", required: false },
+                    { value: "aml_policy", label: "AML Policy", required: false }
                 ]);
             } catch (err) {
                 console.error("Startup load failed", err);
@@ -72,33 +88,33 @@ export default function BusinessCustomerForm() {
         load();
     }, []);
 
-    /** ---------------------------------------------------
-     * Handle error display (child to parent)
-     * ---------------------------------------------------*/
+    /** ---------------------------------------------------------
+     * Handle error messages
+     * --------------------------------------------------------- */
     const showError = (msg: string) => {
         setError(msg);
         setTimeout(() => setError(null), 5000);
     };
 
-    /** ---------------------------------------------------
-     * Step auto-advance helper
-     * ---------------------------------------------------*/
+    /** ---------------------------------------------------------
+     * Step navigation
+     * --------------------------------------------------------- */
     const goToStep = (step: string) => {
         setCompleted(prev => ({ ...prev, [activeTab]: true }));
         setActiveTab(step);
+
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
-    /** ---------------------------------------------------
-     * Final wizard submission (API full-submit)
-     * ---------------------------------------------------*/
+    /** ---------------------------------------------------------
+     * Final full submit
+     * --------------------------------------------------------- */
     const finalize = async () => {
         try {
             setSaving(true);
             setError(null);
 
             const res = await axios.post("/api/business-customer/submit-all", formData);
-            console.log("Final submit:", res.data);
 
             alert("Business KYC submitted successfully!");
         } catch (err: any) {
@@ -109,9 +125,9 @@ export default function BusinessCustomerForm() {
         }
     };
 
-    /** ---------------------------------------------------
+    /** ---------------------------------------------------------
      * Render active step
-     * ---------------------------------------------------*/
+     * --------------------------------------------------------- */
     const renderStep = () => {
         switch (activeTab) {
             case "business-info":
@@ -131,9 +147,9 @@ export default function BusinessCustomerForm() {
                         formData={formData}
                         setFormData={setFormData}
                         saving={saving}
-                        countries={countries}
                         goToStep={goToStep}
                         showError={showError}
+                        countries={countries}
                     />
                 );
 
@@ -144,12 +160,14 @@ export default function BusinessCustomerForm() {
                         setFormData={setFormData}
                         saving={saving}
                         countries={countries}
+                        // occupations={occupations}
                         goToStep={goToStep}
                         showError={showError}
                     />
                 );
 
             case "financial":
+                // console.log("available countries are", sourceOfFunds, accountPurposes)
                 return (
                     <FinancialInformation
                         formData={formData}
@@ -157,6 +175,8 @@ export default function BusinessCustomerForm() {
                         saving={saving}
                         goToStep={goToStep}
                         showError={showError}
+                        sourceOfFunds={sourceOfFunds}
+                        accountPurposes={accountPurposes}
                     />
                 );
 
@@ -210,7 +230,7 @@ export default function BusinessCustomerForm() {
                 );
 
             case "review":
-                return <ReviewStep formData={formData} finalize={finalize} saving={saving} />;
+                return <ReviewStep formData={formData} saving={saving} finalize={finalize} />;
 
             default:
                 return <p>Invalid step</p>;
@@ -218,10 +238,14 @@ export default function BusinessCustomerForm() {
     };
 
     return (
-        <AppLayout title="Select Account Type">
+        <AppLayout title="Business KYC Application">
             <div className="w-full mx-auto py-10 px-4">
                 <div className="flex justify-center items-center">
-                    <NavBar activeTab={activeTab} setActiveTab={setActiveTab} completed={completed} />
+                    <NavBar
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        completed={completed}
+                    />
                 </div>
 
                 {error && (

@@ -19,7 +19,6 @@ export default function ReviewStep({ formData, saving, goToStep, showError }: Pr
 
         try {
             const res = await axios.post("/api/business-customer/submit-final");
-            // You may redirect or show success message after this.
             alert("KYC successfully submitted!");
         } catch (err: any) {
             console.error(err);
@@ -27,6 +26,33 @@ export default function ReviewStep({ formData, saving, goToStep, showError }: Pr
         }
 
         setSubmitting(false);
+    };
+
+    const docTypeLabels: Record<string, string> = {
+        business_registration: "Business Registration (HK BR Copy + Certificate of Incorporate + AOA)",
+        operating_address_proof: "Operating Address Proof (Bank Statement / Utility Bill / Tenancy Agreement – last 3 months)",
+        residential_address_proof: "Residential Address Proof (Directors/Shareholders)",
+        shareholding_structure: "Business Shareholding Structure (Latest NAR1)",
+        articles_of_association: "Articles of Association",
+        identity_proof: "Identity Proof (Applicant / UBO / Directors > 25%)",
+        latest_invoices: "Latest Invoices",
+        bank_statement: "Bank Statement",
+        source_of_funds: "Source of Funds (Optional)",
+        licensing: "Licensing (Optional)",
+        aml_policy: "AML Policy (Optional)",
+    };
+
+    const resolvedExtraDocs =
+        formData?.business_data?.extra_documents ??
+        formData?.extra_documents ??
+        [];
+
+    // Helper to safely extract file name for display
+    const getFileName = (fileOrMeta: any): string => {
+        if (fileOrMeta instanceof File) {
+            return fileOrMeta.name;
+        }
+        return fileOrMeta?.file_name || fileOrMeta?.file_path || '—';
     };
 
     return (
@@ -112,7 +138,7 @@ export default function ReviewStep({ formData, saving, goToStep, showError }: Pr
                     <div key={idx} className="mb-4 p-3 border rounded">
                         <Row label="Description" value={d.description} />
                         <Row label="Purposes" value={d.purposes?.join(", ")} />
-                        <Row label="File" value={d.file_name || d.file} />
+                        <Row label="File" value={getFileName(d)} />
                     </div>
                 ))}
             </Section>
@@ -132,12 +158,28 @@ export default function ReviewStep({ formData, saving, goToStep, showError }: Pr
 
             {/* ------------------ EXTRA DOCUMENTS ------------------ */}
             <Section title="Extra Documents" onEdit={() => goToStep("extra-documents")}>
-                {formData.extra_documents?.map((d: any, idx: number) => (
-                    <div key={idx} className="mb-4 p-3 border rounded">
-                        <Row label="Description" value={d.description} />
-                        <Row label="File" value={d.file_name || d.file} />
-                    </div>
-                ))}
+                {resolvedExtraDocs.length > 0 ? (
+                    resolvedExtraDocs.map((d: any, idx: number) => (
+                        <div key={idx} className="mb-4 p-3 border rounded">
+                            <Row
+                                label="Document Type"
+                                value={docTypeLabels[d.type] || d.type}
+                            />
+                            <Row
+                                label="Description"
+                                value={d.description}
+                            />
+                            <Row
+                                label="File"
+                                value={getFileName(d)}
+                            />
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-gray-500 dark:text-gray-300 text-sm">
+                        No extra documents submitted.
+                    </p>
+                )}
             </Section>
 
             {/* SUBMIT BUTTON */}
@@ -146,13 +188,12 @@ export default function ReviewStep({ formData, saving, goToStep, showError }: Pr
                     onClick={submitFinal}
                     disabled={saving || submitting}
                     className={`px-6 py-3 rounded-md text-white text-lg font-medium shadow 
-                    ${
-                        saving || submitting
+                    ${saving || submitting
                             ? "bg-gray-400 cursor-not-allowed"
                             : "bg-green-600 hover:bg-green-700"
-                    }`}
+                        }`}
                 >
-                    {submitting ? "Submitting..." : "Submit KYC"}
+                    {submitting ? "Submitting..." : "Submit KYB"}
                 </button>
             </div>
         </div>
@@ -196,7 +237,7 @@ function Row({ label, value }: { label: string; value: any }) {
     return (
         <div className="flex justify-between text-sm py-1 border-b border-gray-200 dark:border-gray-700">
             <span className="text-gray-600 dark:text-gray-300">{label}</span>
-            <span className="font-medium text-gray-900 dark:text-white">{value}</span>
+            <span className="font-medium text-gray-900 dark:text-white">{String(value)}</span>
         </div>
     );
 }

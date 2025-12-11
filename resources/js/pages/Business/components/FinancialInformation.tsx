@@ -39,6 +39,39 @@ export default function FinancialInformation({
             formData.has_material_intermediary_ownership || false,
     });
 
+
+    const sourceOfFunds = {
+        CompanyFunds: "Company Funds",
+        EcommerceReseller: "Ecommerce Reseller",
+        GamblingProceeds: "Gambling Proceeds",
+        Gifts: "Gifts",
+        GovernmentBenefits: "Government Benefits",
+        Inheritance: "Inheritance",
+        InvestmentsLoans: "Investments Loans",
+        PensionRetirement: "Pension Retirement",
+        Salary: "Salary",
+        SaleOfAssetsRealEstate: "Sale Of Assets or Real Estate",
+        Savings: "Savings",
+        SomeoneElsesFunds: "Someone Else's Funds",
+    };
+
+    const accountPurposes = {
+        'CharitableDonations': 'Charitable Donations',
+        'EcommerceRetailPayments': 'Ecommerce Retail Payments',
+        'InvestmentPurposes': 'Investment Purposes',
+        'OperatingACompany': 'Operating a Company',
+        'Other': 'Other',
+        'PaymentsToFriendsOrFamilyAbroad': 'Payments To Friends Or Family Abroad',
+        'personalOrLivingExpenses': 'personal Or Living Expenses',
+        'ProtectWealth': 'Protect Wealth',
+        'PurchaseGoodsAndServices': 'Purchase Goods and Services',
+        'ReceivePaymentForFreelancing': 'Receive Payment for Freelancing',
+        'ReceiveSalary': 'Receive Salary',
+    }
+
+    // console.log(accountPurposes);
+
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /** -------------------------------------------
@@ -111,7 +144,7 @@ export default function FinancialInformation({
             console.error(err);
             showError(
                 err.response?.data?.message ||
-                    "Unable to save financial information."
+                "Unable to save financial information."
             );
         }
     };
@@ -131,18 +164,15 @@ export default function FinancialInformation({
                         onChange={(e) =>
                             update("account_purpose", e.target.value)
                         }
-                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                            errors.account_purpose
-                                ? "border-red-300"
-                                : "border-gray-300"
-                        }`}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${errors.account_purpose ? "border-red-300" : "border-gray-300"
+                            }`}
                     >
-                        <option value="">Select Purpose</option>
-                        <option value="Payments">Payments</option>
-                        <option value="Trading">Trading</option>
-                        <option value="Savings">Savings</option>
-                        <option value="Investments">Investments</option>
-                        <option value="Other">Other</option>
+                        <option value="">Select</option>
+                        {Object.entries(accountPurposes).map(([key, label]) => (
+                            <option key={key} value={key}>
+                                {label}
+                            </option>
+                        ))}
                     </select>
 
                     {local.account_purpose === "Other" && (
@@ -152,11 +182,10 @@ export default function FinancialInformation({
                             onChange={(e) =>
                                 update("account_purpose_other", e.target.value)
                             }
-                            className={`mt-2 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                errors.account_purpose_other
-                                    ? "border-red-300"
-                                    : "border-gray-300"
-                            }`}
+                            className={`mt-2 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.account_purpose_other
+                                ? "border-red-300"
+                                : "border-gray-300"
+                                }`}
                         />
                     )}
 
@@ -168,28 +197,24 @@ export default function FinancialInformation({
                 </div>
 
                 {/* Source of Funds */}
+
                 <div>
                     <label className="text-sm font-medium">Source of Funds *</label>
                     <select
                         value={local.source_of_funds}
                         onChange={(e) => update("source_of_funds", e.target.value)}
-                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                            errors.source_of_funds
-                                ? "border-red-300"
-                                : "border-gray-300"
-                        }`}
+                        className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 dark:text-white dark:bg-gray-600 ${errors.source_of_funds ? "border-red-300" : "border-gray-300"
+                            }`}
                     >
                         <option value="">Select</option>
-                        <option value="salary">Salary</option>
-                        <option value="business_income">Business Income</option>
-                        <option value="investment">Investment Returns</option>
-                        <option value="loan">Loan</option>
-                        <option value="inheritance">Inheritance</option>
+                        {Object.entries(sourceOfFunds).map(([key, label]) => (
+                            <option key={key} value={key}>
+                                {label}
+                            </option>
+                        ))}
                     </select>
                     {errors.source_of_funds && (
-                        <p className="text-red-600 text-sm">
-                            {errors.source_of_funds}
-                        </p>
+                        <p className="text-red-600 text-sm">{errors.source_of_funds}</p>
                     )}
                 </div>
 
@@ -199,12 +224,11 @@ export default function FinancialInformation({
                         High Risk Activities (select if applicable)
                     </label>
                     <div className="mt-2 flex flex-wrap gap-3">
-                        {[
-                            "cryptocurrency",
-                            "gambling",
-                            "money_service_business",
-                            "adult_services",
-                            "weapons",
+                        {['adult_entertainment', 'gambling', 'hold_client_funds', 'investment_services',
+                            'lending_banking', 'marijuana_or_related_services', 'money_services',
+                            'nicotine_tobacco_or_related_services', 'operate_foreign_exchange_virtual_currencies_brokerage_otc',
+                            'pharmaceuticals', 'precious_metals_precious_stones_jewelry', 'safe_deposit_box_rentals',
+                            'third_party_payment_processing', 'weapons_firearms_and_explosives', 'none_of_the_above'
                         ].map((item) => (
                             <label key={item} className="flex items-center space-x-2">
                                 <input
@@ -229,11 +253,10 @@ export default function FinancialInformation({
                                     e.target.value
                                 )
                             }
-                            className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                errors.high_risk_activities_explanation
-                                    ? "border-red-300"
-                                    : "border-gray-300"
-                            }`}
+                            className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.high_risk_activities_explanation
+                                ? "border-red-300"
+                                : "border-gray-300"
+                                }`}
                         />
                     )}
 
@@ -272,11 +295,10 @@ export default function FinancialInformation({
                                         e.target.value
                                     )
                                 }
-                                className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                    errors.conducts_money_services_description
-                                        ? "border-red-300"
-                                        : "border-gray-300"
-                                }`}
+                                className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.conducts_money_services_description
+                                    ? "border-red-300"
+                                    : "border-gray-300"
+                                    }`}
                             />
 
                             {errors.conducts_money_services_description && (
@@ -295,11 +317,10 @@ export default function FinancialInformation({
                                         e.target.value
                                     )
                                 }
-                                className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${
-                                    errors.compliance_screening_explanation
-                                        ? "border-red-300"
-                                        : "border-gray-300"
-                                }`}
+                                className={`mt-3 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.compliance_screening_explanation
+                                    ? "border-red-300"
+                                    : "border-gray-300"
+                                    }`}
                             />
 
                             {errors.compliance_screening_explanation && (
@@ -365,6 +386,8 @@ export default function FinancialInformation({
                     <input
                         type="number"
                         value={local.ownership_threshold}
+                        min={5}
+                        max={100}
                         onChange={(e) =>
                             update("ownership_threshold", e.target.value)
                         }

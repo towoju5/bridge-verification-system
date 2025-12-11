@@ -13,8 +13,9 @@ use Illuminate\Validation\Rule;
 
 class BusinessCustomerController extends Controller
 {
-    private function getCustomerBySession(Request $request)
+    private function getCustomerBySession()
     {
+        $request = new Request;
         $sessionId = $request->header('X-Session-ID') ?? session('business_customer_session_id');
         if (! $sessionId) {
             return null;
@@ -286,13 +287,18 @@ class BusinessCustomerController extends Controller
 
     public function submit(Request $request)
     {
-        $customer = $this->getCustomerBySession($request);
+        $customer = $this->getCustomerBySession();
         if (! $customer) {
             return response()->json(['error' => 'Invalid session'], 400);
         }
 
-        $customer->update(['is_submitted' => true]);
+        $customer->status = 'submitted';
+        if (null == $customer->customer_id) {
+            $customer->customer_id = $customer->session_id;
+        }
+        $customer->save();
 
+        $customer = $customer->toArray();
         dispatch(new SubmitBusinessToNoah($customer))->afterResponse();
         dispatch(new SubmitBusinessToBorderless($customer))->afterResponse();
         dispatch(new SubmitBusinessToTazapay($customer))->afterResponse();

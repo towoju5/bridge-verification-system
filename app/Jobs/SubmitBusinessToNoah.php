@@ -29,6 +29,7 @@ class SubmitBusinessToNoah implements ShouldQueue
     {
         // Parse registered address (required)
         $business = $this->businessData;
+        logger("business data passed: ", ['kyc_payload' => $business]);
         $customerId = $business['customer_id'];
 
         // Decode JSON fields safely

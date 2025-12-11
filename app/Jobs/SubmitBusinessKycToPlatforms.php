@@ -32,6 +32,8 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             'transfi'    => null,
         ];
 
+        logger("submitting business KYB");
+
         // Submit to each platform
         $results['tazapay']    = $this->submitToTazapay();
         $results['borderless'] = $this->submitToBorderless();
