@@ -101,7 +101,11 @@ if (!function_exists('update_endorsement')) {
             // convert it to an array
             $hostedUrl = (array) $hostedUrl;
         }
-        
+
+        if (!in_array($status, ['pending', 'approved', 'rejected', 'under_review', 'not_started'])) {
+            $status = "under_review";
+        }
+
         $meta = Endorsement::where([
             'customer_id' => $customerId,
             'service' => $service
