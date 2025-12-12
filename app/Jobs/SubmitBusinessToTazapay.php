@@ -211,7 +211,7 @@ class SubmitBusinessToTazapay implements ShouldQueue
             }
 
             // update my Endorsement
-            update_endorsement($customerId, 'brazil', 'pending',  [
+            update_endorsement($customerId, 'brazil', 'submitted',  [
                 "authorizedRepresentativeUrl" => $result["authorizedRepresentativeUrl"],
                 "basicCompanyDataUrl" => $result["basicCompanyDataUrl"]
             ]);

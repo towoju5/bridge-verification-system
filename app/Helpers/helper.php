@@ -110,6 +110,8 @@ if (!function_exists('update_endorsement')) {
             'hosted_kyc_url' => $hostedUrl
         ]);
 
+        logger("Endorsement updated for {$service} successfully", ['endorsement' => $meta]);
+
         return $meta;
     }
 }

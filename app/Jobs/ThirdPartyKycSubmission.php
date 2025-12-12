@@ -215,7 +215,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $entityId = $response['id'] ?? null;
                 $approvalStatus = $response['approval_status'] ?? null;
                 add_customer_meta($user['customer_id'], 'tazapay_entity_id', $entityId);
-                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus);
+                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus ?? "submitted");
             }
 
             return $payload;
@@ -449,10 +449,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
-                Endorsement::updateOrCreate(
-                    ['customer_id' => $customer->customer_id, 'service' => 'native'],
-                    ['status' => 'approved']
-                );
+                update_endorsement($customer->customer_id, 'native', 'submitted');
                 return;
             }
 
@@ -759,10 +756,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     return;
                 }
                 add_customer_meta($customer->customer_id, 'transfi_user_id', $transfiUserId);
-                $customer->update(['transfi_user_id' => $transfiUserId]);
+                // $customer->update(['transfi_user_id' => $transfiUserId]);
             }
 
             // Final KYC payload
+            $transfiUserId = get_customer_meta($customer->customer_id, 'transfi_user_id');
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
@@ -783,7 +781,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'idDocFrontSide' => $idFront,
                 'idDocBackSide' => $idBack,
                 'selfie' => $selfie,
-                'userId' => $customer->transfi_user_id,
+                'userId' => $transfiUserId->value[0],
             ];
 
             // Validate required fields
@@ -830,10 +828,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             if ($response->successful()) {
                 Log::info('TransFi KYC submitted successfully', ['customer_id' => $customer->customer_id]);
-                Endorsement::updateOrCreate(
-                    ['customer_id' => $customer->customer_id, 'service' => 'asian'],
-                    ['status' => 'approved']
-                );
+                update_endorsement($customer->customer_id, 'asian', 'submitted', null);
             } else {
                 Log::error('TransFi KYC failed', [
                     'customer_id' => $customer->customer_id,
@@ -880,6 +875,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 }
             }
 
+            $country = $addr['country'] ?? 'NG';
+            if ($addr['country'] == "NG" || $addr['country'] ?? 'NG' == "NGA" || strtoupper($addr['country']) ?? 'NIGERIA') {
+                $country = "GH";
+            }
+
             $validatedData = [
                 'date_of_birth' => substr($data['birth_date'], 0, 10) ?? null,
                 'dateOfBirth' => substr($data['birth_date'], 0, 10) ?? null,
@@ -889,7 +889,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'phoneNumber' => $data['phone'] ?? '',
                 'idImage' => $idFront,
                 'userPhoto' => $selfie,
-                'country' => $addr['country'] ?? 'NG',
+                'country' => $country,
                 'city' => $addr['city'] ?? '',
                 'state' => $addr['state'] ?? '',
                 'zipCode' => $addr['postal_code'] ?? '',

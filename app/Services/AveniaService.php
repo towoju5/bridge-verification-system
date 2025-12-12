@@ -180,7 +180,7 @@ class AveniaService
             }
 
             $kycResult = $kycResponse->json();
-            update_endorsement($customer->customer_id, 'brazil', 'pending');
+            update_endorsement($customer->customer_id, 'brazil', 'submitted');
             // Success! You can now store $kycResult['id'] or trigger next steps
             return $kycResult;
         } catch (Throwable $th) {

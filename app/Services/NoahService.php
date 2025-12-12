@@ -106,17 +106,7 @@ class NoahService
         if ($response->successful()) {
             $hostedUrl = $body['HostedURL'] ?? null;
             foreach (['base', 'sepa'] as $service) {
-                Endorsement::where(
-                    [
-                        'customer_id' => $customerId,
-                        'service' => $service,
-                    ]
-                )->update(
-                    [
-                        'status' => 'pending',
-                        'hosted_kyc_url' => $hostedUrl
-                    ]
-                );
+                update_endorsement($customerId, $service, "submitted", $hostedUrl);
             }
 
             Log::info('Noah onboarding initiated', [
