@@ -32,16 +32,19 @@ class BusinessController extends Controller
     // start session & create business record
     public function startBusinessVerification(Request $request)
     {
-        $sessionId = $request->signed_agreement_id ?? Str::uuid();
+        $sessionId = $request->customer_id;// $request->signed_agreement_id ?? Str::uuid();
 
         BusinessCustomer::firstOrCreate([
-            'session_id' => $sessionId,
+            'customer_id' => $request->customer_id
+        ], [
+            'session_id' => $request->customer_id,
+            'customer_id' => $request->customer_id,
             'type'       => 'business',
             'user_agent' => $request->userAgent(),
             'ip_address' => $request->ip(),
         ]);
 
-        $business = BusinessCustomer::where('session_id', $sessionId)->first();
+        $business = BusinessCustomer::where('customer_id', $sessionId)->first();
         session(['business_customer_id' => $business->id]);
 
         return Inertia::render('Business/BusinessCustomerForm', [

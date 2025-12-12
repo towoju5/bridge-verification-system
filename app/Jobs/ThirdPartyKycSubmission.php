@@ -88,6 +88,159 @@ class ThirdPartyKycSubmission implements ShouldQueue
         }
     }
 
+    public function tazapay()
+    {
+        try {
+            $user = $this->submissionData;
+
+            // Decode JSON fields stored as strings
+            $residentialAddress = $user['residential_address'];
+            $identifyingInfo = $user['identifying_information'];
+            $uploadedDocuments = $user['uploaded_documents']; // array of user files
+
+            // Extract ID document (take first if multiple)
+            $idDoc = $identifyingInfo[0] ?? null;
+
+            // Extract proof of address file if available
+            $proofOfAddressFile = $residentialAddress['proof_of_address_file'] ?? null;
+
+            // Build Tazapay-compatible documents array
+            $documents = [];
+
+            /* ========= 1. Proof of Address Document ========= */
+            if ($proofOfAddressFile) {
+                $documents[] = [
+                    "type"        => "address",
+                    "sub_type"    => "other",
+                    "tag"         => "AddressProofDoc",
+                    "file_name"   => "proof_of_address",
+                    "description" => "Proof of Address",
+                    "url"         => $proofOfAddressFile
+                ];
+            }
+
+            /* ========= 2. Identification Document ========= */
+            if ($idDoc && isset($idDoc['image_front_file'])) {
+                $documents[] = [
+                    "type"        => "id_document",
+                    "sub_type"    => $idDoc['type'] ?? "other",
+                    "tag"         => "IdentityDocument",
+                    "file_name"   => "id_front",
+                    "description" => "Front of Identification Document",
+                    "url"         => $idDoc['image_front_file']
+                ];
+            }
+
+            // If passport or national ID has back image
+            if ($idDoc && isset($idDoc['image_back_file']) && $idDoc['image_back_file']) {
+                $documents[] = [
+                    "type"        => "id_document",
+                    "sub_type"    => $idDoc['type'] ?? "other",
+                    "tag"         => "IdentityDocumentBack",
+                    "file_name"   => "id_back",
+                    "description" => "Back of Identification Document",
+                    "url"         => $idDoc['image_back_file']
+                ];
+            }
+
+            /* ========= 3. Proof of Funds Document ========= */
+            if (!empty($uploadedDocuments)) {
+                foreach ($uploadedDocuments as $doc) {
+                    $documents[] = [
+                        "type"        => $doc['type'] ?? "other",
+                        "sub_type"    => "other",
+                        "tag"         => "AdditionalDoc",
+                        "file_name"   => $doc['type'] ?? "document",
+                        "description" => ucfirst(str_replace('_', ' ', $doc['type'])),
+                        "url"         => $doc['file']
+                    ];
+                }
+            }
+
+            /* ========= 4. Selfie ========= */
+            if ($user['selfie_image']) {
+                $documents[] = [
+                    "type"        => "identity_verification",
+                    "sub_type"    => "selfie",
+                    "tag"         => "SelfieImage",
+                    "file_name"   => "selfie",
+                    "description" => "Selfie for identity verification",
+                    "url"         => $user['selfie_image']
+                ];
+            }
+
+            /* ========= BUILD FINAL PAYLOAD ========= */
+            $payload = [
+                "name"   => trim("{$user['first_name']} {$user['middle_name']} {$user['last_name']}"),
+                "type"   => "individual",
+                "email"  => $user['email'],
+
+                "registration_address" => [
+                    "line1"       => $residentialAddress['street_line_1'] ?? '',
+                    "line2"       => $residentialAddress['street_line_2'] ?? '',
+                    "city"        => $residentialAddress['city'] ?? '',
+                    "state"       => $residentialAddress['state'] ?? '',
+                    "country"     => $residentialAddress['country'] ?? '',
+                    "postal_code" => $residentialAddress['postal_code'] ?? '',
+                ],
+
+                "phone" => [
+                    "calling_code" => ltrim($this->extractCallingCode($user['phone']), '+'),
+                    "number"       => $this->extractPhoneNumber($user['phone']),
+                ],
+
+                "individual" => [
+                    "national_identification_number" => [
+                        "type"   => $idDoc['type'] ?? "other",
+                        "number" => $idDoc['number'] ?? null,
+                    ],
+                    "date_of_birth" => substr($user['birth_date'], 0, 10),
+                    "nationality"   => $user['nationality'],
+                ],
+
+                "documents" => $documents,
+
+                "submit"       => true,
+                "reference_id" => $user['customer_id'],
+            ];
+
+            $endpoint = "https://service.tazapay.com/v3/entity";
+            $response = Http::withToken(config('services.tazapay.secret'))
+                ->withHeaders(['Accept' => 'application/json'])
+                ->post($endpoint, $payload);
+
+
+            if ($response->successful()) {
+                $response = $apiResponse['data'] ?? [];
+                $entityId = $response['id'] ?? null;
+                $approvalStatus = $response['approval_status'] ?? null;
+                add_customer_meta($user['customer_id'], 'tazapay_entity_id', $entityId);
+                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus);
+            }
+
+            return $payload;
+        } catch (Throwable $th) {
+            report($th);
+            return [];
+        }
+    }
+
+    /**
+     * Extract calling code and number from phone formats like +2349010031860
+     */
+    private function extractCallingCode($phone)
+    {
+        if (preg_match('/^\+?(\d{1,3})/', $phone, $m)) {
+            return $m[1];
+        }
+        return '';
+    }
+
+    private function extractPhoneNumber($phone)
+    {
+        return preg_replace('/^\+?\d{1,3}/', '', $phone); // strip calling code
+    }
+
 
     public function noah(Customer $customer, array $data): void
     {
@@ -297,7 +450,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'body' => $response->body(),
                 ]);
                 Endorsement::updateOrCreate(
-                    ['customer_id' => $customer->customer_id, 'service' => 'pending'],
+                    ['customer_id' => $customer->customer_id, 'service' => 'native'],
                     ['status' => 'approved']
                 );
                 return;
@@ -560,7 +713,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'postalCode' => $addr['postal_code'] ?? '',
             ];
 
-            $phoneNumber = preg_replace('/\D+/', '',$data['phone']);
+            $phoneNumber = preg_replace('/\D+/', '', $data['phone']);
 
             // Ensure customer has a TransFi user ID
             if (!$customer->transfi_user_id) {

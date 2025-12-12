@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Customer;
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -63,7 +64,7 @@ class AveniaService
             $addr = $data['residential_address'] ?? [];
             $full_name = $data['first_name'] . " " . $data['middle_name'] . " " . $data['last_name'];
 
-            if(!$this->createSubAccount($full_name, $accessToken)) {
+            if (!$this->createSubAccount($full_name, $accessToken)) {
                 return false;
             }
 
@@ -179,6 +180,7 @@ class AveniaService
             }
 
             $kycResult = $kycResponse->json();
+            update_endorsement($customer->customer_id, 'brazil', 'pending');
             // Success! You can now store $kycResult['id'] or trigger next steps
             return $kycResult;
         } catch (Throwable $th) {
@@ -192,8 +194,8 @@ class AveniaService
         try {
             $endpoint = "{$this->baseUrl}/auth/login";
             $response = Http::timeout(20)->post($endpoint, [
-                "email" =>  "your.email@provider.com",
-                "password" =>  "UseAStrongPassword123!"
+                "email" =>  env('AVENIA_EMAIL'),
+                "password" =>  env('AVENIA_PASSWORD ')
             ]);
 
             return $response->json();
@@ -202,5 +204,80 @@ class AveniaService
                 'error' => $th->getMessage()
             ];
         }
+    }
+
+    /**
+     * Summary of aveniaRequest
+     * @param string $method
+     * @param string $endpoint
+     * @param string $requestUri
+     * @param array $body
+     * @throws \Exception
+     * 
+     * @return array{body: mixed, headers: mixed, json: mixed, signed_string: string, status: mixed}
+     */
+    public function aveniaRequest(string $method, string $endpoint, string $requestUri, array $body = null)
+    {
+        $apiKey = env("AVENIA_API_KEY");
+
+        // Normalize method to uppercase
+        $method = strtoupper($method);
+
+        // Convert body to JSON or empty string
+        $jsonBody = $body ? json_encode($body, JSON_UNESCAPED_SLASHES) : "";
+
+        // Timestamp in milliseconds
+        $timestamp = (string) round(microtime(true) * 1000);
+
+        // Build string to sign
+        // Must match Python version: timestamp + method + uri + body (if body exists)
+        $stringToSign = $timestamp . $method . $requestUri . $jsonBody;
+
+        // Load private key
+        $privateKeyPath = storage_path('app/avenia_private_key.pem');
+        $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyPath));
+
+        if (!$privateKey) {
+            throw new Exception("Unable to load private key");
+        }
+
+        // Sign with RSA SHA256
+        openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+        $signatureBase64 = base64_encode($signature);
+
+        // Prepare headers
+        $headers = [
+            "X-API-Key" => $apiKey,
+            "X-API-Timestamp" => $timestamp,
+            "X-API-Signature" => $signatureBase64,
+            "Content-Type" => "application/json"
+        ];
+
+        // Choose HTTP method dynamically
+        $client = Http::withHeaders($headers);
+
+        switch ($method) {
+            case "GET":
+            case "DELETE":
+                $response = $client->{$method === "GET" ? "get" : "delete"}($endpoint);
+                break;
+
+            case "POST":
+            case "PUT":
+            case "PATCH":
+                $response = $client->{$method === "POST" ? "post" : ($method === "PUT" ? "put" : "patch")}($endpoint, $body ?? []);
+                break;
+
+            default:
+                throw new Exception("Unsupported HTTP method: $method");
+        }
+
+        return [
+            "status" => $response->status(),
+            "headers" => $response->headers(),
+            "body" => $response->body(),
+            "json" => $response->json(),
+            "signed_string" => $stringToSign   // helpful for debugging
+        ];
     }
 }

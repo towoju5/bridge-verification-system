@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CustomerMeta;
+use App\Models\Endorsement;
 
 if (!function_exists('array_filter_recursive')) {
     function array_filter_recursive($array)
@@ -88,6 +89,26 @@ if (!function_exists('get_customer_meta')) {
             'customer_id' => $customerId,
             'key' => $key
         ])->first();
+
+        return $meta;
+    }
+}
+
+if (!function_exists('update_endorsement')) {
+    function update_endorsement($customerId, $service, $status, $hostedUrl = null)
+    {
+        if (!is_array($hostedUrl)) {
+            // convert it to an array
+            $hostedUrl = (array) $hostedUrl;
+        }
+        
+        $meta = Endorsement::where([
+            'customer_id' => $customerId,
+            'service' => $service
+        ])->update([
+            'status' => $status,
+            'hosted_kyc_url' => $hostedUrl
+        ]);
 
         return $meta;
     }

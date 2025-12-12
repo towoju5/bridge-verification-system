@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Jobs;
 
 use App\Models\BusinessCustomer;
@@ -39,6 +40,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
         $results['borderless'] = $this->submitToBorderless();
         $results['noah']       = $this->submitToNoah();
         $results['transfi']    = $this->submitToTransfi();
+        $results['avenia']    = $this->avenia();
 
         // Log final status
         Log::info("KYB submission results for business {$this->business->id}", $results);
@@ -122,7 +124,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 $identity = $resp->json();
                 $uboIds[] = $identity['identityId'];
 
-                // TODO: Upload ID documents for this person if needed
+                // TO DO: Upload ID documents for this person if needed
             }
 
             // Step 2: Create business identity
@@ -173,32 +175,8 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     protected function submitToNoah()
     {
         try {
-            $addr = $this->business->registered_address;
-            $data = [
-                "Type"                => "Business",
-                "RegisteredName"      => $this->business->business_legal_name,
-                "Email"               => $this->business->email,
-                "RegistrationNumber"  => $this->business->registration_number,
-                "RegistrationCountry" => $addr['country'] ?? 'NG',
-                "RegisteredAddress"   => [
-                    "Street"   => $addr['street_line_1'] ?? '',
-                    "Street2"  => $addr['street_line_2'] ?? '',
-                    "City"     => $addr['city'] ?? '',
-                    "PostCode" => $addr['postal_code'] ?? '',
-                    "State"    => $addr['subdivision'] ?? '',
-                    "Country"  => $addr['country'] ?? 'NG',
-                ],
-                "IncorporationDate"   => $this->business->incorporation_date->format('Y-m-d'),
-            ];
-
-            $response = Http::withToken(config('services.noah.api_key'))
-                ->post(config('services.noah.base_url') . '/v1/kyc/submit', $data);
-
-            if ($response->successful()) {
-                return ['status' => 'success', 'provider_id' => $response->json()['id'] ?? null];
-            } else {
-                throw new \Exception("HTTP {$response->status()}: " . $response->body());
-            }
+            $noah = new SubmitBusinessToNoah($this->business->toArray());
+            $noah->handle();
         } catch (\Exception $e) {
             Log::error("Noah KYB submission failed for business {$this->business->id}", [
                 'error' => $e->getMessage(),
@@ -211,7 +189,8 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     {
         // firstly create sub account
         $avenia = new AveniaBusinessService();
-        $avenia->businessCreateSubaccount($this->business->business_legal_name);
+        $response = $avenia->businessCreateSubaccount($this->business->business_legal_name);
+        return $response;
     }
 
     protected function submitToTransfi()
@@ -225,6 +204,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "date"         => $this->business->incorporation_date->format('d-m-Y'), // Transfi uses DD-MM-YYYY
                 "country"      => $addr['country'] ?? 'NG',
                 "phone"        => $this->business->phone_number,
+                "phoneCode"        => $this->business->phone_calling_code,
                 "address"      => [
                     "street"     => $addr['street_line_1'] ?? '',
                     "city"       => $addr['city'] ?? '',
@@ -233,13 +213,35 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 ],
             ];
 
-            $response = Http::withToken(config('services.transfi.api_key'))
-                ->post(config('services.transfi.base_url') . '/api/v1/kyc/business', $data);
+            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
+            $response = Http::timeout(20)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'MID' => env('TRANSFI_MERCHANT_ID'),
+                    'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                ])
+                ->post("{$baseUrl}/users/individual", $data);
+
 
             if ($response->successful()) {
+                $transfiUserId = $response->json()['userId'] ?? null;
+                if ($transfiUserId) {
+                    // send request to generate KYB URI
+                    $kybPayload = ["email" => $this->business->email];
+                    $res = Http::timeout(20)
+                        ->withHeaders([
+                            'Accept' => 'application/json',
+                            'MID' => env('TRANSFI_MERCHANT_ID'),
+                            'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                        ])
+                        ->post("{$baseUrl}/users/individual", $data);
+                    if ($res->successful() && isset($res->json()['link'])) {
+                        $link = $res->json()['link'];
+                        // update the Endorsement
+                    }
+                }
+                // since it's successful let generate a KYB url
                 return ['status' => 'success', 'provider_id' => $response->json()['reference'] ?? null];
-            } else {
-                throw new \Exception("HTTP {$response->status()}: " . $response->body());
             }
         } catch (\Exception $e) {
             Log::error("Transfi KYB submission failed for business {$this->business->id}", [
@@ -250,7 +252,6 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     }
 
     // ===== HELPERS =====
-
     protected function formatAddress($addr)
     {
         if (! $addr) {

@@ -179,6 +179,7 @@ class SubmitBusinessToTazapay implements ShouldQueue
             ->post('https://service.tazapay.com/v3/entity', $payload);
 
         if (!$response->successful()) {
+            update_endorsement($this->businessData['customer_id'], "cobo_pobo", 'submitted');
             Log::error('Tazapay submission failed', [
                 'session_id' => $this->businessData['session_id'],
                 'status'     => $response->status(),
@@ -210,10 +211,10 @@ class SubmitBusinessToTazapay implements ShouldQueue
             }
 
             // update my Endorsement
-            Endorsement::where(['customer_id' => $customerId, 'service' => 'brl'])->update(['status' => 'pending', 'hosted_kyc_url' => [
+            update_endorsement($customerId, 'brazil', 'pending',  [
                 "authorizedRepresentativeUrl" => $result["authorizedRepresentativeUrl"],
                 "basicCompanyDataUrl" => $result["basicCompanyDataUrl"]
-            ]]);
+            ]);
         } catch (\Throwable $th) {
             logger("Error generating avenia KYB link", ['error' => $th->getMessage()]);
         }

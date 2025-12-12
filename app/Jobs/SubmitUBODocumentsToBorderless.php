@@ -7,6 +7,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SubmitUBODocumentsToBorderless implements ShouldQueue
 {
@@ -47,10 +48,10 @@ class SubmitUBODocumentsToBorderless implements ShouldQueue
         }
 
         $response = Http::withToken(config('services.borderless.secret'))
-            ->put("https://sandbox-api.borderless.xyz/v1/identities/{$this->identityId}/documents", $payload);
+            ->put("https://api.borderless.xyz/v1/identities/{$this->identityId}/documents", $payload);
 
         if (! $response->successful()) {
-            \Log::error('Borderless doc upload failed', [
+            Log::error('Borderless doc upload failed', [
                 'identity_id' => $this->identityId,
                 'status'      => $response->status(),
                 'body'        => $response->body(),

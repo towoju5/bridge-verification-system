@@ -7,6 +7,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SubmitBusinessToBorderless implements ShouldQueue
 {
@@ -78,10 +79,10 @@ class SubmitBusinessToBorderless implements ShouldQueue
 
         $response = Http::withToken(config('services.borderless.secret'))
             ->withHeaders(['Accept' => 'application/json'])
-            ->post('https://sandbox-api.borderless.xyz/v1/identities/business', $payload);
+            ->post('https://api.borderless.xyz/v1/identities/business', $payload);
 
         if (! $response->successful()) {
-            \Log::error('Borderless submission failed', [
+            Log::error('Borderless submission failed', [
                 'session_id' => $this->businessData['session_id'],
                 'status'     => $response->status(),
                 'body'       => $response->body(),
@@ -93,6 +94,8 @@ class SubmitBusinessToBorderless implements ShouldQueue
         $identityId = $response->json('id');
         if ($identityId) {
             // Dispatch document upload job
+            update_endorsement($this->businessData['customer_id'], 'native', 'submitted');
+            add_customer_meta($this->businessData['customer_id'], 'borderless_identity_id', $identityId);
             SubmitUBODocumentsToBorderless::dispatch($identityId, $this->businessData);
         }
     }
