@@ -80,7 +80,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             ];
 
             $response = Http::withToken(config('services.tazapay.secret_key'))
-                ->post(config('services.tazapay.base_url') . '/v1/kyb', $data);
+                ->post(config('services.tazapay.base_url') . '/kyb', $data);
 
             if ($response->successful()) {
                 Log::info("KYC to Tazapay submitted successfully");
@@ -116,7 +116,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 ];
 
                 $resp = Http::withToken(config('services.borderless.api_key'))
-                    ->post(config('services.borderless.base_url') . '/v1/identity/personal', $personalData);
+                    ->post(config('services.borderless.base_url') . '/identity/personal', $personalData);
 
                 if (! $resp->successful()) {
                     throw new \Exception("Failed to create personal identity: " . $resp->body());
@@ -156,7 +156,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             ];
 
             $resp = Http::withToken(config('services.borderless.api_key'))
-                ->post(config('services.borderless.base_url') . '/v1/identity/business', $businessData);
+                ->post(config('services.borderless.base_url') . '/identity/business', $businessData);
 
             if ($resp->successful()) {
                 $result = $resp->json();

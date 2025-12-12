@@ -46,9 +46,15 @@ return [
     'borderless' => [
         'base_url' => env('BORDERLESS_BASE_URL', 'https://api.borderless.xyz/v1'),
         'api_key' => env('BORDERLESS_API_KEY'),
+        'client_id' => env("BORDERLESS_CLIENT_ID"),
+        'client_secret' => env("BORDERLESS_CLIENT_SECRET"),
     ],
     'transfi' => [
         'base_url' => env('TRANSFI_BASE_URL', 'https://api.transfi.com/v2'),
         'api_key' => env('TRANSFI_API_KEY'),
     ],
+    'avenia' => [
+        "base_url" => env('AVENIA_BASE_URL'),
+        "access_token" => env('AVENIA_API_KEY')
+    ]
 ];
