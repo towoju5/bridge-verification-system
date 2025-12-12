@@ -215,7 +215,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $entityId = $response['id'] ?? null;
                 $approvalStatus = $response['approval_status'] ?? null;
                 add_customer_meta($user['customer_id'], 'tazapay_entity_id', $entityId);
-                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus ?? "submitted");
+                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus ?? "under_review");
             }
 
             return $payload;
@@ -449,7 +449,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
-                update_endorsement($customer->customer_id, 'native', 'submitted');
+                update_endorsement($customer->customer_id, 'native', 'under_review');
                 return;
             }
 
@@ -828,7 +828,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
             if ($response->successful()) {
                 Log::info('TransFi KYC submitted successfully', ['customer_id' => $customer->customer_id]);
-                update_endorsement($customer->customer_id, 'asian', 'submitted', null);
+                update_endorsement($customer->customer_id, 'asian', 'under_review', null);
             } else {
                 Log::error('TransFi KYC failed', [
                     'customer_id' => $customer->customer_id,
