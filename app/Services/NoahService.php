@@ -121,7 +121,13 @@ class NoahService
             'body' => $body,
             'hosted_kyc_url' => $body['HostedURL'] ?? null,
         ]);
-
+        
+        if ($response->successful()) {
+            $hostedUrl = $body['HostedURL'] ?? null;
+            foreach (['base', 'sepa'] as $service) {
+                update_endorsement($customerId, $service, "submitted", $hostedUrl);
+            }
+        }
         return $response;
     }
 }

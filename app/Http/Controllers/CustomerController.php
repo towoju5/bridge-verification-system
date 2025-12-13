@@ -1413,7 +1413,7 @@ class CustomerController extends Controller
                 "status"  => "successful",
                 "message" => "KYC link regenerated successfully",
                 "data"    => $updatedEndorsement
-            ], 200);
+            ], 201);
         } catch (\Throwable $e) {
             Log::error("Noah KYC regeneration failed", [
                 'customer_id' => $customerId,
