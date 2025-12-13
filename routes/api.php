@@ -12,3 +12,4 @@ Route::get('/user', function (Request $request) {
 
 Route::post('individual-kyc/submit', [CustomerController::class, 'submitFullKyc']);
 Route::post('individual-kyc/submit-all', [CustomerController::class, 'submitIndividualKycAll']);
+Route::get('kyc/regenerate/{customerId}/{service}', [CustomerController::class, 'regenerateNoahKycLink']);

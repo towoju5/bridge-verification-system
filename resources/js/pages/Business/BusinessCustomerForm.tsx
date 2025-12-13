@@ -13,6 +13,8 @@ import ReviewStep from "./components/ReviewStep";
 import NavBar from "./components/NavBar";
 
 import AppLayout from "@/Layouts/AppLayout";
+import CollectionsTab from "./components/CollectionsTab";
+import PayoutsTab from "./components/PayoutsTab";
 
 export default function BusinessCustomerForm() {
     const [activeTab, setActiveTab] = useState("business-info");
@@ -57,7 +59,7 @@ export default function BusinessCustomerForm() {
                 ]);
 
                 // console.log(accountPurposes);
-                
+
 
                 setCountries(countriesRes.data);
                 setOccupations(occupationsRes.data);
@@ -197,12 +199,35 @@ export default function BusinessCustomerForm() {
                     <DocumentsTab
                         formData={formData}
                         setFormData={setFormData}
-                        documentPurposes={documentPurposes}
+                        // documentPurposes={documentPurposes}
                         saving={saving}
                         goToStep={goToStep}
                         showError={showError}
                     />
                 );
+
+            case "collections":
+                return (
+                    <CollectionsTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                )
+
+            case "payouts":
+                return (
+                    <PayoutsTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                )
+
 
             case "identifying_information":
                 return (

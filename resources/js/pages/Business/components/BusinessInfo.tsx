@@ -92,7 +92,7 @@ export default function BusinessInfo({
       await axios.post("/api/business-customer/step/1", payload);
 
       setFormData((prev: any) => ({ ...prev, ...local }));
-      goToStep("addresses");
+      goToStep("collections");
     } catch (err: any) {
       console.error(err);
       showError(err.response?.data?.message || "Unable to save step 1.");

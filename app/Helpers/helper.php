@@ -94,6 +94,18 @@ if (!function_exists('get_customer_meta')) {
     }
 }
 
+if (!function_exists('get_customer_endorsement')) {
+    function get_customer_endorsement($customerId, $service)
+    {
+        $meta = Endorsement::where([
+            'customer_id' => $customerId,
+            'service' => $service
+        ])->first();
+
+        return $meta;
+    }
+}
+
 if (!function_exists('update_endorsement')) {
     function update_endorsement($customerId, $service, $status, $hostedUrl = null)
     {
@@ -102,7 +114,7 @@ if (!function_exists('update_endorsement')) {
             $hostedUrl = (array) $hostedUrl;
         }
 
-        if (!in_array($status, ['pending', 'approved', 'rejected', 'under_review', 'not_started'])) {
+        if (!in_array($status, ['pending', 'approved', 'rejected', 'under_review', 'not_started']) || $status == "submitted") {
             $status = "under_review";
         }
 

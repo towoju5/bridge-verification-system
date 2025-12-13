@@ -15,6 +15,8 @@ const steps = [
     { id: "documents", label: "Documents" },
     { id: "identifying_information", label: "Identity" },
     { id: "extra_documents", label: "Additional Documents" },
+    { id: "collections", label: "Collections" },
+    { id: "payouts", label: "Payouts" },
     { id: "review", label: "Review" },
 ];
 
@@ -36,8 +38,8 @@ export default function NavBar({ activeTab, setActiveTab, completed }: Props) {
                             ${isActive
                                 ? "text-indigo-600 border-b-2 border-indigo-600"
                                 : isClickable
-                                ? "text-gray-700 hover:text-gray-900"
-                                : "text-gray-300 cursor-not-allowed"
+                                    ? "text-gray-700 hover:text-gray-900"
+                                    : "text-gray-300 cursor-not-allowed"
                             }
                         `}
                     >

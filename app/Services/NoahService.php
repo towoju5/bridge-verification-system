@@ -76,9 +76,29 @@ class NoahService
 
     public function noahOnboardingInit($customerId)
     {
+        $response = $this->processOnboarding($customerId);
+        if ($response->successful()) {
+            $hostedUrl = $body['HostedURL'] ?? null;
+            foreach (['base', 'sepa'] as $service) {
+                update_endorsement($customerId, $service, "submitted", $hostedUrl);
+            }
+
+            Log::info('Noah onboarding initiated', [
+                'customer_id' => $customerId,
+                'hosted_kyc_url' => $hostedUrl,
+            ]);
+
+            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
+        } else {
+            logger('Failed to initiate Noah onboarding: ' . $response->body());
+        }
+    }
+
+    public function processOnboarding($customerId)
+    {
         $noah = new NoahService();
         // Onboarding initiation may require an empty body or minimal payload
-        $returnUrl = session()->get('return_url', 'https://app.yativo.com');
+        $returnUrl = session()->get('return_url', 'https://google.com');
         $payload = [
             "Metadata" => [
                 "CustomerId" => $customerId
@@ -102,21 +122,6 @@ class NoahService
             'hosted_kyc_url' => $body['HostedURL'] ?? null,
         ]);
 
-
-        if ($response->successful()) {
-            $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa'] as $service) {
-                update_endorsement($customerId, $service, "submitted", $hostedUrl);
-            }
-
-            Log::info('Noah onboarding initiated', [
-                'customer_id' => $customerId,
-                'hosted_kyc_url' => $hostedUrl,
-            ]);
-
-            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
-        } else {
-            logger('Failed to initiate Noah onboarding: ' . $response->body());
-        }
+        return $response;
     }
 }
