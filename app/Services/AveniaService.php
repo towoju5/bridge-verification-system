@@ -29,13 +29,9 @@ class AveniaService
      | SUB ACCOUNT
      * --------------------------------------------------------- */
 
-    public function createSubAccount(Customer $customer): bool
+    public function createSubAccount($payload): bool
     {
-        logger("incoming customer is: ", ['customer' => $customer]);
-        $response = $this->post('/account/sub-accounts', [
-            'accountType' => $customer->customer_type,
-            'name'        => trim($customer->first_name . ' ' . $customer->last_name),
-        ]);
+        $response = $this->post('/account/sub-accounts', $payload);
         logger("Response from creating avenia sub account", ['response' => $response->json()]);
         $result = $response->json();
         if ($result['error'] ?? false) {
@@ -43,11 +39,11 @@ class AveniaService
             return false;
         }
 
-        add_customer_meta(
-            $customer->customer_id,
-            'avenia_customer_id',
-            $result['id']
-        );
+        // add_customer_meta(
+        //     $customerId,
+        //     'avenia_customer_id',
+        //     $result['id']
+        // );
 
         return true;
     }
@@ -99,8 +95,11 @@ class AveniaService
             Log::info('Creating Avenia sub-account', [
                 'customer_id' => $customer->customer_id,
             ]);
-
-            $result = $this->createSubAccount($customer);
+            $payload = [
+                "accountType" => "INDIVIDUAL",
+                "name" => "jane doe"
+            ];
+            $result = $this->createSubAccount($payload);
 
             if (!$result) {
                 Log::error('Sub-account creation failed', [
@@ -298,6 +297,16 @@ class AveniaService
         return $this->get('/account/quote/fixed-rate', $payload);
     }
 
+    // public function login()
+    // {
+    //     $endpoint = "account/sub-accounts";
+    //     $payload = [
+    //         "accountType" => "INDIVIDUAL",
+    //         "name" => "jane doe"
+    //     ];
+    //     $this->createSubAccount($payload);
+    // }
+
     public function deposit(array $payload)
     {
         $response = $this->post('/account/tickets/', $payload);
@@ -373,7 +382,7 @@ class AveniaService
             $payload = $payload ?? [];
 
             // Normalize URI
-            $uri = str_replace('//', '/', "/v2/{$url}");
+            $uri = str_replace('//', '/', "/{$url}");
 
             // Handle GET query parameters
             if ($method === 'GET' && ! empty($payload)) {
@@ -421,6 +430,7 @@ class AveniaService
             Log::info('Avenia signing debug', [
                 'method' => $method,
                 'uri'    => $uri,
+                'base_url' => $this->baseUrl
             ]);
 
             $request = Http::withHeaders($headers);
@@ -434,21 +444,6 @@ class AveniaService
             Log::info("Hello", ['result' => $response->json(), 'uri' => $uri]);
 
             return $response;
-
-            // if ($response->successful()) {
-            //     return $response->json();
-            // }
-
-            // Log::warning('Avenia API error', [
-            //     'status' => $response->status(),
-            //     'body'   => $response->body(),
-            // ]);
-
-            // return [
-            //     'error'  => true,
-            //     'status' => $response->status(),
-            //     'body'   => $response->json(),
-            // ];
         } catch (Throwable $th) {
             Log::error('Avenia request failed', [
                 'error' => $th->getMessage(),
