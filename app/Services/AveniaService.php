@@ -36,16 +36,17 @@ class AveniaService
             'accountType' => $customer->customer_type,
             'name'        => trim($customer->first_name . ' ' . $customer->last_name),
         ]);
-
-        if ($response['error'] ?? false) {
-            Log::error('Avenia sub-account creation failed', $response);
+        logger("Response from creating avenia sub account", ['response' => $response->json()]);
+        $result = $response->json();
+        if ($result['error'] ?? false) {
+            Log::error('Avenia sub-account creation failed', $result);
             return false;
         }
 
         add_customer_meta(
             $customer->customer_id,
             'avenia_customer_id',
-            $response['id']
+            $result['id']
         );
 
         return true;
