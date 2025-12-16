@@ -112,6 +112,7 @@ class AveniaService
 
             Log::info('Sub-account created successfully', [
                 'customer_id' => $customer->customer_id,
+                'result' => $result,
             ]);
 
             /* -------------------------------------------------
@@ -297,15 +298,12 @@ class AveniaService
         return $this->get('/account/quote/fixed-rate', $payload);
     }
 
-    // public function login()
-    // {
-    //     $endpoint = "account/sub-accounts";
-    //     $payload = [
-    //         "accountType" => "INDIVIDUAL",
-    //         "name" => "jane doe"
-    //     ];
-    //     $this->createSubAccount($payload);
-    // }
+    public function login()
+    {
+        $endpoint = "/account/sub-accounts";
+        $result = $this->get($endpoint);
+        return response()->json($result);
+    }
 
     public function deposit(array $payload)
     {
@@ -316,7 +314,7 @@ class AveniaService
     public function getAccountInfo()
     {
         try {
-            return $this->get('/account/sub-accounts');
+            return $this->get('/account/sub-accounts/5beccf54-29d7-4b59-98d8-9b8f7fbba961');
         } catch (Throwable $th) {
             Log::info($th);
         }
@@ -365,12 +363,12 @@ class AveniaService
      | Core request handlers
      * --------------------------------------------------------- */
 
-    protected function get(string $uri, $payload = null)
+    public function get(string $uri, $payload = null)
     {
         return $this->aveniaRequest('GET', $uri, $payload);
     }
 
-    protected function post(string $uri, array $payload)
+    public function post(string $uri, array $payload)
     {
         return $this->aveniaRequest('POST', $uri, $payload);
     }
@@ -382,7 +380,7 @@ class AveniaService
             $payload = $payload ?? [];
 
             // Normalize URI
-            $uri = str_replace('//', '/', "/{$url}");
+            $uri = str_replace('//', '/', "/v2/{$url}");
 
             // Handle GET query parameters
             if ($method === 'GET' && ! empty($payload)) {

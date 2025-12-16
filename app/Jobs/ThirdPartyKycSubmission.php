@@ -983,6 +983,22 @@ class ThirdPartyKycSubmission implements ShouldQueue
         try {
             logger("initiating avenia for individual");
             $avenia = new AveniaService();
+            // generate avenia kyc url
+            $kyc = $avenia->post("/kyc/new-level-1/web-sdk", [
+                "redirectUrl" => "https://google.com"
+            ]);
+
+            if (is_array($kyc)) {
+                $kycUrl = $kyc["kycUrl"];
+            } else if ($kyc->successful()) {
+                $result = $kyc->json();
+                $kycUrl = $result["kycUrl"];
+            }
+
+            if (isset($kycUrl)) {
+                update_endorsement($customer->customer_id, "brazil", "pending", $result["kycUrl"]);
+            }
+
             logger("avenia service lass initiated!");
             $kyc = $avenia->avenia($customer, $data);
             logger("avenia kyc response", ['response' => $kyc]);
