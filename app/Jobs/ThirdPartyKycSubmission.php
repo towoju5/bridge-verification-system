@@ -934,7 +934,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
         try {
             logger("initiating avenia for individual");
             $avenia = new AveniaService();
+            logger("avenia service lass initiated!");
             $kyc = $avenia->avenia($customer, $data);
+            logger("avenia kyc response", ['response' => $kyc]);
         } catch (Throwable $th) {
             return ['error' => $th->getMessage()];
         }
