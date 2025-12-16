@@ -71,9 +71,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
         $hasSelfie = !empty($selfie);
 
         // // Submit to mandatory providers always
-        $this->borderless($customer, $this->submissionData);
-        $this->noah($customer, $this->submissionData);
         $this->avenia($customer, $this->submissionData);
+        $this->noah($customer, $this->submissionData);
 
         // Submit to TransFi + Bitnob only if both docs exist
         if ($hasIdFront && $hasSelfie) {
@@ -86,6 +85,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'has_selfie' => $hasSelfie,
             ]);
         }
+        $this->borderless($customer, $this->submissionData);
     }
 
     public function tazapay()
@@ -620,7 +620,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
         try {
             $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
 
-            // Helper: resolve any country input to ISO2 using DB
+            /* -------------------------------------------------
+         | COUNTRY ISO2 RESOLUTION
+         * ------------------------------------------------- */
             $countryCache = [];
 
             $resolveCountryToIso2 = function ($input) use (&$countryCache) {
@@ -631,77 +633,148 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
                 $input = trim($input);
 
-                // If already ISO2, return as-is (normalized)
                 if (strlen($input) === 2 && ctype_alpha($input)) {
                     return strtoupper($input);
                 }
 
-                // Try to find by name (case-insensitive) or iso3
                 $country = Country::whereRaw('LOWER(name) = ?', [Str::lower($input)])
                     ->orWhere('iso3', strtoupper($input))
                     ->orWhere('iso2', strtoupper($input))
                     ->first();
 
-                if ($country) {
-                    return $country->iso2;
-                }
-
-
                 $iso2 = $country?->iso2 ?? 'NG';
                 $countryCache[$key] = $iso2;
+
                 return $iso2;
             };
 
-            $idInfo = $data['identifying_information'][0] ?? [];
-            $idFront = $idInfo['image_front_file'] ?? null;
-            $selfie = $data['selfie_image'] ?? null;
+            /* -------------------------------------------------
+         | PHONE NORMALIZATION (E.164)
+         * ------------------------------------------------- */
+            $normalizePhone = function (?string $phone, string $countryIso2) {
+                if (empty($phone)) {
+                    return null;
+                }
 
-            $idBack = $idInfo['image_back_file'] ?? null;
+                // Keep digits and +
+                $raw = preg_replace('/[^\d+]/', '', trim($phone));
+
+                // Case 1: Already international
+                if (Str::startsWith($raw, '+')) {
+                    $digits = preg_replace('/\D+/', '', $raw);
+
+                    if (strlen($digits) < 8 || strlen($digits) > 15) {
+                        Log::error('Invalid international phone length', [
+                            'phone' => $phone,
+                            'digits' => strlen($digits),
+                        ]);
+                        return null;
+                    }
+
+                    return '+' . $digits;
+                }
+
+                // Case 2: Local number
+                $local = ltrim(preg_replace('/\D+/', '', $raw), '0');
+
+                $country = Country::where('iso2', strtoupper($countryIso2))->first();
+                if (!$country || empty($country->dial_code)) {
+                    Log::error('Missing country dial code for phone normalization', [
+                        'phone' => $phone,
+                        'country' => $countryIso2,
+                    ]);
+                    return null;
+                }
+
+                $dialCode = ltrim($country->dial_code, '+');
+                $full = $dialCode . $local;
+
+                if (strlen($full) < 8 || strlen($full) > 15) {
+                    Log::error('Phone failed length validation after normalization', [
+                        'original_phone' => $phone,
+                        'normalized' => '+' . $full,
+                        'digits' => strlen($full),
+                        'country' => $countryIso2,
+                    ]);
+                    return null;
+                }
+
+                return '+' . $full;
+            };
+
+            /* -------------------------------------------------
+         | ID & MEDIA
+         * ------------------------------------------------- */
+            $idInfo  = $data['identifying_information'][0] ?? [];
+            $idFront = $idInfo['image_front_file'] ?? null;
+            $idBack  = $idInfo['image_back_file'] ?? $idFront;
+            $selfie  = $data['selfie_image'] ?? null;
+
             if (!$idBack) {
-                $idBack = $idFront;
-                Log::warning('Using front image as back for TransFi KYC (no back provided)', [
+                Log::warning('Using front image as back for TransFi KYC', [
                     'customer_id' => $customer->customer_id,
-                    'id_type' => $idInfo['type'] ?? 'unknown'
                 ]);
             }
 
             if (!$idFront || !$selfie) {
-                Log::warning('TransFi skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
+                Log::warning('TransFi skipped: missing ID front or selfie', [
+                    'customer_id' => $customer->customer_id,
+                ]);
                 return;
             }
 
+            /* -------------------------------------------------
+         | BASIC NORMALIZATION
+         * ------------------------------------------------- */
             $addr = $data['residential_address'] ?? [];
 
-            // Normalize gender
-            $gender = strtolower(trim($data['gender'] ?? '')) ?: 'male';
+            $gender = strtolower(trim($data['gender'] ?? 'male'));
             if (!in_array($gender, ['male', 'female'])) {
                 $gender = 'male';
             }
 
-            // Normalize DOB
             $dob = null;
             if (!empty($data['birth_date'])) {
                 try {
                     $dob = Carbon::parse($data['birth_date'])->format('d-m-Y');
                 } catch (\Exception $e) {
-                    $dob = null; // invalid date
-                    Log::info('Date of birth is null');
+                    Log::info('Invalid DOB supplied', [
+                        'customer_id' => $customer->customer_id,
+                    ]);
                 }
             }
 
-
-            // Normalize ID type
             $idType = strtolower($idInfo['type'] ?? 'id_card');
             if (!in_array($idType, ['passport', 'id_card', 'drivers'])) {
                 $idType = 'id_card';
             }
 
-            // Resolve all country fields using DB lookup
+            /* -------------------------------------------------
+         | COUNTRY ISO2
+         * ------------------------------------------------- */
             $nationalityIso2 = $resolveCountryToIso2($data['nationality'] ?? 'NG');
-            $issuerCountryIso2 = $resolveCountryToIso2($idInfo['issuing_country'] ?? $data['nationality'] ?? 'NG');
-            $residenceCountryIso2 = $resolveCountryToIso2($addr['country'] ?? $data['nationality'] ?? 'NG');
+            $issuerCountryIso2 = $resolveCountryToIso2($idInfo['issuing_country'] ?? $nationalityIso2);
+            $residenceCountryIso2 = $resolveCountryToIso2($addr['country'] ?? $nationalityIso2);
 
-            // Build address with ISO2 country
+            /* -------------------------------------------------
+         | PHONE FINAL
+         * ------------------------------------------------- */
+            $phoneNumber = $normalizePhone(
+                $data['phone'] ?? null,
+                $nationalityIso2
+            );
+
+            if (!$phoneNumber) {
+                Log::error('Phone normalization failed', [
+                    'customer_id' => $customer->customer_id,
+                    'input_phone' => $data['phone'] ?? null,
+                ]);
+                return;
+            }
+
+            /* -------------------------------------------------
+         | ADDRESS
+         * ------------------------------------------------- */
             $addressPayload = [
                 'street' => $addr['street_line_1'] ?? '',
                 'city' => $addr['city'] ?? '',
@@ -710,9 +783,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'postalCode' => $addr['postal_code'] ?? '',
             ];
 
-            $phoneNumber = preg_replace('/\D+/', '', $data['phone']);
-
-            // Ensure customer has a TransFi user ID
+            /* -------------------------------------------------
+         | CREATE TRANSFI USER
+         * ------------------------------------------------- */
             if (!$customer->transfi_user_id) {
                 $userPayload = [
                     'firstName' => $data['first_name'] ?? '',
@@ -720,7 +793,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => $dob,
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phone' => $phoneNumber ?? '',
+                    'phone' => $phoneNumber,
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
                 ];
@@ -729,45 +802,44 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     ->withHeaders([
                         'Accept' => 'application/json',
                         'MID' => env('TRANSFI_MERCHANT_ID'),
-                        'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                        'Authorization' => 'Basic ' . base64_encode(
+                            env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')
+                        ),
                     ])
                     ->post("{$baseUrl}/users/individual", $userPayload);
 
                 if ($res->failed()) {
                     Log::error('TransFi user registration failed', [
-                        'merchant_id' => env('TRANSFI_MERCHANT_ID'),
-                        'keys' => [
-                            'user' => env('TRANSFI_USERNAME'),
-                            'pass' => env('TRANSFI_PASSWORD')
-                        ],
                         'customer_id' => $customer->customer_id,
                         'response' => $res->body(),
-                        'payload' => $userPayload
+                        'payload' => $userPayload,
                     ]);
                     return;
                 }
 
                 $transfiUserId = $res->json()['userId'] ?? null;
                 if (!$transfiUserId) {
-                    Log::error('TransFi did not return userId', [
+                    Log::error('TransFi userId missing in response', [
                         'customer_id' => $customer->customer_id,
-                        'response' => $res->json(),
                     ]);
                     return;
                 }
+
                 add_customer_meta($customer->customer_id, 'transfi_user_id', $transfiUserId);
-                // $customer->update(['transfi_user_id' => $transfiUserId]);
             }
 
-            // Final KYC payload
+            /* -------------------------------------------------
+         | FINAL KYC PAYLOAD
+         * ------------------------------------------------- */
             $transfiUserId = get_customer_meta($customer->customer_id, 'transfi_user_id');
+
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
                 'dob' => Carbon::parse($data['birth_date'])->format('Y-m-d'),
                 'email' => $data['email'] ?? '',
                 'gender' => $gender,
-                'phoneNo' => $phoneNumber ?? '',
+                'phoneNo' => $phoneNumber,
                 'nationality' => $nationalityIso2,
                 'street' => $addressPayload['street'],
                 'city' => $addressPayload['city'],
@@ -784,50 +856,24 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'userId' => $transfiUserId->value[0],
             ];
 
-            // Validate required fields
-            $required = [
-                'firstName',
-                'lastName',
-                'dob',
-                'email',
-                'gender',
-                'phoneNo',
-                'nationality',
-                'street',
-                'city',
-                'country',
-                'postalCode',
-                'idDocType',
-                'idDocUserName',
-                'idDocIssuerCountry',
-                'idDocFrontSide',
-                'idDocBackSide',
-                'selfie',
-                'userId'
-            ];
-
-            foreach ($required as $field) {
-                if (empty($payload[$field])) {
-                    Log::error('TransFi KYC missing required field', [
-                        'customer_id' => $customer->customer_id,
-                        'missing_field' => $field,
-                    ]);
-                    return;
-                }
-            }
-
-            // Submit KYC
+            /* -------------------------------------------------
+         | SUBMIT KYC
+         * ------------------------------------------------- */
             $response = Http::asMultipart()
                 ->timeout(20)
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'MID' => env('TRANSFI_MERCHANT_ID'),
-                    'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                    'Authorization' => 'Basic ' . base64_encode(
+                        env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')
+                    ),
                 ])
                 ->post("{$baseUrl}/kyc/share/third-vendor", $payload);
 
             if ($response->successful()) {
-                Log::info('TransFi KYC submitted successfully', ['customer_id' => $customer->customer_id]);
+                Log::info('TransFi KYC submitted successfully', [
+                    'customer_id' => $customer->customer_id,
+                ]);
                 update_endorsement($customer->customer_id, 'asian', 'under_review', null);
             } else {
                 Log::error('TransFi KYC failed', [
@@ -844,6 +890,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]);
         }
     }
+
 
     private function bitnob(Customer $customer, array $data): void
     {
