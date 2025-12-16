@@ -23,6 +23,8 @@ class BusinessCustomer extends Model
         'is_dao' => 'boolean',
         'has_material_intermediary_ownership' => 'boolean',
         'conducts_money_services' => 'boolean',
-        'extra_documents' => 'array'
+        'extra_documents' => 'array',
+        'collections_data' => 'array',
+        'payouts_data' => 'array'
     ];
 }

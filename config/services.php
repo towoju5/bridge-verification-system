@@ -53,8 +53,9 @@ return [
         'base_url' => env('TRANSFI_BASE_URL', 'https://api.transfi.com/v2'),
         'api_key' => env('TRANSFI_API_KEY'),
     ],
+    
     'avenia' => [
         "base_url" => env('AVENIA_BASE_URL'),
-        "access_token" => env('AVENIA_API_KEY')
+        "access_token" => env("AVENIA_API_KEY")
     ]
 ];

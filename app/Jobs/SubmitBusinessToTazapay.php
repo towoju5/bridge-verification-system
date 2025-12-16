@@ -191,7 +191,7 @@ class SubmitBusinessToTazapay implements ShouldQueue
     public function handleAveniaKyb()
     {
         try {
-            $baseUrl = "https://api.avenia.io:10952/v2/kyc/new-level-1/web-sdk";
+            $baseUrl = env('AVENIA_BASE_URL')."/kyc/new-level-1/web-sdk";
             $payload = [
                 "redirectUrl" => "https://kyc.yativo.com/kyb-complete"
             ];

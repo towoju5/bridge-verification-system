@@ -1,38 +1,78 @@
 import React, { useState } from "react";
 import axios from "axios";
+import AnimatedMulti from "../shared/AnimatedMulti";
 
-export default function CollectionsTab({ formData, setFormData, saving, goToStep, showError }) {
+interface Option {
+    value: string;
+    label: string;
+}
+
+export default function CollectionsTab({
+    formData,
+    setFormData,
+    saving,
+    goToStep,
+    showError,
+}) {
     const empty = {
-        sender_industries: [],
+        sender_industries: [] as string[],
         sender_types: "",
         top_5_senders: [""],
         incoming_from_fintech_wallets: false,
         incoming_fintech_wallet_details: "",
-        collection_currencies: [],
+        collection_currencies: [] as string[],
         current_collection_provider: "",
         reason_for_switching_collection: "",
         expected_monthly_disbursement_usd: "",
         avg_transaction_amount_collection: "",
-        max_transaction_amount_collection: ""
+        max_transaction_amount_collection: "",
     };
 
     const [local, setLocal] = useState(formData.collections || empty);
-    const [errors, setErrors] = useState({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const update = (k, v) => setLocal(s => ({ ...s, [k]: v }));
+    const update = (k: string, v: any) =>
+        setLocal((s) => ({ ...s, [k]: v }));
 
-    const addSender = () => update("top_5_senders", [...local.top_5_senders, ""]);
-    const removeSender = idx => update("top_5_senders", local.top_5_senders.filter((_, i) => i !== idx));
-    const updateSender = (idx, v) => update("top_5_senders", local.top_5_senders.map((s, i) => i === idx ? v : s));
+    const addSender = () =>
+        update("top_5_senders", [...local.top_5_senders, ""]);
+
+    const removeSender = (idx: number) =>
+        update(
+            "top_5_senders",
+            local.top_5_senders.filter((_, i) => i !== idx)
+        );
+
+    const updateSender = (idx: number, v: string) =>
+        update(
+            "top_5_senders",
+            local.top_5_senders.map((s, i) => (i === idx ? v : s))
+        );
 
     const validate = () => {
-        const e = {};
-        if (!local.sender_types) e.sender_types = "Required";
-        if (!local.top_5_senders.length) e.top_5_senders = "At least one sender required";
-        if (!local.collection_currencies.length) e.collection_currencies = "Select at least one currency";
-        if (!local.expected_monthly_disbursement_usd) e.expected_monthly_disbursement_usd = "Required";
-        if (!local.avg_transaction_amount_collection) e.avg_transaction_amount_collection = "Required";
-        if (!local.max_transaction_amount_collection) e.max_transaction_amount_collection = "Required";
+        const e: Record<string, string> = {};
+
+        if (!local.sender_industries.length)
+            e.sender_industries = "Select at least one industry";
+
+        if (!local.sender_types)
+            e.sender_types = "Required";
+
+        if (!local.top_5_senders.filter(Boolean).length)
+            e.top_5_senders = "At least one sender required";
+
+        if (!local.collection_currencies.length)
+            e.collection_currencies = "Select at least one currency";
+
+        if (!local.expected_monthly_disbursement_usd)
+            e.expected_monthly_disbursement_usd = "Required";
+
+        if (!local.avg_transaction_amount_collection)
+            e.avg_transaction_amount_collection = "Required";
+
+        if (!local.max_transaction_amount_collection)
+            e.max_transaction_amount_collection = "Required";
+
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -42,117 +82,212 @@ export default function CollectionsTab({ formData, setFormData, saving, goToStep
 
         try {
             await axios.post("/api/business-customer/step/collections", local);
-            setFormData(s => ({ ...s, collections: local }));
+            setFormData((s) => ({ ...s, collections: local }));
             goToStep("payouts");
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            showError(err.response?.data?.message || "Unable to save collections data");
+            showError(
+                err.response?.data?.message ||
+                "Unable to save collections data"
+            );
         }
     };
 
-    const industries = ["E-commerce", "Wholesale", "Retail", "Logistics", "Manufacturing", "Consulting"];
-    const currencies = ["USD", "EUR", "GBP", "NGN", "KES", "ZAR", "AED", "HKD"];
+    const industries: Option[] = [
+        { value: "E-commerce", label: "E-commerce" },
+        { value: "Wholesale", label: "Wholesale" },
+        { value: "Retail", label: "Retail" },
+        { value: "Logistics", label: "Logistics" },
+        { value: "Manufacturing", label: "Manufacturing" },
+        { value: "Consulting", label: "Consulting" },
+        { value: "Others", label: "Others"}
+    ];
+
+    const currencies: Option[] = [
+        { value: "USD", label: "USD" },
+        { value: "EUR", label: "EUR" },
+        { value: "GBP", label: "GBP" },
+        { value: "NGN", label: "NGN" },
+        { value: "KES", label: "KES" },
+        { value: "ZAR", label: "ZAR" },
+        { value: "AED", label: "AED" },
+        { value: "HKD", label: "HKD" },
+    ];
 
     return (
         <div className="p-6 bg-white dark:bg-gray-800 rounded shadow">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Collections Information</h2>
+            <h2 className="text-xl font-semibold mb-6">
+                Collections Information
+            </h2>
 
             {/* Sender Industries */}
             <div className="mb-4">
-                <label className="block text-sm mb-1">Sender Industries</label>
-                <select multiple value={local.sender_industries} onChange={e => update("sender_industries", [...e.target.selectedOptions].map(o => o.value))}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white">
-                    {industries.map(x => <option key={x}>{x}</option>)}
-                </select>
+                <label className="block text-sm mb-1">
+                    Sender Industries *
+                </label>
+                <AnimatedMulti
+                    selectOptions={industries}
+                    value={industries.filter((o) =>
+                        local.sender_industries.includes(o.value)
+                    )}
+                    onChange={(values: Option[]) =>
+                        update(
+                            "sender_industries",
+                            values.map((v) => v.value)
+                        )
+                    }
+                />
+                {errors.sender_industries && (
+                    <p className="text-red-500 text-sm">
+                        {errors.sender_industries}
+                    </p>
+                )}
             </div>
 
             {/* Sender Type */}
             <div className="mb-4">
-                <label className="block text-sm mb-1">Sender Type *</label>
-                <select value={local.sender_types} onChange={e => update("sender_types", e.target.value)}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white">
+                <label className="block text-sm mb-1">
+                    Sender Type *
+                </label>
+                <select
+                    value={local.sender_types}
+                    onChange={(e) =>
+                        update("sender_types", e.target.value)
+                    }
+                    className="w-full border rounded p-2"
+                >
                     <option value="">Select type</option>
                     <option value="individuals">Individuals</option>
                     <option value="business">Business</option>
                 </select>
-                {errors.sender_types && <p className="text-red-500 text-sm">{errors.sender_types}</p>}
+                {errors.sender_types && (
+                    <p className="text-red-500 text-sm">
+                        {errors.sender_types}
+                    </p>
+                )}
             </div>
 
-            {/* Top 5 Senders */}
+            {/* Top Senders */}
             <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Top 5 Senders *</label>
+                <label className="block text-sm font-medium mb-2">
+                    Top 5 Senders *
+                </label>
                 {local.top_5_senders.map((s, i) => (
-                    <div key={i} className="flex items-center mb-2">
-                        <input value={s} onChange={e => updateSender(i, e.target.value)}
-                            className="flex-1 border rounded p-2 dark:bg-gray-700 dark:text-white" />
-                        {local.top_5_senders.length > 1 &&
-                            <button className="ml-2 bg-red-600 text-white px-2 rounded" onClick={() => removeSender(i)}>X</button>}
+                    <div key={i} className="flex mb-2">
+                        <input
+                            value={s}
+                            onChange={(e) =>
+                                updateSender(i, e.target.value)
+                            }
+                            className="flex-1 border rounded p-2"
+                        />
+                        {local.top_5_senders.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={() => removeSender(i)}
+                                className="ml-2 bg-red-600 text-white px-2 rounded"
+                            >
+                                X
+                            </button>
+                        )}
                     </div>
                 ))}
-                <button className="bg-indigo-600 text-white px-3 py-1 rounded" onClick={addSender}>+ Add Sender</button>
-                {errors.top_5_senders && <p className="text-red-500 text-sm">{errors.top_5_senders}</p>}
-            </div>
-
-            {/* Fintech Wallets */}
-            <div className="mb-4">
-                <label className="flex items-center space-x-2">
-                    <input type="checkbox" checked={local.incoming_from_fintech_wallets}
-                        onChange={e => update("incoming_from_fintech_wallets", e.target.checked)} />
-                    <span>Expect incoming payins from fintech wallets?</span>
-                </label>
-
-                {local.incoming_from_fintech_wallets &&
-                    <textarea value={local.incoming_fintech_wallet_details}
-                        onChange={e => update("incoming_fintech_wallet_details", e.target.value)}
-                        className="w-full border rounded p-2 mt-2 dark:bg-gray-700 dark:text-white"
-                        placeholder="Provide details..."
-                    />}
+                <button
+                    type="button"
+                    onClick={addSender}
+                    className="bg-indigo-600 text-white px-3 py-1 rounded"
+                >
+                    + Add Sender
+                </button>
+                {errors.top_5_senders && (
+                    <p className="text-red-500 text-sm">
+                        {errors.top_5_senders}
+                    </p>
+                )}
             </div>
 
             {/* Collection Currencies */}
             <div className="mb-4">
-                <label className="block text-sm mb-1">Currencies Required *</label>
-                <select multiple value={local.collection_currencies} onChange={e => update("collection_currencies", [...e.target.selectedOptions].map(o => o.value))}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white">
-                    {currencies.map(c => <option key={c}>{c}</option>)}
-                </select>
-                {errors.collection_currencies && <p className="text-red-500 text-sm">{errors.collection_currencies}</p>}
+                <label className="block text-sm mb-1">
+                    Currencies Required *
+                </label>
+                <AnimatedMulti
+                    selectOptions={currencies}
+                    value={currencies.filter((o) =>
+                        local.collection_currencies.includes(o.value)
+                    )}
+                    onChange={(values: Option[]) =>
+                        update(
+                            "collection_currencies",
+                            values.map((v) => v.value)
+                        )
+                    }
+                />
+                {errors.collection_currencies && (
+                    <p className="text-red-500 text-sm">
+                        {errors.collection_currencies}
+                    </p>
+                )}
             </div>
 
-            {/* Provider */}
-            <div className="mb-4">
-                <label className="block text-sm mb-1">Current Collection Provider</label>
-                <input value={local.current_collection_provider} onChange={e => update("current_collection_provider", e.target.value)}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" />
-            </div>
-
-            {/* Reason for switching */}
-            <div className="mb-4">
-                <label className="block text-sm mb-1">Reason for Switching</label>
-                <textarea value={local.reason_for_switching_collection}
-                    onChange={e => update("reason_for_switching_collection", e.target.value)}
-                    className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white" />
-            </div>
-
-            {/* Expected monthly disbursement */}
+            {/* Amounts */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <input type="number" placeholder="Expected Monthly Disbursement *" value={local.expected_monthly_disbursement_usd}
-                    onChange={e => update("expected_monthly_disbursement_usd", e.target.value)}
-                    className="border rounded p-2 dark:bg-gray-700 dark:text-white" />
+                <input
+                    type="number"
+                    placeholder="Expected Monthly Disbursement *"
+                    value={local.expected_monthly_disbursement_usd}
+                    onChange={(e) =>
+                        update(
+                            "expected_monthly_disbursement_usd",
+                            e.target.value
+                        )
+                    }
+                    className="border rounded p-2"
+                />
 
-                <input type="number" placeholder="Avg Transaction Amount *" value={local.avg_transaction_amount_collection}
-                    onChange={e => update("avg_transaction_amount_collection", e.target.value)}
-                    className="border rounded p-2 dark:bg-gray-700 dark:text-white" />
+                <input
+                    type="number"
+                    placeholder="Avg Transaction Amount *"
+                    value={local.avg_transaction_amount_collection}
+                    onChange={(e) =>
+                        update(
+                            "avg_transaction_amount_collection",
+                            e.target.value
+                        )
+                    }
+                    className="border rounded p-2"
+                />
 
-                <input type="number" placeholder="Max Transaction Amount *" value={local.max_transaction_amount_collection}
-                    onChange={e => update("max_transaction_amount_collection", e.target.value)}
-                    className="border rounded p-2 dark:bg-gray-700 dark:text-white" />
+                <input
+                    type="number"
+                    placeholder="Max Transaction Amount *"
+                    value={local.max_transaction_amount_collection}
+                    onChange={(e) =>
+                        update(
+                            "max_transaction_amount_collection",
+                            e.target.value
+                        )
+                    }
+                    className="border rounded p-2"
+                />
             </div>
 
             {/* Buttons */}
             <div className="flex justify-between mt-6">
-                <button onClick={() => goToStep("financial")} className="px-6 py-2 bg-gray-300 rounded">Previous</button>
-                <button onClick={save} className="px-6 py-2 bg-indigo-600 text-white rounded">Next</button>
+                <button
+                    onClick={() => goToStep("financial")}
+                    className="px-6 py-2 bg-gray-300 rounded"
+                >
+                    Previous
+                </button>
+
+                <button
+                    onClick={save}
+                    disabled={saving}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded"
+                >
+                    Next
+                </button>
             </div>
         </div>
     );

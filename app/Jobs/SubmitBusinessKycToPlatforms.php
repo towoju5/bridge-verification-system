@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\BusinessCustomer;
+use App\Models\Customer;
+use App\Models\Endorsement;
 use App\Services\AveniaBusinessService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -11,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SubmitBusinessKycToPlatforms implements ShouldQueue
 {
@@ -31,16 +34,18 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             'borderless' => null,
             'noah'       => null,
             'transfi'    => null,
+            'avenia'     => null,
         ];
 
         logger("submitting business KYB");
 
         // Submit to each platform
-        $results['tazapay']    = $this->submitToTazapay();
-        $results['borderless'] = $this->submitToBorderless();
-        $results['noah']       = $this->submitToNoah();
-        $results['transfi']    = $this->submitToTransfi();
-        $results['avenia']    = $this->avenia();
+        $results['tazapay']     = $this->submitToTazapay();
+        $results['borderless']  = $this->submitToBorderless();
+        $results['noah']        = $this->submitToNoah();
+        $results['transfi']     = $this->submitToTransfi();
+        $results['avenia']      = $this->avenia();
+        // $results['bitnob']      = $this->bitnob();
 
         // Log final status
         Log::info("KYB submission results for business {$this->business->id}", $results);
@@ -193,9 +198,98 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
         return $response;
     }
 
+    protected function bitnob()
+    {
+        try {
+            $customer = Customer::whereCustomerId($this->business->customer_id);
+            $idInfo = $data['identifying_information'][0] ?? [];
+            $idFront = ($idInfo['image_front_file'] ?? null);
+            $selfie = ($data['selfie_image'] ?? null);
+
+            if (!$idFront || !$selfie) {
+                Log::warning('Bitnob skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
+                return;
+            }
+
+            $idInfo = $data['identifying_information'][0] ?? [];
+            $addr = $data['residential_address'] ?? [];
+
+            $nameParts = array_values(array_filter([
+                $data['first_name'] ?? '',
+                $data['middle_name'] ?? '',
+                $data['last_name'] ?? '',
+            ]));
+
+            $idType = $idInfo['type'] ?? 'NATIONAL_ID';
+            if (strtolower($addr['country'] ?? 'NG') === 'nigeria') {
+                $allowed = ['NATIONAL_ID', 'BVN_NG', 'Passport', 'DriverLicense'];
+                if (!in_array($idType, $allowed, true)) {
+                    Log::warning('Bitnob skipped: invalid ID type for Nigeria', ['customer_id' => $customer->customer_id, 'idType' => $idType]);
+                    return;
+                }
+            }
+
+            $country = $addr['country'] ?? 'NG';
+            if ($addr['country'] == "NG" || $addr['country'] ?? 'NG' == "NGA" || strtoupper($addr['country']) ?? 'NIGERIA') {
+                $country = "GH";
+            }
+
+            $validatedData = [
+                'date_of_birth' => substr($data['birth_date'], 0, 10) ?? null,
+                'dateOfBirth' => substr($data['birth_date'], 0, 10) ?? null,
+                'firstName' => $nameParts[0] ?? '',
+                'lastName' => $nameParts[1] ?? ($nameParts[0] ?? 'Unknown'),
+                'email' => $data['email'] ?? '',
+                'phoneNumber' => $data['phone'] ?? '',
+                'idImage' => $idFront,
+                'userPhoto' => $selfie,
+                'country' => $country,
+                'city' => $addr['city'] ?? '',
+                'state' => $addr['state'] ?? '',
+                'zipCode' => $addr['postal_code'] ?? '',
+                'line1' => $addr['street_line_1'] ?? '',
+                'houseNumber' => '',
+                'idType' => $idType,
+                'idNumber' => $idInfo['number'] ?? null,
+            ];
+
+            $baseUrl = rtrim(env('BITNOB_BASE_URL', 'https://api.bitnob.co/api/v1'), '/');
+            $token = env('BITNOB_API_KEY');
+
+            $response = Http::timeout(20)->withToken($token)->post("{$baseUrl}/customers", $validatedData)->json();
+
+            if (isset($response['status']) && $response['status'] === true) {
+                $customer->update([
+                    'can_create_vc' => true,
+                    'vc_customer_id' => $response['data']['id'] ?? null,
+                ]);
+                Endorsement::updateOrCreate(
+                    ['customer_id' => $customer->customer_id, 'service' => 'virtual_card'],
+                    ['status' => 'approved']
+                );
+                update_endorsement($customer->customer_id, 'virtual_card', 'submitted', null);
+                add_customer_meta($customer->customer_id, 'bitnob_customer_id', $response['data']['id']);
+                Log::info('Bitnob KYC success', ['customer_id' => $customer->customer_id]);
+            } else {
+                Log::error('Bitnob KYC failed', [
+                    'customer_id' => $customer->customer_id,
+                    'response' => $response,
+                ]);
+            }
+        } catch (Throwable $e) {
+            Log::error('Bitnob KYC error', [
+                'customer_id' => $customer->customer_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     protected function submitToTransfi()
     {
         try {
+            logger("initiating Transfi business submission");
+            logger("transfi incoming payload", ['data' => $this->business]);
+            $customer = Customer::whereCustomerId($this->business->customer_id);
             $addr = $this->business->registered_address;
             $data = [
                 "businessName" => $this->business->business_legal_name,
@@ -213,6 +307,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 ],
             ];
 
+            $customerId = $customer->customer_id;
             $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
             $response = Http::timeout(20)
                 ->withHeaders([
@@ -238,11 +333,13 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                     if ($res->successful() && isset($res->json()['link'])) {
                         $link = $res->json()['link'];
                         // update the Endorsement
+                        update_endorsement($customerId, 'asian', 'pending', $link);
                     }
                 }
                 // since it's successful let generate a KYB url
                 return ['status' => 'success', 'provider_id' => $response->json()['reference'] ?? null];
             }
+            logger("Transfi business submitted", ['response' => $response->json()]);
         } catch (\Exception $e) {
             Log::error("Transfi KYB submission failed for business {$this->business->id}", [
                 'error' => $e->getMessage(),

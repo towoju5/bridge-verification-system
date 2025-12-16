@@ -21,6 +21,8 @@ class Endorsement extends Model
         'spei',
         'virtual_card',
         'asian_payment_gateways',
+        'cobo_pobo',
+        'native'
     ];
 
     public const STATUSES = [

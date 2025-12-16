@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import AnimatedMulti from "../shared/AnimatedMulti";
 
 interface Props {
   formData: any;
@@ -7,6 +8,7 @@ interface Props {
   saving: boolean;
   goToStep: (step: string) => void;
   showError: (msg: string) => void;
+  industryCodes: { code: string; occupation: string }[];
 }
 
 export default function BusinessInfo({
@@ -15,6 +17,7 @@ export default function BusinessInfo({
   saving,
   goToStep,
   showError,
+  industryCodes,
 }: Props) {
   const [local, setLocal] = useState({
     business_legal_name: formData.business_legal_name || "",
@@ -92,13 +95,38 @@ export default function BusinessInfo({
       await axios.post("/api/business-customer/step/1", payload);
 
       setFormData((prev: any) => ({ ...prev, ...local }));
-      goToStep("collections");
+      goToStep("addresses");
     } catch (err: any) {
       console.error(err);
-      showError(err.response?.data?.message || "Unable to save step 1.");
+
+      const response = err.response?.data;
+
+      if (response?.errors) {
+        // Laravel validation errors object → array → string
+        const messages = Object.values(response.errors)
+          .flat()
+          .join("\n");
+
+        showError(messages);
+      } else {
+        showError(response?.message || "Submission error.");
+      }
     }
+    //  catch (err: any) {
+    //   console.error(err);
+    //   showError(err.response?.data?.message || "Unable to save step 1.");
+    // }
   };
 
+  const BusinessTypeOptions = [
+    { value: 'cooperative', label: 'Cooperative' },
+    { value: 'corporation', label: 'Corporation' },
+    { value: 'llc', label: 'LLC' },
+    { value: 'partnership', label: 'Partnership' },
+    { value: 'sole_prop', label: 'Sole Proprietor' },
+    { value: 'trust', label: 'Trust' },
+    { value: 'other', label: 'Other' }
+  ]
   return (
     <div className="dark:bg-gray-800 bg-white shadow-xl sm:rounded-lg p-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
@@ -191,6 +219,7 @@ export default function BusinessInfo({
             <option value="trust">Trust</option>
             <option value="other">Other</option>
           </select>
+          {/* <AnimatedMulti selectOptions={BusinessTypeOptions} /> */}
           {errors.business_type && (
             <p className="text-red-600 text-sm">{errors.business_type}</p>
           )}
@@ -289,8 +318,9 @@ export default function BusinessInfo({
 
         <div>
           <label className="block text-sm font-medium">Phone Number</label>
-          <input
+          <input minLength={5} maxLength={16}
             value={local.phone_number}
+            type="tel"
             onChange={(e) => update("phone_number", e.target.value)}
             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
           />
@@ -298,12 +328,19 @@ export default function BusinessInfo({
 
         {/* Industry */}
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium">Business Industry</label>
-          <input
+          <label className="block text-sm font-medium text-gray-700">Business Industry *</label>
+          <select
             value={local.business_industry}
-            onChange={(e) => update("business_industry", e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
-          />
+            onChange={(e) => setLocal({ ...local, business_industry: e.target.value })}
+            className={`mt-1 block w-full border rounded-md shadow-sm py-2 px-3 ${errors.business_industry ? 'border-red-300' : 'border-gray-300'}`}
+          >
+            {industryCodes.map((i) => (
+              <option key={i.code} value={i.code}>
+                {i.occupation}
+              </option>
+            ))}
+          </select>
+          {errors.business_industry && <p className="text-sm text-red-600">{errors.business_industry}</p>}
         </div>
 
         {/* Website */}

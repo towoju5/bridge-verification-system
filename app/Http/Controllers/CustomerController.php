@@ -9,6 +9,7 @@ use App\Models\BusinessCustomer;
 use App\Models\Customer;
 use App\Models\CustomerDocument;
 use App\Models\CustomerSubmission;
+use App\Models\Endorsement;
 use App\Services\NoahService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -478,7 +479,7 @@ class CustomerController extends Controller
                     'gender',
                 ]);
 
-                $modelData['endorsements'] = ['spei', 'base', 'sepa'];
+                $modelData['endorsements'] = Endorsement::SERVICES;
 
                 foreach (['first_name', 'middle_name', 'last_name'] as $field) {
                     $val                                  = $validatedData[$field] ?? null;
@@ -1412,7 +1413,12 @@ class CustomerController extends Controller
             return response()->json([
                 "status"  => "successful",
                 "message" => "KYC link regenerated successfully",
-                "data"    => $updatedEndorsement
+                "data"    => $updatedEndorsement->makeHidden([
+                    "errors",
+                    "requirements_due",
+                    "future_requirements_due",
+                    "metadata",
+                ])
             ], 201);
         } catch (\Throwable $e) {
             Log::error("Noah KYC regeneration failed", [

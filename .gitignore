@@ -24,3 +24,5 @@ yarn-error.log
 /.zed
 *.zip
 node_modules
+*.sqlite
+*.pem

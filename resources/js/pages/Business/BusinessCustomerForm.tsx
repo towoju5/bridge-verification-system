@@ -35,6 +35,11 @@ export default function BusinessCustomerForm() {
     const [extraDocumentTypes, setExtraDocumentTypes] = useState([]);
 
     const [completed, setCompleted] = useState<Record<string, boolean>>({});
+    const industryCodes = [
+        { code: '541511', description: 'Custom Computer Programming Services' },
+        { code: '541512', description: 'Computer Systems Design Services' },
+        { code: '541519', description: 'Other Computer Related Services' },
+    ];
 
     /** ---------------------------------------------------------
      * Load ALL shared dropdown data from backend APIs
@@ -121,7 +126,19 @@ export default function BusinessCustomerForm() {
             alert("Business KYC submitted successfully!");
         } catch (err: any) {
             console.error(err);
-            showError(err.response?.data?.message || "Submission error.");
+
+            const response = err.response?.data;
+
+            if (response?.errors) {
+                // Laravel validation errors object → array → string
+                const messages = Object.values(response.errors)
+                    .flat()
+                    .join("\n");
+
+                showError(messages);
+            } else {
+                showError(response?.message || "Submission error.");
+            }
         } finally {
             setSaving(false);
         }
@@ -140,6 +157,7 @@ export default function BusinessCustomerForm() {
                         saving={saving}
                         goToStep={goToStep}
                         showError={showError}
+                        industryCodes={occupations}
                     />
                 );
 

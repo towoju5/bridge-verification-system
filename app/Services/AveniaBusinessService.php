@@ -7,27 +7,30 @@ use Illuminate\Support\Facades\Http;
 class AveniaBusinessService
 {
     protected string $baseUrl;
+    protected $avenia;
     protected string $accessToken;
 
     public function __construct()
     {
         $this->baseUrl = config('services.avenia.base_url');
         $this->accessToken = config('services.avenia.access_token');
+        $this->avenia = new AveniaService();
     }
 
     /**
      * Step 1: Create Subaccount for Business (COMPANY)
      */
-    public function businessCreateSubaccount(string $name): ?string
+    public function businessCreateSubaccount(string $name): mixed
     {
-        $response = Http::withToken($this->accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post("{$this->baseUrl}/v2/account/sub-accounts", [
-                'accountType' => 'COMPANY',
-                'name' => $name,
-            ]);
+        $response = $this->avenia->post("/account/sub-accounts", [
+            'accountType' => 'COMPANY',
+            'name' => $name,
+        ]);
+        if ($response->successful()) {
+            return $response->json()['id'];
+        }
 
-        return $response->successful() ? $response->json('id') : null;
+        return ['error' => $response->json()];
     }
 
     /**
@@ -35,12 +38,15 @@ class AveniaBusinessService
      */
     public function businessGetAccountInfo(string $subAccountId): ?array
     {
-        $response = Http::withToken($this->accessToken)
-            ->get("{$this->baseUrl}/v2/account/account-info", [
-                'subAccountId' => $subAccountId,
-            ]);
+        $response = $this->avenia->get("/account/account-info", [
+            'subAccountId' => $subAccountId,
+        ]);
 
-        return $response->successful() ? $response->json() : null;
+        if ($response->successful()) {
+            return $response->json()['id'];
+        }
+
+        return ['error' => $response->json()];
     }
 
     /**
@@ -48,12 +54,18 @@ class AveniaBusinessService
      */
     public function businessGetBalances(string $subAccountId): ?array
     {
-        $response = Http::withToken($this->accessToken)
-            ->get("{$this->baseUrl}/v2/account/balances", [
-                'subAccountId' => $subAccountId,
-            ]);
+        $response = $this->avenia->get("/account/balances", [
+            'subAccountId' => $subAccountId,
+        ]);
 
-        return $response->successful() ? $response->json('balances') : null;
+        
+
+        if ($response->successful()) {
+            return $response->json()['balances'];
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json('balances') : null;
     }
 
     /**
@@ -61,12 +73,18 @@ class AveniaBusinessService
      */
     public function businessGetLimits(string $subAccountId): ?array
     {
-        $response = Http::withToken($this->accessToken)
-            ->get("{$this->baseUrl}/v2/account/limits", [
-                'subAccountId' => $subAccountId,
-            ]);
+        $response = $this->avenia->get("/account/limits", [
+            'subAccountId' => $subAccountId,
+        ]);
 
-        return $response->successful() ? $response->json('limitInfo') : null;
+        
+
+        if ($response->successful()) {
+            return $response->json()['limitInfo'];
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json('limitInfo') : null;
     }
 
     /**
@@ -79,10 +97,16 @@ class AveniaBusinessService
             $queryParams['cursor'] = $cursor;
         }
 
-        $response = Http::withToken($this->accessToken)
-            ->get("{$this->baseUrl}/v2/account/statement", $queryParams);
+        $response = $this->avenia->get("/account/statement", $queryParams);
 
-        return $response->successful() ? $response->json() : null;
+        
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json() : null;
     }
 
     /**
@@ -90,10 +114,9 @@ class AveniaBusinessService
      */
     public function businessInitiateKybWebSdk(string $subAccountId): ?array
     {
-        $response = Http::withToken($this->accessToken)
-            ->post("{$this->baseUrl}/v2/kyc/new-level-1/web-sdk", [
-                'subAccountId' => $subAccountId,
-            ]);
+        $response = $this->avenia->post("/kyc/new-level-1/web-sdk", [
+            'subAccountId' => $subAccountId,
+        ]);
 
         if ($response->successful()) {
             return [
@@ -109,15 +132,20 @@ class AveniaBusinessService
     /**
      * Step 7: Create BRL Bank Account / PIX Key
      */
-    public function businessCreateBrlBankAccount(array $bankData): ?string
+    public function businessCreateBrlBankAccount(array $bankData)
     {
         // Required: alias, description, userName, bankCode, branchCode,
         // accountNumber, accountType
-        $response = Http::withToken($this->accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post("{$this->baseUrl}/v2/account/beneficiaries/bank-accounts/brl/", $bankData);
+        $response = $this->avenia->post("/account/beneficiaries/bank-accounts/brl/", $bankData);
 
-        return $response->successful() ? $response->json('id') : null;
+        
+
+        if ($response->successful()) {
+            return $response->json()['id'];
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json('id') : null;
     }
 
     /**
@@ -127,10 +155,16 @@ class AveniaBusinessService
     {
         // Required: inputCurrency, inputPaymentMethod, outputCurrency, outputPaymentMethod,
         // inputAmount, inputThirdParty, outputThirdParty, blockchainSendMethod
-        $response = Http::withToken($this->accessToken)
-            ->get("{$this->baseUrl}/v2/account/quote/fixed-rate", $params);
+        $response = $this->avenia->get("/account/quote/fixed-rate", $params);
 
-        return $response->successful() ? $response->json() : null;
+        
+
+        if ($response->successful()) {
+            return $response->json()['id'];
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json() : null;
     }
 
     /**
@@ -141,10 +175,15 @@ class AveniaBusinessService
         // ticketData must include: quoteToken,
         // ticketBrlPixInput (optional additionalData),
         // ticketBlockchainOutput (beneficiaryWalletId)
-        $response = Http::withToken($this->accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post("{$this->baseUrl}/v2/account/tickets/", $ticketData);
+        $response = $this->avenia->post("/account/tickets/", $ticketData);
 
-        return $response->successful() ? $response->json() : null;
+        
+
+        if ($response->successful()) {
+            return $response->json()['id'];
+        }
+
+        return ['error' => $response->json()];
+        // return $response->successful() ? $response->json() : null;
     }
 }

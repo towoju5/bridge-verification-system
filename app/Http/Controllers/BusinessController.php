@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SubmitBusinessKycToPlatforms;
 use App\Models\BusinessCustomer;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -32,7 +34,7 @@ class BusinessController extends Controller
     // start session & create business record
     public function startBusinessVerification(Request $request)
     {
-        $sessionId = $request->customer_id;// $request->signed_agreement_id ?? Str::uuid();
+        $sessionId = $request->customer_id; // $request->signed_agreement_id ?? Str::uuid();
 
         BusinessCustomer::firstOrCreate([
             'customer_id' => $request->customer_id
@@ -88,6 +90,13 @@ class BusinessController extends Controller
                 'message' => 'Validation failed.',
                 'errors'  => $validator->errors(),
             ], 422);
+        }
+
+        if (!Schema::hasColumn('business_customers', 'collections_data')) {
+            Schema::table('business_customers', function (Blueprint $table) {
+                $table->json('collections_data')->nullable()->after('identifying_information');
+                $table->json('payouts_data')->nullable()->after('collections_data');
+            });
         }
 
         // validated data (non-files)
@@ -179,6 +188,14 @@ class BusinessController extends Controller
 
                 $data['extra_documents'] = $extra;
             }
+        }
+
+        if ($step == 'collections') {
+            $data['collections_data'] = $request->all();
+        }
+
+        if ($step == 'payouts') {
+            $data['payouts_data'] = $request->all();
         }
 
         // merge and save
@@ -370,6 +387,7 @@ class BusinessController extends Controller
                     'associated_persons.*.residential_address.street_line_1' => 'required|string|max:255',
                     'associated_persons.*.residential_address.city'          => 'required|string|max:100',
                     'associated_persons.*.residential_address.country'       => 'required|string|size:2',
+                    'associated_persons.*.identifying_information'           => 'required|array',
                     'associated_persons.*.has_ownership'                     => 'boolean',
                     'associated_persons.*.has_control'                       => 'boolean',
                     'associated_persons.*.is_signer'                         => 'boolean',
@@ -417,6 +435,100 @@ class BusinessController extends Controller
                     'identifying_information.*.image_front'         => 'nullable|file',
                     'identifying_information.*.image_back'          => 'nullable|file',
                 ];
+
+            case 'collections': // COLLECTIONS
+                return [
+                    // Sender profile
+                    'sender_industries'              => 'required|array|min:1',
+                    'sender_industries.*'            => [
+                        'string',
+                        'max:100',
+                        Rule::in(["E-commerce", "Wholesale", "Retail", "Logistics", "Manufacturing", "Consulting", "Others"])
+                    ],
+
+                    'sender_types'                   => [
+                        'required',
+                        Rule::in(['individuals', 'businesses', 'both']),
+                    ],
+
+                    // Top senders
+                    'top_5_senders'                  => 'required|array|size:5',
+                    'top_5_senders.*'                => 'string|max:255',
+
+                    // Fintech wallet inflow
+                    'incoming_from_fintech_wallets'  => 'required|boolean',
+                    'incoming_fintech_wallet_details' => 'required_if:incoming_from_fintech_wallets,true|nullable|string|max:1000',
+
+                    // Supported collection currencies
+                    'collection_currencies'          => 'required|array|min:1',
+                    'collection_currencies.*'        => [
+                        'string',
+                        'size:3',
+                        Rule::in(["USD", "EUR", "GBP", "NGN", "KES", "ZAR", "AED", "HKD"]),
+                    ],
+
+                    // Current provider & reason
+                    'current_collection_provider'    => 'required|string|max:255',
+                    'reason_for_switching_collection' => 'required|string|max:1000',
+
+                    // Transaction expectations
+                    'expected_monthly_disbursement_usd'   => 'required|numeric|min:0',
+                    'avg_transaction_amount_collection'   => 'required|numeric|min:0',
+                    'max_transaction_amount_collection'   => 'required|numeric|min:0',
+
+                ];
+
+            case 'payouts': // PAYOUTS
+                return [
+
+                    // Primary payout purpose
+                    'payout_primary_purpose'      => 'required|string|max:255',
+
+                    // Beneficiary geography
+                    'beneficiary_geographies'     => 'required|array|min:1',
+                    'beneficiary_geographies.*'   => 'string|size:2',
+
+                    // Beneficiary industries
+                    'beneficiary_industries'      => 'required|array|min:1',
+                    'beneficiary_industries.*'    => 'string|max:100',
+
+                    // Beneficiary type
+                    'beneficiary_types'           => [
+                        'required',
+                        Rule::in(['individual', 'business', 'both']),
+                    ],
+
+                    // Top beneficiaries
+                    'top_5_beneficiaries'         => 'required|array|size:5',
+                    'top_5_beneficiaries.*'       => 'string|max:255',
+
+                    // Payout method
+                    'primary_payout_method'       => [
+                        'required',
+                        Rule::in([
+                            'ach',
+                            'wire',
+                            'sepa',
+                            'swift',
+                            'local_transfer',
+                            'mobile_money',
+                            'crypto',
+                        ]),
+                    ],
+
+                    // Supported payout currencies
+                    'payout_currencies'           => 'required|array|min:1',
+                    'payout_currencies.*'         => [
+                        'string',
+                        'size:3',
+                        Rule::in(['USD', 'EUR', 'GBP', 'NGN', 'KES', 'ZAR', 'AED', 'HKD', 'CAD']),
+                    ],
+
+                    // Provider & switching reason
+                    'current_payout_provider'     => 'required|string|max:255',
+                    'reason_for_switching_payout' => 'required|string|max:1000',
+                ];
+
             case 8:
                 // extra_documents can be a map/object with files
                 return [

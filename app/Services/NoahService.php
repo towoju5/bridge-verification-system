@@ -79,7 +79,7 @@ class NoahService
         $response = $this->processOnboarding($customerId);
         if ($response->successful()) {
             $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa'] as $service) {
+            foreach (['base', 'sepa', 'spei'] as $service) {
                 update_endorsement($customerId, $service, "submitted", $hostedUrl);
             }
 
@@ -121,10 +121,10 @@ class NoahService
             'body' => $body,
             'hosted_kyc_url' => $body['HostedURL'] ?? null,
         ]);
-        
+
         if ($response->successful()) {
             $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa'] as $service) {
+            foreach (['base', 'sepa', 'spei'] as $service) {
                 update_endorsement($customerId, $service, "submitted", $hostedUrl);
             }
         }

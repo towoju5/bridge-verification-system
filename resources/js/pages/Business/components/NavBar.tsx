@@ -13,10 +13,10 @@ const steps = [
     { id: "financial", label: "Financial Information" },
     { id: "regulatory", label: "Regulatory" },
     { id: "documents", label: "Documents" },
-    { id: "identifying_information", label: "Identity" },
-    { id: "extra_documents", label: "Additional Documents" },
+    // { id: "identifying_information", label: "Identity" },
     { id: "collections", label: "Collections" },
     { id: "payouts", label: "Payouts" },
+    { id: "extra_documents", label: "Additional Documents" },
     { id: "review", label: "Review" },
 ];
 

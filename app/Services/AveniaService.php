@@ -10,274 +10,343 @@ use Throwable;
 
 class AveniaService
 {
-    protected string $baseUrl, $avenia_username, $avenia_password;
-    protected string $accessToken;
+    protected string $baseUrl;
+    protected string $apiKey;
+    protected string $privateKeyPath;
 
     public function __construct()
     {
-        $this->baseUrl = env('AVENIA_BASE_URL');
-        $this->avenia_username = env('AVENIA_USERNAME');
-        $this->avenia_password = env('AVENIA_PASSWORD');
+        $this->baseUrl        = rtrim(config('services.avenia.base_url'), '/');
+        $this->apiKey         = config('services.avenia.access_token');
+        $this->privateKeyPath = storage_path('app/keys/avenia/private_key.pem');
+
+        if (!file_exists($this->privateKeyPath)) {
+            throw new Exception('Avenia private key not found');
+        }
     }
-    public function createSubAccount($customer, $accessToken = null)
+
+    /* ---------------------------------------------------------
+     | SUB ACCOUNT
+     * --------------------------------------------------------- */
+
+    public function createSubAccount(Customer $customer): bool
     {
-        if (!$accessToken) {
-            $accessToken = $this->auth();
-            if (isset($accessToken['error'])) {
-                logger("accessToken generation failed", ['error' => $accessToken['error']]);
-                return false;
-            }
+        logger("incoming customer is: ", ['customer' => $customer]);
+        $response = $this->post('/account/sub-accounts', [
+            'accountType' => $customer->customer_type,
+            'name'        => trim($customer->first_name . ' ' . $customer->last_name),
+        ]);
 
-            $token = $accessToken['accessToken'];
+        if ($response['error'] ?? false) {
+            Log::error('Avenia sub-account creation failed', $response);
+            return false;
         }
 
-        $baseUrl = "{$this->baseUrl}/account/sub-accounts";
-        $name = $customer['first_name'] . " " . $customer['last_name'];
-        $payload = [
-            "accountTye" => $customer['customer_type'],
-            "name" => $name
-        ];
+        add_customer_meta(
+            $customer->customer_id,
+            'avenia_customer_id',
+            $response['id']
+        );
 
-        $response = Http::timeout(20)->post($baseUrl, $payload);
-
-        if ($response->successful()) {
-            // add customer sub account ID
-            add_customer_meta($customer->customer_id, 'avenia_customer_id', $response->json()['id']);
-            return true;
-        }
-
-        logger("Avenia sub account creation failed", []);
-        return false;
+        return true;
     }
 
-    public function avenia(Customer $customer, array $data = [])
+    /* ---------------------------------------------------------
+     | KYC FLOW (FULLY SIGNED)
+     * --------------------------------------------------------- */
+
+    public function avenia(Customer $customer, array $data): array
     {
         try {
-            $baseUrl = $this->baseUrl;
-            $accessToken = $this->auth();
-            if (isset($accessToken['error'])) {
-                logger("accessToken generation failed", ['error' => $accessToken['error']]);
-                return false;
+            if (empty($data['identity_information'][0])) {
+                throw new Exception('Identity information missing');
             }
 
-            $token = $accessToken['accessToken'];
-            $addr = $data['residential_address'] ?? [];
-            $full_name = $data['first_name'] . " " . $data['middle_name'] . " " . $data['last_name'];
+            $idInfo   = $data['identity_information'][0];
+            $address  = $data['residential_address'] ?? [];
+            $fullName = trim(
+                ($data['first_name'] ?? '') . ' ' .
+                    ($data['middle_name'] ?? '') . ' ' .
+                    ($data['last_name'] ?? '')
+            );
 
-            if (!$this->createSubAccount($full_name, $accessToken)) {
-                return false;
+            if (!$this->createSubAccount($customer)) {
+                throw new Exception('Sub-account creation failed');
             }
 
-            //===================================
-            // STEP 1: Request Upload URLs
-            //===================================
+            /* -------------------------------------------------
+             | STEP 1: REQUEST DOCUMENT UPLOAD (SIGNED)
+             * ------------------------------------------------- */
 
-            $idInfo = $data['identity_information'][0];
-            $isDoubleSided = !empty($idInfo['back_image_url']);
+            $docData = $this->post('/documents', [
+                'documentType'  => 'DRIVERS-LICENSE',
+                'isDoubleSided' => !empty($idInfo['back_image_url']),
+            ]);
 
-            // --- Upload Document (e.g., Driver's License) ---
-            $docResponse = Http::withToken($token)
-                ->post("{$baseUrl}/documents/", [
-                    'documentType' => 'DRIVERS-LICENSE',
-                    'isDoubleSided' => $isDoubleSided,
-                ]);
-
-            if (!$docResponse->successful()) {
-                logger('Failed to request document upload URI',  ['response' => $docResponse->body()]);
+            if ($docData['error'] ?? false) {
+                throw new Exception('Failed to request document upload');
             }
 
-            $docData = $docResponse->json();
-            $uploadedDocumentId = $docData['id'];
+            /* -------------------------------------------------
+             | STEP 2: REQUEST SELFIE UPLOAD (SIGNED)
+             * ------------------------------------------------- */
 
-            // --- Upload Selfie ---
-            $selfieResponse = Http::withToken($token)
-                ->post("{$baseUrl}/documents/", [
-                    'documentType' => 'SELFIE',
-                ]);
+            $selfieData = $this->post('/documents', [
+                'documentType' => 'SELFIE',
+            ]);
 
-            if (!$selfieResponse->successful()) {
-                logger('Failed to request selfie upload URI: ',  ['response' =>  $selfieResponse->body()]);
+            if ($selfieData['error'] ?? false) {
+                throw new Exception('Failed to request selfie upload');
             }
 
-            $selfieData = $selfieResponse->json();
-            $uploadedSelfieId = $selfieData['id'];
-            $selfieUploadUrl = $selfieData['uploadURLFront'];
+            /* -------------------------------------------------
+             | STEP 3: UPLOAD FILES (UNSIGNED – PRESIGNED URLs)
+             * ------------------------------------------------- */
 
-            //===================================
-            // STEP 2: Upload Files
-            //===================================
+            $getBinary = function (string $path) {
+                if (filter_var($path, FILTER_VALIDATE_URL)) {
+                    return Http::get($path)->body();
+                }
+                return file_get_contents($path);
+            };
 
-            // Helper to get image binary from URL or path
-            $getImageBinary = function ($imageUrl) {
-                if (filter_var($imageUrl, FILTER_VALIDATE_URL)) {
-                    return Http::get($imageUrl)->body();
-                } else {
-                    return file_get_contents($imageUrl);
+            $upload = function (string $url, string $binary) {
+                $res = Http::withHeaders([
+                    'Content-Type'  => 'image/jpeg',
+                    'If-None-Match' => '*',
+                ])->withBody($binary, 'image/jpeg')->put($url);
+
+                if (!$res->successful()) {
+                    throw new Exception('File upload failed');
                 }
             };
 
-            // Upload front of document
-            $frontImageBinary = $getImageBinary($idInfo['front_image_url']);
-            $frontUploadResponse = Http::withHeaders([
-                'Content-Type' => 'image/jpeg', // adjust if PNG
-                'If-None-Match' => '*',
-            ])->put($docData['uploadURLFront'], (array)$frontImageBinary);
+            // Front document
+            $upload(
+                $docData['uploadURLFront'],
+                $getBinary($idInfo['front_image_url'])
+            );
 
-            if (!$frontUploadResponse->successful()) {
-                logger('Failed to upload front document: ',  ['response' => $frontUploadResponse->status()]);
+            // Back document
+            if (!empty($idInfo['back_image_url'])) {
+                $upload(
+                    $docData['uploadURLBack'],
+                    $getBinary($idInfo['back_image_url'])
+                );
             }
 
-            // Upload back if double-sided
-            if ($isDoubleSided) {
-                $backImageBinary = $getImageBinary($idInfo['back_image_url']);
-                $backUploadResponse = Http::withHeaders([
-                    'Content-Type' => 'image/jpeg',
-                    'If-None-Match' => '*',
-                ])->put($docData['uploadURLBack'], (array)$backImageBinary);
+            // Selfie
+            $upload(
+                $selfieData['uploadURLFront'],
+                $getBinary($idInfo['selfie_image_url'])
+            );
 
-                if (!$backUploadResponse->successful()) {
-                    logger('Failed to upload back document: ',  ['response' => $backUploadResponse->status()]);
-                }
-            }
+            /* -------------------------------------------------
+             | STEP 4: SUBMIT KYC (SIGNED)
+             * ------------------------------------------------- */
 
-            // Upload selfie
-            $selfieImageBinary = $getImageBinary($idInfo['selfie_image_url']);
-            $selfieUploadResponse = Http::withHeaders([
-                'Content-Type' => 'image/jpeg',
-                'If-None-Match' => '*',
-            ])->put($selfieUploadUrl, (array)$selfieImageBinary);
-
-            if (!$selfieUploadResponse->successful()) {
-                logger('Failed to upload selfie: ', ['response' => $selfieUploadResponse->status()]);
-            }
-
-            //===================================
-            // STEP 3: Submit KYC Request
-            //===================================
-
-            // Map customer data (adjust based on your Customer model)
-            $payload = [
-                "fullName" => $full_name,
-                "dateOfBirth" => date('Y-m-d', strtotime($data['birth_date'])),
-                "countryOfTaxId" => $idInfo['number'],
-                "taxIdNumber" => $idInfo['number'],
-                "email" => $data['email'],
-                "phone" => $data['phone'],
-                "country" => $addr['country'],
-                "state" => $addr['state'],
-                "city" => $addr['city'],
-                "zipCode" => $addr['postal_code'],
-                "streetAddress" => $addr['street_line_1'],
-                "uploadedSelfieId" => $uploadedSelfieId,
-                "uploadedDocumentId" => $uploadedDocumentId,
-            ];
-
-            $kycResponse = Http::withToken($token)
-                ->post("{$baseUrl}/kyc/new-level-1/api", $payload);
-
-            if (!$kycResponse->successful()) {
-                logger('KYC submission failed: ', ['response' => $kycResponse->body()]);
-            }
-
-            $kycResult = $kycResponse->json();
-            update_endorsement($customer->customer_id, 'brazil', 'submitted');
-            // Success! You can now store $kycResult['id'] or trigger next steps
-            return $kycResult;
-        } catch (Throwable $th) {
-            Log::error('Avenia KYC Error: ' . $th->getMessage(), ['trace' => $th->getTraceAsString()]);
-            throw $th; // or return error response as needed
-        }
-    }
-
-    public function auth()
-    {
-        try {
-            $endpoint = "{$this->baseUrl}/auth/login";
-            $response = Http::timeout(20)->post($endpoint, [
-                "email" =>  env('AVENIA_EMAIL'),
-                "password" =>  env('AVENIA_PASSWORD ')
+            $kycResponse = $this->post('/kyc/new-level-1/api', [
+                'fullName'           => $fullName,
+                'dateOfBirth'        => date('Y-m-d', strtotime($data['birth_date'])),
+                'countryOfTaxId'     => $idInfo['country'] ?? 'BR',
+                'taxIdNumber'        => $idInfo['number'],
+                'email'              => $data['email'],
+                'phone'              => $data['phone'],
+                'country'            => $address['country'] ?? null,
+                'state'              => $address['state'] ?? null,
+                'city'               => $address['city'] ?? null,
+                'zipCode'            => $address['postal_code'] ?? null,
+                'streetAddress'      => $address['street_line_1'] ?? null,
+                'uploadedSelfieId'   => $selfieData['id'],
+                'uploadedDocumentId' => $docData['id'],
             ]);
 
-            return $response->json();
-        } catch (Throwable $th) {
-            return [
-                'error' => $th->getMessage()
-            ];
+            if ($kycResponse['error'] ?? false) {
+                throw new Exception('KYC submission failed');
+            }
+
+            update_endorsement($customer->customer_id, 'brazil', 'submitted');
+
+            return $kycResponse;
+        } catch (Throwable $e) {
+            Log::error('Avenia KYC flow failed', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            throw $e;
         }
     }
 
-    /**
-     * Summary of aveniaRequest
-     * @param string $method
-     * @param string $endpoint
-     * @param string $requestUri
-     * @param array $body
-     * @throws \Exception
-     * 
-     * @return array{body: mixed, headers: mixed, json: mixed, signed_string: string, status: mixed}
-     */
-    public function aveniaRequest(string $method, string $endpoint, string $requestUri, array $body = null)
+
+    /* ---------------------------------------------------------
+     | Public API methods
+     * --------------------------------------------------------- */
+
+    public function createQuote(array $payload)
     {
-        $apiKey = env("AVENIA_API_KEY");
+        return $this->get('/account/quote/fixed-rate', $payload);
+    }
 
-        // Normalize method to uppercase
-        $method = strtoupper($method);
+    public function deposit(array $payload)
+    {
+        $response = $this->post('/account/tickets/', $payload);
+        return $response;
+    }
 
-        // Convert body to JSON or empty string
-        $jsonBody = $body ? json_encode($body, JSON_UNESCAPED_SLASHES) : "";
-
-        // Timestamp in milliseconds
-        $timestamp = (string) round(microtime(true) * 1000);
-
-        // Build string to sign
-        // Must match Python version: timestamp + method + uri + body (if body exists)
-        $stringToSign = $timestamp . $method . $requestUri . $jsonBody;
-
-        // Load private key
-        $privateKeyPath = storage_path('app/avenia_private_key.pem');
-        $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyPath));
-
-        if (!$privateKey) {
-            throw new Exception("Unable to load private key");
+    public function getAccountInfo()
+    {
+        try {
+            return $this->get('/account/sub-accounts');
+        } catch (Throwable $th) {
+            Log::info($th);
         }
+    }
 
-        // Sign with RSA SHA256
-        openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
-        $signatureBase64 = base64_encode($signature);
+    public function test()
+    {
+        try {
+            $quote_payload = [
+                "inputCurrency" => strtoupper("brl"),
+                "inputPaymentMethod" => "PIX",
+                "outputCurrency" => "BRLA",
+                "outputPaymentMethod" => "INTERNAL",
+                "inputAmount" => 500,
+                "inputThirdParty" => false,
+                "outputThirdParty" => false,
+            ];
 
-        // Prepare headers
-        $headers = [
-            "X-API-Key" => $apiKey,
-            "X-API-Timestamp" => $timestamp,
-            "X-API-Signature" => $signatureBase64,
-            "Content-Type" => "application/json"
-        ];
-
-        // Choose HTTP method dynamically
-        $client = Http::withHeaders($headers);
-
-        switch ($method) {
-            case "GET":
-            case "DELETE":
-                $response = $client->{$method === "GET" ? "get" : "delete"}($endpoint);
-                break;
-
-            case "POST":
-            case "PUT":
-            case "PATCH":
-                $response = $client->{$method === "POST" ? "post" : ($method === "PUT" ? "put" : "patch")}($endpoint, $body ?? []);
-                break;
-
-            default:
-                throw new Exception("Unsupported HTTP method: $method");
+            $avenia = new AveniaService();
+            $quote = $avenia->createQuote($quote_payload);
+            logger("quote generation respoonse", ['quote_generation' => $quote]);
+            if (isset($quote['quoteToken'])) {
+                // make a post request to generate the deposit
+                $payload = [
+                    "quoteToken" => $quote['quoteToken'],
+                    "externalId" => 'Yativo-234',
+                    "ticketBlockchainOutput" => [
+                        "walletChain" => "solana",
+                        "walletAddress" => "CyuXhQVaNrku3K44HdCfxkEPNr7i8GnRu3irKrRc6YpC",
+                        "walletMemo" => "optional memo"
+                    ]
+                ];
+                $deposit = $avenia->deposit($payload);
+                logger(
+                    "response testing quote",
+                    ['response' => $deposit]
+                );
+                return response()->json($deposit);
+            }
+        } catch (Throwable $th) {
+            return response()->json($th);
         }
+    }
 
-        return [
-            "status" => $response->status(),
-            "headers" => $response->headers(),
-            "body" => $response->body(),
-            "json" => $response->json(),
-            "signed_string" => $stringToSign   // helpful for debugging
-        ];
+    /* ---------------------------------------------------------
+     | Core request handlers
+     * --------------------------------------------------------- */
+
+    protected function get(string $uri, $payload = null)
+    {
+        return $this->aveniaRequest('GET', $uri, $payload);
+    }
+
+    protected function post(string $uri, array $payload)
+    {
+        return $this->aveniaRequest('POST', $uri, $payload);
+    }
+
+    protected function aveniaRequest(string $method, string $url, ?array $payload = null)
+    {
+        try {
+            // Normalize payload
+            $payload = $payload ?? [];
+
+            // Normalize URI
+            $uri = str_replace('//', '/', "/v2/{$url}");
+
+            // Handle GET query parameters
+            if ($method === 'GET' && ! empty($payload)) {
+                // (optional but recommended) ensure stable signing
+                ksort($payload);
+
+                $queryString = http_build_query($payload);
+                $uri .= '?' . $queryString;
+            }
+
+            $timestamp = (string) round(microtime(true) * 1000);
+
+            // Body is ONLY for POST
+            $body = $method === 'POST'
+                ? json_encode($payload, JSON_UNESCAPED_SLASHES)
+                : '';
+
+            // EXACT string to sign
+            $stringToSign = $timestamp . $method . $uri . $body;
+
+            $privateKey = openssl_pkey_get_private(
+                file_get_contents($this->privateKeyPath)
+            );
+
+            if (! $privateKey) {
+                throw new Exception('Invalid private key');
+            }
+
+            openssl_sign(
+                $stringToSign,
+                $signature,
+                $privateKey,
+                OPENSSL_ALGO_SHA256
+            );
+
+            $signatureBase64 = base64_encode($signature);
+
+            $headers = [
+                'X-API-Key'       => $this->apiKey,
+                'X-API-Timestamp' => $timestamp,
+                'X-API-Signature' => $signatureBase64,
+                'Content-Type'    => 'application/json',
+            ];
+
+            Log::info('Avenia signing debug', [
+                'method' => $method,
+                'uri'    => $uri,
+            ]);
+
+            $request = Http::withHeaders($headers);
+
+            $response = match ($method) {
+                'GET'  => $request->get($this->baseUrl . $uri),
+                'POST' => $request->post($this->baseUrl . $uri, $payload),
+                default => throw new Exception("Unsupported method {$method}")
+            };
+
+            Log::info("Hello", ['result' => $response->json(), 'uri' => $uri]);
+
+            return $response;
+
+            // if ($response->successful()) {
+            //     return $response->json();
+            // }
+
+            // Log::warning('Avenia API error', [
+            //     'status' => $response->status(),
+            //     'body'   => $response->body(),
+            // ]);
+
+            // return [
+            //     'error'  => true,
+            //     'status' => $response->status(),
+            //     'body'   => $response->json(),
+            // ];
+        } catch (Throwable $th) {
+            Log::error('Avenia request failed', [
+                'error' => $th->getMessage(),
+            ]);
+
+            return [
+                'error'   => true,
+                'message' => 'Avenia request failed',
+            ];
+        }
     }
 }

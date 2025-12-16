@@ -232,7 +232,8 @@ export default function DocumentsTab({
                                 documents: documents,
                             }));
 
-                            goToStep("identifying_information"); // ✅ Ensure this matches your step name!
+                            goToStep("collections"); // ✅ Ensure this matches your step name!
+                            // goToStep("identifying_information"); // ✅ Ensure this matches your step name!
                         } catch (err: any) {
                             console.error(err);
                             showError(
