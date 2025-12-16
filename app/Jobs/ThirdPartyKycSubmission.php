@@ -932,6 +932,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
     public function avenia(Customer $customer, array $data)
     {
         try {
+            logger("initiating avenia for individual");
             $avenia = new AveniaService();
             $kyc = $avenia->avenia($customer, $data);
         } catch (Throwable $th) {

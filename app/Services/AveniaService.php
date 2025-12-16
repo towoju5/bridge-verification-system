@@ -57,8 +57,19 @@ class AveniaService
 
     public function avenia(Customer $customer, array $data): array
     {
+        Log::info('Avenia KYC flow started', [
+            'customer_id' => $customer->customer_id,
+        ]);
+
         try {
+            /* -------------------------------------------------
+            | STEP 0: VALIDATION
+            * ------------------------------------------------- */
             if (empty($data['identity_information'][0])) {
+                Log::error('Identity information missing', [
+                    'customer_id' => $customer->customer_id,
+                    'payload_keys' => array_keys($data),
+                ]);
                 throw new Exception('Identity information missing');
             }
 
@@ -70,13 +81,39 @@ class AveniaService
                     ($data['last_name'] ?? '')
             );
 
-            if (!$this->createSubAccount($customer)) {
+            Log::info('KYC payload prepared', [
+                'customer_id' => $customer->customer_id,
+                'full_name' => $fullName,
+                'document_country' => $idInfo['country'] ?? null,
+            ]);
+
+            /* -------------------------------------------------
+            | STEP 0.5: CREATE SUB ACCOUNT
+            * ------------------------------------------------- */
+            Log::info('Creating Avenia sub-account', [
+                'customer_id' => $customer->customer_id,
+            ]);
+
+            if (!$result = $this->createSubAccount($customer)) {
+                Log::error('Sub-account creation failed', [
+                    'customer_id' => $customer->customer_id,
+                    'result' => $result,
+                ]);
                 throw new Exception('Sub-account creation failed');
             }
 
+            Log::info('Sub-account created successfully', [
+                'customer_id' => $customer->customer_id,
+            ]);
+
             /* -------------------------------------------------
-             | STEP 1: REQUEST DOCUMENT UPLOAD (SIGNED)
-             * ------------------------------------------------- */
+            | STEP 1: REQUEST DOCUMENT UPLOAD (SIGNED)
+            * ------------------------------------------------- */
+            Log::info('Requesting document upload slot', [
+                'customer_id' => $customer->customer_id,
+                'document_type' => 'DRIVERS-LICENSE',
+                'double_sided' => !empty($idInfo['back_image_url']),
+            ]);
 
             $docData = $this->post('/documents', [
                 'documentType'  => 'DRIVERS-LICENSE',
@@ -84,66 +121,111 @@ class AveniaService
             ]);
 
             if ($docData['error'] ?? false) {
+                Log::error('Document upload slot request failed', [
+                    'customer_id' => $customer->customer_id,
+                    'response' => $docData,
+                ]);
                 throw new Exception('Failed to request document upload');
             }
 
+            Log::info('Document upload slot received', [
+                'customer_id' => $customer->customer_id,
+                'document_id' => $docData['id'] ?? null,
+            ]);
+
             /* -------------------------------------------------
-             | STEP 2: REQUEST SELFIE UPLOAD (SIGNED)
-             * ------------------------------------------------- */
+            | STEP 2: REQUEST SELFIE UPLOAD (SIGNED)
+            * ------------------------------------------------- */
+            Log::info('Requesting selfie upload slot', [
+                'customer_id' => $customer->customer_id,
+            ]);
 
             $selfieData = $this->post('/documents', [
                 'documentType' => 'SELFIE',
             ]);
 
             if ($selfieData['error'] ?? false) {
+                Log::error('Selfie upload slot request failed', [
+                    'customer_id' => $customer->customer_id,
+                    'response' => $selfieData,
+                ]);
                 throw new Exception('Failed to request selfie upload');
             }
 
-            /* -------------------------------------------------
-             | STEP 3: UPLOAD FILES (UNSIGNED – PRESIGNED URLs)
-             * ------------------------------------------------- */
+            Log::info('Selfie upload slot received', [
+                'customer_id' => $customer->customer_id,
+                'selfie_document_id' => $selfieData['id'] ?? null,
+            ]);
 
-            $getBinary = function (string $path) {
+            /* -------------------------------------------------
+            | STEP 3: UPLOAD FILES (UNSIGNED)
+            * ------------------------------------------------- */
+            $getBinary = function (string $path) use ($customer) {
+                Log::debug('Fetching file binary', [
+                    'customer_id' => $customer->customer_id,
+                    'path_type' => filter_var($path, FILTER_VALIDATE_URL) ? 'url' : 'local',
+                ]);
+
                 if (filter_var($path, FILTER_VALIDATE_URL)) {
                     return Http::get($path)->body();
                 }
+
                 return file_get_contents($path);
             };
 
-            $upload = function (string $url, string $binary) {
+            $upload = function (string $url, string $binary, string $label) use ($customer) {
+                Log::info("Uploading {$label}", [
+                    'customer_id' => $customer->customer_id,
+                    'upload_url' => substr($url, 0, 40) . '...',
+                ]);
+
                 $res = Http::withHeaders([
                     'Content-Type'  => 'image/jpeg',
                     'If-None-Match' => '*',
                 ])->withBody($binary, 'image/jpeg')->put($url);
 
                 if (!$res->successful()) {
-                    throw new Exception('File upload failed');
+                    Log::error("Upload failed for {$label}", [
+                        'customer_id' => $customer->customer_id,
+                        'status' => $res->status(),
+                    ]);
+                    throw new Exception("File upload failed: {$label}");
                 }
             };
 
             // Front document
             $upload(
                 $docData['uploadURLFront'],
-                $getBinary($idInfo['front_image_url'])
+                $getBinary($idInfo['front_image_url']),
+                'document_front'
             );
 
             // Back document
             if (!empty($idInfo['back_image_url'])) {
                 $upload(
                     $docData['uploadURLBack'],
-                    $getBinary($idInfo['back_image_url'])
+                    $getBinary($idInfo['back_image_url']),
+                    'document_back'
                 );
             }
 
             // Selfie
             $upload(
                 $selfieData['uploadURLFront'],
-                $getBinary($idInfo['selfie_image_url'])
+                $getBinary($idInfo['selfie_image_url']),
+                'selfie'
             );
 
+            Log::info('All files uploaded successfully', [
+                'customer_id' => $customer->customer_id,
+            ]);
+
             /* -------------------------------------------------
-             | STEP 4: SUBMIT KYC (SIGNED)
-             * ------------------------------------------------- */
+            | STEP 4: SUBMIT KYC (SIGNED)
+            * ------------------------------------------------- */
+            Log::info('Submitting KYC', [
+                'customer_id' => $customer->customer_id,
+            ]);
 
             $kycResponse = $this->post('/kyc/new-level-1/api', [
                 'fullName'           => $fullName,
@@ -162,21 +244,29 @@ class AveniaService
             ]);
 
             if ($kycResponse['error'] ?? false) {
+                Log::error('KYC submission failed', [
+                    'customer_id' => $customer->customer_id,
+                    'response' => $kycResponse,
+                ]);
                 throw new Exception('KYC submission failed');
             }
 
             update_endorsement($customer->customer_id, 'brazil', 'submitted');
 
+            Log::info('Avenia KYC submitted successfully', [
+                'customer_id' => $customer->customer_id,
+            ]);
+
             return $kycResponse;
         } catch (Throwable $e) {
             Log::error('Avenia KYC flow failed', [
-                'message' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
+                'customer_id' => $customer->customer_id,
+                'error' => $e->getMessage(),
             ]);
+
             throw $e;
         }
     }
-
 
     /* ---------------------------------------------------------
      | Public API methods
