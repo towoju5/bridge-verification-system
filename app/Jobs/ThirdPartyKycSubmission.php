@@ -397,7 +397,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
     private function borderless(Customer $customer, array $data): void
     {
         try {
-            if ($customer->borderless_identity_id) {
+            $meta_exists = get_customer_meta($customer->customer_id, 'borderless_customer_id');
+
+            if ($meta_exists) {
                 Log::info('Borderless skipped: customer already enrolled', ['customer_id' => $customer->customer_id]);
                 return;
             }
@@ -703,8 +705,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
             };
 
             /* -------------------------------------------------
-         | ID & MEDIA
-         * ------------------------------------------------- */
+            | ID & MEDIA
+            * ------------------------------------------------- */
             $idInfo  = $data['identifying_information'][0] ?? [];
             $idFront = $idInfo['image_front_file'] ?? null;
             $idBack  = $idInfo['image_back_file'] ?? $idFront;
@@ -985,6 +987,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $kyc = $avenia->avenia($customer, $data);
             logger("avenia kyc response", ['response' => $kyc]);
         } catch (Throwable $th) {
+            logger("Avenia Error: ", ['error' => $th->getMessage(), "trace" => $th->getTrace()]);
             return ['error' => $th->getMessage()];
         }
     }

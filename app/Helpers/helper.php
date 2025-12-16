@@ -2,6 +2,8 @@
 
 use App\Models\CustomerMeta;
 use App\Models\Endorsement;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 if (!function_exists('array_filter_recursive')) {
     function array_filter_recursive($array)
@@ -71,6 +73,11 @@ if (!function_exists('normalizeNoahApiUrl')) {
 if (!function_exists('add_customer_meta')) {
     function add_customer_meta($customerId, $key, $value)
     {
+        if (Schema::hasColumn('customer_meta_data', 'id')) {
+            Schema::table('customer_meta_data', function (Blueprint $table) {
+                $table->id();
+            });
+        }
         $meta = CustomerMeta::updateOrCreate([
             'customer_id' => $customerId,
             'key' => $key
