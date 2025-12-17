@@ -52,6 +52,12 @@ class CustomerController extends Controller
             });
         }
 
+        if (! Schema::hasColumn('customer_submissions', 'calling_code')) {
+            Schema::table('customer_submissions', function ($table) {
+                $table->json('calling_code')->nullable()->after('email');
+            });
+        }
+
 
         if (!Schema::hasTable('customer_meta_data')) {
             Schema::create('customer_meta_data', function (Blueprint $table) {
@@ -356,16 +362,16 @@ class CustomerController extends Controller
         switch ($step) {
             case 1:
                 $rules = [
-                    'first_name'       => 'required|string|min:1|max:1024',
-                    'middle_name'      => 'required|string|max:1024',
-                    'last_name'        => 'required|string|min:1|max:1024',
-                    'last_name_native' => 'sometimes|string|max:1024',
-                    'email'            => 'required|email|max:1024',
-                    'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
-                    'birth_date'       => 'required|date|before:today',
-                    'nationality'      => 'required|string|size:2',
-                    'gender'           => 'required|in:Male,Female,male,female',
-                    'taxId'            => 'required|string|max:100',
+                    'first_name'   => 'required|string|max:1024',
+                    'middle_name'  => 'required|string|max:1024',
+                    'last_name'    => 'required|string|max:1024',
+                    'email'        => 'required|email|max:1024',
+                    'calling_code' => ['required', 'string', 'regex:/^\+\d{1,4}$/'],
+                    'phone' => ['required', 'string', 'regex:/^\d{8,15}$/'],
+                    'birth_date'  => 'required|date|before:today',
+                    'nationality' => 'required|string|size:2',
+                    'gender' => ['required', 'string', 'in:male,female'],
+                    'taxId' => 'required|string|max:100',
                     'selfie_image'     => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
                 ];
                 break;
@@ -902,17 +908,19 @@ class CustomerController extends Controller
 
             // STEP 1 – Personal Info + Selfie
             $step1 = $this->safeValidate($data, [
-                'first_name'       => 'required|string|max:1024',
-                'middle_name'      => 'required|string|max:1024',
-                'last_name'        => 'required|string|max:1024',
-                'email'            => 'required|email|max:1024',
-                'phone'            => 'required|string|regex:/^\+\d{1,15}$/',
-                'birth_date'       => 'required|date|before:today',
-                'nationality'      => 'required|string|size:2',
-                'gender'           => 'required|in:Male,Female,male,female',
-                'taxId'            => 'required|string|max:100',
-                'selfie_image'     => 'required|file|max:5120',
+                'first_name'   => 'required|string|max:1024',
+                'middle_name'  => 'required|string|max:1024',
+                'last_name'    => 'required|string|max:1024',
+                'email'        => 'required|email|max:1024',
+                'calling_code' => ['required', 'string', 'regex:/^\+\d{1,4}$/'],
+                'phone' => ['required', 'string', 'regex:/^\d{8,15}$/'],
+                'birth_date'  => 'required|date|before:today',
+                'nationality' => 'required|string|size:2',
+                'gender' => ['required', 'string', 'in:male,female'],
+                'taxId' => 'required|string|max:100',
+                'selfie_image' => 'required|file|mimes:pdf,jpg,jpeg,png,heic,tif|max:5120',
             ]);
+
 
             if (! $step1['success']) {
                 DB::rollBack();
@@ -1375,7 +1383,7 @@ class CustomerController extends Controller
         string $service,
     ) {
         try {
-            $noahService = new NoahService(); 
+            $noahService = new NoahService();
             // 1. Validate endorsement existence
             $endorsement = get_customer_endorsement($customerId, $service);
 

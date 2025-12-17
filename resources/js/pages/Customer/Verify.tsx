@@ -46,6 +46,7 @@ interface CustomerData {
     last_name: string | null;
     last_name_native: string | null;
     email: string | null;
+    calling_code: string | null;
     phone: string | null;
     nationality: string | null;
     birth_date: string | null;
@@ -476,6 +477,18 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                     />
                 </div>
                 <div>
+                    <label htmlFor="calling_code" className="block text-sm font-medium text-gray-700 dark:text-white dark:text-white">Phone Calling Code</label>
+                    <input
+                        type="tel"
+                        id="calling_code"
+                        name="calling_code"
+                        value={data.calling_code || ''}
+                        onChange={onDataChange}
+                        placeholder="+1"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                </div>
+                <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-white dark:text-white">Phone Number</label>
                     <input
                         type="tel"
@@ -539,7 +552,7 @@ const PersonalInfoStep: React.FC<StepProps> = ({ data, onDataChange, countries }
                         <option value="female">Female</option>
                     </select>
                 </div>
-                <div className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <div className="mt-1 block w-full col-span-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                     <label htmlFor="selfie_image" className="block text-sm font-medium text-gray-700 dark:text-white dark:text-white">Selfie Image</label>
                     <input
                         type="file"

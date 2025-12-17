@@ -232,7 +232,7 @@ export default function DocumentsTab({
                                 documents: documents,
                             }));
 
-                            goToStep("collections"); // ✅ Ensure this matches your step name!
+                            goToStep("extra_business_data"); // ✅ Ensure this matches your step name!
                             // goToStep("identifying_information"); // ✅ Ensure this matches your step name!
                         } catch (err: any) {
                             console.error(err);

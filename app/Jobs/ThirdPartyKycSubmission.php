@@ -86,7 +86,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]);
         }
         $this->borderless($customer, $this->submissionData);
-        $this->tazapay($this->submissionData);
+        $this->tazapay($customer, $this->submissionData);
     }
 
     public function tazapay(Customer $customer, $data)

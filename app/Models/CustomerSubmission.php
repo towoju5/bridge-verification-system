@@ -42,6 +42,7 @@ class CustomerSubmission extends Model
         'transliterated_middle_name',
         'transliterated_last_name',
         'email',
+        'calling_code',
         'phone',
         'nationality',
         'birth_date',

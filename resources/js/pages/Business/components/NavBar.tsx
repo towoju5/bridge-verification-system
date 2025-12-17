@@ -14,6 +14,7 @@ const steps = [
     { id: "regulatory", label: "Regulatory" },
     { id: "documents", label: "Documents" },
     // { id: "identifying_information", label: "Identity" },
+    { id: "extra_business_data", label: "Extra Business Info" },
     { id: "collections", label: "Collections" },
     { id: "payouts", label: "Payouts" },
     { id: "extra_documents", label: "Additional Documents" },

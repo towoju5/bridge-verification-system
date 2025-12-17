@@ -25,6 +25,7 @@ class BusinessCustomer extends Model
         'conducts_money_services' => 'boolean',
         'extra_documents' => 'array',
         'collections_data' => 'array',
-        'payouts_data' => 'array'
+        'payouts_data' => 'array',
+        'extra_business_info' => 'array'
     ];
 }

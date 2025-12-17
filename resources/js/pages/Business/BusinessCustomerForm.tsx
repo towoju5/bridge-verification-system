@@ -15,6 +15,7 @@ import NavBar from "./components/NavBar";
 import AppLayout from "@/Layouts/AppLayout";
 import CollectionsTab from "./components/CollectionsTab";
 import PayoutsTab from "./components/PayoutsTab";
+import ExtraBusinessInfo from "./components/ExtraBusinessInfo";
 
 export default function BusinessCustomerForm() {
     const [activeTab, setActiveTab] = useState("business-info");
@@ -215,6 +216,18 @@ export default function BusinessCustomerForm() {
             case "documents":
                 return (
                     <DocumentsTab
+                        formData={formData}
+                        setFormData={setFormData}
+                        // documentPurposes={documentPurposes}
+                        saving={saving}
+                        goToStep={goToStep}
+                        showError={showError}
+                    />
+                );
+
+            case "extra_business_data":
+                return (
+                    <ExtraBusinessInfo
                         formData={formData}
                         setFormData={setFormData}
                         // documentPurposes={documentPurposes}

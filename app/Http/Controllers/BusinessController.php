@@ -24,6 +24,12 @@ class BusinessController extends Controller
     {
         $this->bridgeApiKey = env('BRIDGE_API_KEY');
         $this->bridgeApiUrl = env('BRIDGE_API_URL');
+
+        if (! Schema::hasColumn('business_customers', 'extra_business_info')) {
+            Schema::table('business_customers', function ($table) {
+                $table->json('extra_business_info')->nullable()->after('email');
+            });
+        }
     }
 
     public function showAccountTypeSelection()
@@ -188,6 +194,10 @@ class BusinessController extends Controller
 
                 $data['extra_documents'] = $extra;
             }
+        }
+
+        if ($step == 'business') {
+            $data['extra_business_info'] = $request->all();
         }
 
         if ($step == 'collections') {
@@ -436,6 +446,49 @@ class BusinessController extends Controller
                     'identifying_information.*.image_back'          => 'nullable|file',
                 ];
 
+            case 'business': // EXTRA BUSINESS INFO
+                return [
+
+                    // Communication / meeting mode
+                    'meeting_mode' => 'required|string|max:255',
+
+                    // Industry vertical
+                    'industry_vertical' => 'required|string|max:255',
+
+                    // Business description
+                    'business_description' => 'required|string|min:140|max:5000',
+
+                    // OBO usage
+                    'obo_usage' => [
+                        'required',
+                        Rule::in(['yes', 'no']),
+                    ],
+
+                    // Transaction volumes
+                    'monthly_volume_usd' => 'required|numeric|min:0',
+                    'avg_transaction_usd' => 'required|numeric|min:0|lte:max_transaction_usd',
+                    'max_transaction_usd' => 'required|numeric|min:0',
+
+                    // Logical amount relationship (optional but recommended)
+                    // Account usage purpose
+                    'primary_account_purpose' => 'required|string|max:255',
+
+                    // Sender geographies
+                    'sender_geographies' => 'required|array|min:1',
+                    'sender_geographies.*' => [
+                        'string',
+                        'max:50',
+                        Rule::in([
+                            'Africa',
+                            'Europe',
+                            'North America',
+                            'South America',
+                            'Asia',
+                        ]),
+                    ],
+                ];
+
+
             case 'collections': // COLLECTIONS
                 return [
                     // Sender profile
@@ -591,8 +644,6 @@ class BusinessController extends Controller
 
         return response()->json(['message' => 'Extra documents saved.'], 200);
     }
-
-
 
     private function mapBusinessStepDataToModel(array $data, int $step)
     {
