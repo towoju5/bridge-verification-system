@@ -97,7 +97,7 @@ class AveniaService
             ]);
             $payload = [
                 "accountType" => "INDIVIDUAL",
-                "name" => "jane doe"
+                "name" => $fullName
             ];
             $result = $this->createSubAccount($payload);
 
