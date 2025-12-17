@@ -86,12 +86,13 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]);
         }
         $this->borderless($customer, $this->submissionData);
+        $this->tazapay($this->submissionData);
     }
 
-    public function tazapay()
+    public function tazapay(Customer $customer, $data)
     {
         try {
-            $user = $this->submissionData;
+            $user = $data;
 
             // Decode JSON fields stored as strings
             $residentialAddress = $user['residential_address'];

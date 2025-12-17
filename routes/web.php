@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Artisan;
 */
 
 
-Route::get('/', function(){
+Route::get('/', function () {
     return redirect()->to('https://yativo.com');
 })->name('home');
 
@@ -54,6 +54,10 @@ Route::prefix('api/business-customer')->group(function () {
     Route::any('submit-final', [BusinessController::class, 'submitKyc']);
 });
 
+
+Route::any('account/type', function () {
+    return redirect()->to('https://yativo.com');
+})->name('account.type');
 
 // Route::any('api/business-customer/step/{step}', function () {
 //     return response()->json(['message' => 'This is a placeholder for the business customer step API.']);

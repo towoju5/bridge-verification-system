@@ -259,7 +259,7 @@ class CustomerController extends Controller
                 $customerSubmission->update(['submit_bridge_kyc' => (bool) $request->submit_bridge_kyc]);
             }
             if ($step === $this->maxSteps) {
-                $customerSubmission->status       = 'submitted';
+                $customerSubmission->status   = 'submitted';
                 $customerSubmission->submitted_at = now();
                 $customerSubmission->save();
 
@@ -817,7 +817,7 @@ class CustomerController extends Controller
 
     private function sanitizeRedirectUrl(?string $url): string
     {
-        $allowedHosts = ['app.yativo.com', 'yativo.com'];
+        $allowedHosts = ['app.yativo.com', 'yativo.com', $url];
 
         if (! $url) {
             return 'https://app.yativo.com';

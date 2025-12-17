@@ -118,14 +118,19 @@ class AveniaService
             /* -------------------------------------------------
             | STEP 1: REQUEST DOCUMENT UPLOAD (SIGNED)
             * ------------------------------------------------- */
+            $docType = $idInfo['type'];
+            if(!in_array($docType, ["ID", "DRIVERS-LICENSE", "PASSPORT"])) {
+                $docType = "ID";
+            }
+
             Log::info('Requesting document upload slot', [
                 'customer_id' => $customer->customer_id,
-                'document_type' => strtoupper($idInfo['type'] ?? 'PASSPORT'),
+                'document_type' => strtoupper($idInfo['type']),
                 'double_sided' => !empty($idInfo['image_back_file']),
             ]);
 
             $docData = $this->post('/documents', [
-                'documentType'  => strtoupper($idInfo['type'] ?? 'PASSPORT'),
+                'documentType'  => strtoupper($idInfo['type']),
                 'isDoubleSided' => !empty($idInfo['image_back_file']),
             ]);
 
