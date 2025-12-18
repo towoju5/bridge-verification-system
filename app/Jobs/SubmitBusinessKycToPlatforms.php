@@ -201,6 +201,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     protected function bitnob()
     {
         try {
+            $data = $this->business;
             $customer = Customer::whereCustomerId($this->business->customer_id);
             $idInfo = $data['identifying_information'][0] ?? [];
             $idFront = ($idInfo['image_front_file'] ?? null);
@@ -290,7 +291,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             logger("initiating Transfi business submission");
             logger("transfi incoming payload", ['data' => $this->business]);
             $customer = Customer::whereCustomerId($this->business->customer_id);
-            if(!$customer) {
+            if (!$customer) {
                 logger("Customer not found");
             }
             $addr = $this->business->registered_address;

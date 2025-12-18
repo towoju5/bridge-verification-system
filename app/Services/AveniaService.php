@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Country;
 use App\Models\Customer;
 use Exception;
 use Illuminate\Support\Facades\Http;
@@ -200,7 +201,7 @@ class AveniaService
                 'subAccountId'        => $aveniaCustomerId,
                 'fullName'            => $fullName,
                 'dateOfBirth'         => date('Y-m-d', strtotime($data['birth_date'])),
-                'countryOfTaxId'      => strtoupper($idInfo['issuing_country']), // ISO-3166-1 alpha-3
+                'countryOfTaxId'      => $this->get_iso3(strtoupper($idInfo['issuing_country'])), // ISO-3166-1 alpha-3
                 'taxIdNumber'         => $data['taxId'],
                 'email'               => $data['email'],
                 'phone'               => preg_replace('/\s+/', '', $data['phone']),
@@ -402,4 +403,10 @@ class AveniaService
             ];
         }
     }
+
+    public function get_iso3($iso2):?string
+    {
+        $country = Country::where('iso2',$iso2)->first();
+        return $country->iso3;
+        }
 }
