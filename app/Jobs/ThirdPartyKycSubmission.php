@@ -93,6 +93,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         try {
             $user = $data;
+            $metaExists = get_customer_meta($user['customer_id'], 'tazapay_entity_id');
+
+            if($metaExists) {
+                return response()->json(['message' => "User already enrolled for Tazapay"]);
+            }
 
             // Decode JSON fields stored as strings
             $residentialAddress = $user['residential_address'];
@@ -186,8 +191,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ],
 
                 "phone" => [
-                    "calling_code" => ltrim($this->extractCallingCode($user['phone']), '+'),
-                    "number"       => $this->extractPhoneNumber($user['phone']),
+                    "calling_code" => $user['calling_code'] ?? ltrim($this->extractCallingCode($user['phone']), '+'),
+                    "number"       => $user['phone'],
                 ],
 
                 "individual" => [

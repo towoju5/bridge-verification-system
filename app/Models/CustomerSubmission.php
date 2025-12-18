@@ -66,7 +66,8 @@ class CustomerSubmission extends Model
         'submit_bridge_kyc',
         'gender',
         'customer_id',
-        'selfie_image'
+        'selfie_image',
+        'calling_code'
     ];
 
     // public function documents(): HasMany

@@ -29,7 +29,7 @@ class AveniaService
      | SUB ACCOUNT
      * --------------------------------------------------------- */
 
-    public function createSubAccount($payload): bool
+    public function createSubAccount($customerId, $payload): array
     {
         $response = $this->post('/account/sub-accounts', $payload);
         logger("Response from creating avenia sub account", ['response' => $response->json()]);
@@ -39,13 +39,13 @@ class AveniaService
             return false;
         }
 
-        // add_customer_meta(
-        //     $customerId,
-        //     'avenia_customer_id',
-        //     $result['id']
-        // );
+        add_customer_meta(
+            $customerId,
+            'avenia_customer_id',
+            $result['id']
+        );
 
-        return true;
+        return $result;
     }
 
     /* ---------------------------------------------------------
@@ -60,8 +60,8 @@ class AveniaService
 
         try {
             /* -------------------------------------------------
-            | STEP 0: VALIDATION
-            * ------------------------------------------------- */
+        | STEP 0: VALIDATION
+        * ------------------------------------------------- */
             if (
                 empty($data['identifying_information']) ||
                 empty($data['identifying_information'][0])
@@ -74,8 +74,22 @@ class AveniaService
                 throw new Exception('Identity information missing');
             }
 
-            $idInfo   = $data['identifying_information'][0];
-            $address  = $data['residential_address'] ?? [];
+            $idInfo  = $data['identifying_information'][0];
+            $address = $data['residential_address'] ?? [];
+
+            $requiredAddressFields = [
+                'country',
+                'state',
+                'city',
+                'postal_code',
+                'street_line_1'
+            ];
+
+            foreach ($requiredAddressFields as $field) {
+                if (empty($address[$field])) {
+                    throw new Exception("Missing required address field: {$field}");
+                }
+            }
 
             $fullName = trim(
                 ($data['first_name'] ?? '') . ' ' .
@@ -83,195 +97,123 @@ class AveniaService
                     ($data['last_name'] ?? '')
             );
 
-            Log::info('KYC payload prepared', [
-                'customer_id' => $customer->customer_id,
-                'full_name' => $fullName,
-                'document_country' => $idInfo['issuing_country'] ?? null,
+            /* -------------------------------------------------
+        | STEP 0.5: CREATE / FETCH SUBACCOUNT
+        * ------------------------------------------------- */
+            $aveniaCustomerIdExists = get_customer_meta(
+                $customer->customer_id,
+                'avenia_customer_id'
+            );
+
+            if (!$aveniaCustomerIdExists) {
+                $payload = [
+                    'accountType' => 'INDIVIDUAL',
+                    'name' => $fullName,
+                ];
+
+                $result = $this->createSubAccount($customer->customer_id, $payload);
+
+                if (!$result || empty($result['id'])) {
+                    Log::error('Sub-account creation failed', [
+                        'customer_id' => $customer->customer_id,
+                        'response' => $result,
+                    ]);
+                    throw new Exception('Sub-account creation failed');
+                }
+
+                $aveniaCustomerId = $result['id'];
+            } else {
+                $aveniaCustomerId = $aveniaCustomerIdExists->value[0];
+            }
+
+            Log::info('Using Avenia sub-account', [
+                'subAccountId' => $aveniaCustomerId,
             ]);
 
             /* -------------------------------------------------
-            | STEP 0.5: CREATE SUB ACCOUNT
-            * ------------------------------------------------- */
-            Log::info('Creating Avenia sub-account', [
-                'customer_id' => $customer->customer_id,
-            ]);
-            $payload = [
-                "accountType" => "INDIVIDUAL",
-                "name" => $fullName
-            ];
-            $result = $this->createSubAccount($payload);
-
-            if (!$result) {
-                Log::error('Sub-account creation failed', [
-                    'customer_id' => $customer->customer_id,
-                    'result' => $result,
-                ]);
-
-                throw new Exception('Sub-account creation failed');
+        | STEP 1: REQUEST DOCUMENT UPLOAD URL
+        * ------------------------------------------------- */
+            $docType = strtoupper($idInfo['type'] ?? 'ID');
+            if (!in_array($docType, ['ID', 'DRIVERS-LICENSE', 'PASSPORT'])) {
+                $docType = 'ID';
             }
-
-            Log::info('Sub-account created successfully', [
-                'customer_id' => $customer->customer_id,
-                'result' => $result,
-            ]);
-
-            /* -------------------------------------------------
-            | STEP 1: REQUEST DOCUMENT UPLOAD (SIGNED)
-            * ------------------------------------------------- */
-            $docType = $idInfo['type'];
-            if(!in_array($docType, ["ID", "DRIVERS-LICENSE", "PASSPORT"])) {
-                $docType = "ID";
-            }
-
-            Log::info('Requesting document upload slot', [
-                'customer_id' => $customer->customer_id,
-                'document_type' => strtoupper($idInfo['type']),
-                'double_sided' => !empty($idInfo['image_back_file']),
-            ]);
 
             $docData = $this->post('/documents', [
-                'documentType'  => strtoupper($idInfo['type']),
+                'documentType' => $docType,
                 'isDoubleSided' => !empty($idInfo['image_back_file']),
+                'subAccountId' => $aveniaCustomerId,
             ]);
 
             if ($docData['error'] ?? false) {
-                Log::error('Document upload slot request failed', [
-                    'customer_id' => $customer->customer_id,
-                    'response' => $docData,
-                ]);
-
                 throw new Exception('Failed to request document upload');
             }
 
-            Log::info('Document upload slot received', [
-                'customer_id' => $customer->customer_id,
-                'document_id' => $docData['id'] ?? null,
-            ]);
-
-            /* -------------------------------------------------
-            | STEP 2: REQUEST SELFIE UPLOAD (SIGNED)
-            * ------------------------------------------------- */
-            Log::info('Requesting selfie upload slot', [
-                'customer_id' => $customer->customer_id,
-            ]);
-
             $selfieData = $this->post('/documents', [
                 'documentType' => 'SELFIE',
+                'subAccountId' => $aveniaCustomerId,
             ]);
 
             if ($selfieData['error'] ?? false) {
-                Log::error('Selfie upload slot request failed', [
-                    'customer_id' => $customer->customer_id,
-                    'response' => $selfieData,
-                ]);
-
                 throw new Exception('Failed to request selfie upload');
             }
 
-            Log::info('Selfie upload slot received', [
-                'customer_id' => $customer->customer_id,
-                'selfie_document_id' => $selfieData['id'] ?? null,
-            ]);
-
             /* -------------------------------------------------
-            | STEP 3: UPLOAD FILES (UNSIGNED)
-            * ------------------------------------------------- */
-            $getBinary = function (string $path) use ($customer) {
-                Log::debug('Fetching file binary', [
-                    'customer_id' => $customer->customer_id,
-                    'path_type' => filter_var($path, FILTER_VALIDATE_URL) ? 'url' : 'local',
-                ]);
+        | STEP 2: FILE UPLOADS
+        * ------------------------------------------------- */
+            $getBinary = function (string $path): array {
+                $binary = filter_var($path, FILTER_VALIDATE_URL)
+                    ? Http::get($path)->body()
+                    : file_get_contents($path);
 
-                if (filter_var($path, FILTER_VALIDATE_URL)) {
-                    return Http::get($path)->body();
-                }
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime  = finfo_buffer($finfo, $binary);
 
-                return file_get_contents($path);
+                return [$binary, $mime ?: 'image/jpeg'];
             };
 
-            $upload = function (string $url, string $binary, string $label) use ($customer) {
-                Log::info("Uploading {$label}", [
-                    'customer_id' => $customer->customer_id,
-                    'upload_url' => substr($url, 0, 40) . '...',
-                ]);
-
+            $upload = function (string $url, string $binary, string $mime, string $label) {
                 $res = Http::withHeaders([
-                    'Content-Type'  => 'image/jpeg',
+                    'Content-Type' => $mime,
                     'If-None-Match' => '*',
-                ])->withBody($binary, 'image/jpeg')->put($url);
+                ])->withBody($binary, $mime)->put($url);
 
                 if (!$res->successful()) {
-                    Log::error("Upload failed for {$label}", [
-                        'customer_id' => $customer->customer_id,
-                        'status' => $res->status(),
-                        'response' => $res->body(),
-                    ]);
-
-                    throw new Exception("File upload failed: {$label}");
+                    throw new Exception("Upload failed: {$label}");
                 }
             };
 
-            // Document front
-            $upload(
-                $docData['uploadURLFront'],
-                $getBinary($idInfo['image_front_file']),
-                'document_front'
-            );
+            [$frontBinary, $frontMime] = $getBinary($idInfo['image_front_file']);
+            $upload($docData['uploadURLFront'], $frontBinary, $frontMime, 'document_front');
 
-            // Document back (optional)
             if (!empty($idInfo['image_back_file'])) {
-                $upload(
-                    $docData['uploadURLBack'],
-                    $getBinary($idInfo['image_back_file']),
-                    'document_back'
-                );
+                [$backBinary, $backMime] = $getBinary($idInfo['image_back_file']);
+                $upload($docData['uploadURLBack'], $backBinary, $backMime, 'document_back');
             }
 
-            // Selfie
-            $upload(
-                $selfieData['uploadURLFront'],
-                $getBinary($data['selfie_image']),
-                'selfie'
-            );
-
-            Log::info('All files uploaded successfully', [
-                'customer_id' => $customer->customer_id,
-            ]);
+            [$selfieBinary, $selfieMime] = $getBinary($data['selfie_image']);
+            $upload($selfieData['uploadURLFront'], $selfieBinary, $selfieMime, 'selfie');
 
             /* -------------------------------------------------
-            | STEP 4: SUBMIT KYC (SIGNED)
-            * ------------------------------------------------- */
-            Log::info('Submitting KYC', [
-                'customer_id' => $customer->customer_id,
-            ]);
-
+        | STEP 3: SUBMIT KYC
+        * ------------------------------------------------- */
             $kycResponse = $this->post('/kyc/new-level-1/api', [
-                'fullName'           => $fullName,
-                'dateOfBirth'        => $data['birth_date'] instanceof \Carbon\Carbon
-                    ? $data['birth_date']->format('Y-m-d')
-                    : date('Y-m-d', strtotime($data['birth_date'])),
-
-                'countryOfTaxId'     => $idInfo['issuing_country'],
-                'taxIdNumber'        => $data['taxId'],
-                'email'              => $data['email'],
-                'phone'              => $data['phone'],
-
-                'country'            => $address['country'] ?? null,
-                'state'              => $address['state'] ?? null,
-                'city'               => $address['city'] ?? null,
-                'zipCode'            => $address['postal_code'] ?? null,
-                'streetAddress'      => $address['street_line_1'] ?? null,
-
-                'uploadedSelfieId'   => $selfieData['id'],
-                'uploadedDocumentId' => $docData['id'],
+                'subAccountId'        => $aveniaCustomerId,
+                'fullName'            => $fullName,
+                'dateOfBirth'         => date('Y-m-d', strtotime($data['birth_date'])),
+                'countryOfTaxId'      => strtoupper($idInfo['issuing_country']), // ISO-3166-1 alpha-3
+                'taxIdNumber'         => $data['taxId'],
+                'email'               => $data['email'],
+                'phone'               => preg_replace('/\s+/', '', $data['phone']),
+                'country'             => strtoupper($address['country']),
+                'state'               => strtoupper($address['state']),
+                'city'                => $address['city'],
+                'zipCode'             => $address['postal_code'],
+                'streetAddress'       => $address['street_line_1'],
+                'uploadedSelfieId'    => $selfieData['id'],
+                'uploadedDocumentId'  => $docData['id'],
             ]);
 
             if ($kycResponse['error'] ?? false) {
-                Log::error('KYC submission failed', [
-                    'customer_id' => $customer->customer_id,
-                    'response' => $kycResponse,
-                ]);
-
                 throw new Exception('KYC submission failed');
             }
 
@@ -279,6 +221,7 @@ class AveniaService
 
             Log::info('Avenia KYC submitted successfully', [
                 'customer_id' => $customer->customer_id,
+                'attempt_id' => $kycResponse['id'] ?? null,
             ]);
 
             return $kycResponse;
@@ -292,6 +235,7 @@ class AveniaService
             throw $e;
         }
     }
+
 
 
     /* ---------------------------------------------------------
