@@ -28,4 +28,15 @@ class BusinessCustomer extends Model
         'payouts_data' => 'array',
         'extra_business_info' => 'array'
     ];
+
+    protected $hidden = [
+        "id",
+        "session_id",
+        "status",
+        "user_agent",
+        "ip_address",
+        "updated_at",
+        "deleted_at",
+        "identifying_information"
+    ];
 }
