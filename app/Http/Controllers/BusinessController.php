@@ -830,9 +830,9 @@ class BusinessController extends Controller
                     'primary_website',
                     'is_dao',
                 ]);
-                if (isset($data['incorporation_date'])) {
-                    $out['incorporation_date'] = Carbon::createFromFormat('Y-m-d', $data['incorporation_date']);
-                }
+                // if (isset($data['incorporation_date'])) {
+                //     $out['incorporation_date'] = Carbon::createFromFormat('Y-m-d', $data['incorporation_date']);
+                // }
                 return $out;
 
             case 2:
