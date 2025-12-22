@@ -243,11 +243,11 @@ class BusinessController extends Controller
      */
     public function submitAll(Request $request)
     {
-        $businessId = session('business_customer_id') ?? $request->header('X-Business-Id');
+        $businessId =  $request->customer_id ?? session('business_customer_id') ??$request->header('X-Business-Id');
         if (! $businessId) {
-            return response()->json(['success' => false, 'message' => 'Session expired.'], 400);
+            return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
         }
-
+        session('business_customer_id', $request->customer_id);
         $business = BusinessCustomer::find($businessId);
         if (! $business) {
             return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
