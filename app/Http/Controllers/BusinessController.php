@@ -80,7 +80,9 @@ class BusinessController extends Controller
             return response()->json(['success' => false, 'message' => 'Session expired.'], 400);
         }
 
-        $business = BusinessCustomer::find($businessId);
+        $business = BusinessCustomer::firstOrCreate([
+            "customer_id" => $businessId
+        ]);
         if (! $business) {
             session()->forget('business_customer_id');
             return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
@@ -359,7 +361,7 @@ class BusinessController extends Controller
      */
     public function submitAll(Request $request)
     {
-        $businessId = $request->customer_id ?? session('business_customer_id') ?? $request->header('X-Business-Id');
+        $businessId = $request->customer_id ?? $request->header('X-Business-Id');
         if (! $businessId) {
             return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
         }

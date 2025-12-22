@@ -12,7 +12,7 @@ Route::get('/user', function (Request $request) {
 
 
 // Business KYC API
-Route::post('business-kyc/submit-all', [BusinessController::class, 'submitAll']);
+Route::post('business-kyc/submit', [BusinessController::class, 'submitAll']);
 
 
 
