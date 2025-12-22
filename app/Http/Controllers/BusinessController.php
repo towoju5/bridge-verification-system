@@ -616,31 +616,31 @@ class BusinessController extends Controller
                 return [
 
                     // Communication / meeting mode
-                    'meeting_mode' => 'required|string|max:255',
+                    'meeting_mode' => 'nullable|string|max:255',
 
                     // Industry vertical
-                    'industry_vertical' => 'required|string|max:255',
+                    'industry_vertical' => 'nullable|string|max:255',
 
                     // Business description
-                    'business_description' => 'required|string|min:140|max:5000',
+                    'business_description' => 'nullable|string|min:140|max:5000',
 
                     // OBO usage
                     'obo_usage' => [
-                        'required',
+                        'nullable',
                         Rule::in(['yes', 'no']),
                     ],
 
                     // Transaction volumes
-                    'monthly_volume_usd' => 'required|numeric|min:0',
-                    'avg_transaction_usd' => 'required|numeric|min:0|lte:max_transaction_usd',
-                    'max_transaction_usd' => 'required|numeric|min:0',
+                    'monthly_volume_usd' => 'nullable|numeric|min:0',
+                    'avg_transaction_usd' => 'nullable|numeric|min:0|lte:max_transaction_usd',
+                    'max_transaction_usd' => 'nullable|numeric|min:0',
 
                     // Logical amount relationship (optional but recommended)
                     // Account usage purpose
-                    'primary_account_purpose' => 'required|string|max:255',
+                    'primary_account_purpose' => 'nullable|string|max:255',
 
                     // Sender geographies
-                    'sender_geographies' => 'required|array|min:1',
+                    'sender_geographies' => 'nullable|array|min:1',
                     'sender_geographies.*' => [
                         'string',
                         'max:50',
@@ -658,7 +658,7 @@ class BusinessController extends Controller
             case 'collections': // COLLECTIONS
                 return [
                     // Sender profile
-                    'sender_industries'              => 'required|array|min:1',
+                    'sender_industries'              => 'nullable|array|min:1',
                     'sender_industries.*'            => [
                         'string',
                         'max:100',
@@ -666,20 +666,20 @@ class BusinessController extends Controller
                     ],
 
                     'sender_types'                   => [
-                        'required',
+                        'nullable',
                         Rule::in(['individuals', 'businesses', 'both']),
                     ],
 
                     // Top senders
-                    'top_5_senders'                  => 'required|array|size:5',
+                    'top_5_senders'                  => 'nullable|array|size:5',
                     'top_5_senders.*'                => 'string|max:255',
 
                     // Fintech wallet inflow
-                    'incoming_from_fintech_wallets'  => 'required|boolean',
-                    'incoming_fintech_wallet_details' => 'required_if:incoming_from_fintech_wallets,true|nullable|string|max:1000',
+                    'incoming_from_fintech_wallets'  => 'nullable|boolean',
+                    'incoming_fintech_wallet_details' => 'nullable_if:incoming_from_fintech_wallets,true|nullable|string|max:1000',
 
                     // Supported collection currencies
-                    'collection_currencies'          => 'required|array|min:1',
+                    'collection_currencies'          => 'nullable|array|min:1',
                     'collection_currencies.*'        => [
                         'string',
                         'size:3',
@@ -687,13 +687,13 @@ class BusinessController extends Controller
                     ],
 
                     // Current provider & reason
-                    'current_collection_provider'    => 'required|string|max:255',
-                    'reason_for_switching_collection' => 'required|string|max:1000',
+                    'current_collection_provider'    => 'nullable|string|max:255',
+                    'reason_for_switching_collection' => 'nullable|string|max:1000',
 
                     // Transaction expectations
-                    'expected_monthly_disbursement_usd'   => 'required|numeric|min:0',
-                    'avg_transaction_amount_collection'   => 'required|numeric|min:0',
-                    'max_transaction_amount_collection'   => 'required|numeric|min:0',
+                    'expected_monthly_disbursement_usd'   => 'nullable|numeric|min:0',
+                    'avg_transaction_amount_collection'   => 'nullable|numeric|min:0',
+                    'max_transaction_amount_collection'   => 'nullable|numeric|min:0',
 
                 ];
 
@@ -701,29 +701,29 @@ class BusinessController extends Controller
                 return [
 
                     // Primary payout purpose
-                    'payout_primary_purpose'      => 'required|string|max:255',
+                    'payout_primary_purpose'      => 'nullable|string|max:255',
 
                     // Beneficiary geography
-                    'beneficiary_geographies'     => 'required|array|min:1',
+                    'beneficiary_geographies'     => 'nullable|array|min:1',
                     'beneficiary_geographies.*'   => 'string|size:2',
 
                     // Beneficiary industries
-                    'beneficiary_industries'      => 'required|array|min:1',
+                    'beneficiary_industries'      => 'nullable|array|min:1',
                     'beneficiary_industries.*'    => 'string|max:100',
 
                     // Beneficiary type
                     'beneficiary_types'           => [
-                        'required',
+                        'nullable',
                         Rule::in(['individual', 'business', 'both']),
                     ],
 
                     // Top beneficiaries
-                    'top_5_beneficiaries'         => 'required|array|size:5',
+                    'top_5_beneficiaries'         => 'nullable|array|size:5',
                     'top_5_beneficiaries.*'       => 'string|max:255',
 
                     // Payout method
                     'primary_payout_method'       => [
-                        'required',
+                        'nullable',
                         Rule::in([
                             'ach',
                             'wire',
@@ -736,7 +736,7 @@ class BusinessController extends Controller
                     ],
 
                     // Supported payout currencies
-                    'payout_currencies'           => 'required|array|min:1',
+                    'payout_currencies'           => 'nullable|array|min:1',
                     'payout_currencies.*'         => [
                         'string',
                         'size:3',
@@ -744,8 +744,8 @@ class BusinessController extends Controller
                     ],
 
                     // Provider & switching reason
-                    'current_payout_provider'     => 'required|string|max:255',
-                    'reason_for_switching_payout' => 'required|string|max:1000',
+                    'current_payout_provider'     => 'nullable|string|max:255',
+                    'reason_for_switching_payout' => 'nullable|string|max:1000',
                 ];
 
             case 8:
