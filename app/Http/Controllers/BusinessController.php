@@ -302,7 +302,7 @@ class BusinessController extends Controller
         foreach (['registered_address', 'physical_address'] as $addr) {
             $fileInput = $request->file("{$addr}.proof_of_address_file") ?? $request->input("{$addr}.proof_of_address_file");
             if ($fileInput) {
-                $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'proof_of_address');
+                $storedName = $this->normalizeAndStoreFile($fileInput, $businessId, 'proof_of_address');
                 if ($storedName) {
                     Arr::set($merged, "{$addr}.proof_of_address_file", $storedName);
                 }
@@ -317,7 +317,7 @@ class BusinessController extends Controller
                 $d = $doc;
                 $fileInput = $request->file("documents.{$i}.file") ?? ($doc['file'] ?? null);
                 if ($fileInput) {
-                    $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'document');
+                    $storedName = $this->normalizeAndStoreFile($fileInput, $businessId, 'document');
                     if ($storedName) {
                         $d['file'] = $storedName;
                     }
@@ -336,7 +336,7 @@ class BusinessController extends Controller
                 // Front image
                 $frontInput = $request->file("identifying_information.{$i}.image_front") ?? ($id['image_front'] ?? null);
                 if ($frontInput) {
-                    $storedName = $this->normalizeAndStoreFile($frontInput, $business->id, 'id_front');
+                    $storedName = $this->normalizeAndStoreFile($frontInput, $businessId, 'id_front');
                     if ($storedName) {
                         $item['image_front'] = $storedName;
                     }
@@ -344,7 +344,7 @@ class BusinessController extends Controller
                 // Back image
                 $backInput = $request->file("identifying_information.{$i}.image_back") ?? ($id['image_back'] ?? null);
                 if ($backInput) {
-                    $storedName = $this->normalizeAndStoreFile($backInput, $business->id, 'id_back');
+                    $storedName = $this->normalizeAndStoreFile($backInput, $businessId, 'id_back');
                     if ($storedName) {
                         $item['image_back'] = $storedName;
                     }
@@ -362,7 +362,7 @@ class BusinessController extends Controller
                 $d = $doc;
                 $fileInput = $request->file("extra_documents.{$k}.file") ?? ($doc['file'] ?? null);
                 if ($fileInput) {
-                    $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'extra_doc');
+                    $storedName = $this->normalizeAndStoreFile($fileInput, $businessId, 'extra_doc');
                     if ($storedName) {
                         $d['file'] = $storedName;
                     }
@@ -437,9 +437,7 @@ class BusinessController extends Controller
      * 2. Base64 string (data:image/... or base64:...)
      * 3. Public URL (http/https)
      *
-     * Returns stored filename (e.g., "doc_abc123.jpg") or null on failure.
-     */
-    /**
+     * 
      * Normalize and store a file from one of three sources:
      * 1. UploadedFile (direct upload)
      * 2. Base64 string (e.g., "image/png;base64,..." or "base64:image/jpg,...")
@@ -519,6 +517,7 @@ class BusinessController extends Controller
             return null;
         }
     }
+
 
     /**
      * Rules generator for each step — used by saveBusinessVerificationStep and submitAll
