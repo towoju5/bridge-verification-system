@@ -602,7 +602,7 @@ class BusinessController extends Controller
                 ];
             case 7:
                 return [
-                    'identifying_information'                       => 'required|array|min:1',
+                    'identifying_information'                       => 'nullable|array|min:1',
                     'identifying_information.*.type'                => 'required|string',
                     'identifying_information.*.issuing_country'     => 'required|string|size:2',
                     'identifying_information.*.number'              => 'required|string',
