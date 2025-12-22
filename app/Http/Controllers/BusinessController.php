@@ -433,7 +433,7 @@ class BusinessController extends Controller
             'success' => true,
             'message' => 'All data submitted successfully.',
             'business_data' => $business->fresh(),
-        ]);
+        ], 201);
     }
 
     /**

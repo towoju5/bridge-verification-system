@@ -1052,7 +1052,7 @@ class CustomerController extends Controller
 
             dispatch(new ThirdPartyKycSubmission($submission->toArray()));
             $this->saveCustomerDocuments($submission, $data);
-            return $respond(true, 'KYC submitted successfully.', (array)$submission->first(), 201);
+            return $respond(true, 'KYC submitted successfully.', $submission->fresh(), 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
