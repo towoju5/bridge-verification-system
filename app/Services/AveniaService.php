@@ -214,8 +214,11 @@ class AveniaService
                 'uploadedDocumentId'  => $docData['id'],
             ]);
 
+            logger("Final avenia kyc response is: ", ['error' => $kycResponse]);
+
             if ($kycResponse['error'] ?? false) {
-                throw new Exception('KYC submission failed');
+                // throw new Exception('KYC submission failed');
+                return [];
             }
 
             update_endorsement($customer->customer_id, 'brazil', 'submitted');

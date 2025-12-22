@@ -168,11 +168,11 @@ class AveniaIndividualService
         // Required keys: fullName, dateOfBirth, countryOfTaxId, taxIdNumber, email,
         // country, state, city, zipCode, streetAddress, uploadedSelfieId, uploadedDocumentId
 
-        $response = Http::withToken($this->accessToken)
-            ->withHeaders(['Content-Type' => 'application/json'])
-            ->post("{$this->baseUrl}/v2/kyc/new-level-1/api", $data);
+        // $response = Http::withToken($this->accessToken)
+        //     ->withHeaders(['Content-Type' => 'application/json'])
+        //     ->post("{$this->baseUrl}/v2/kyc/new-level-1/api", $data);
 
-        return $response->successful() ? $response->json('id') : null;
+        // return $response->successful() ? $response->json('id') : null;
     }
 
     /**

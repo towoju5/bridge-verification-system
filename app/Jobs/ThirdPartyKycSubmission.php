@@ -95,7 +95,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $user = $data;
             $metaExists = get_customer_meta($user['customer_id'], 'tazapay_entity_id');
 
-            if($metaExists) {
+            if ($metaExists) {
                 return response()->json(['message' => "User already enrolled for Tazapay"]);
             }
 
@@ -657,58 +657,60 @@ class ThirdPartyKycSubmission implements ShouldQueue
             };
 
             /* -------------------------------------------------
-         | PHONE NORMALIZATION (E.164)
-         * ------------------------------------------------- */
-            $normalizePhone = function (?string $phone, string $countryIso2) {
-                if (empty($phone)) {
-                    return null;
-                }
+            | PHONE NORMALIZATION (E.164)
+            * ------------------------------------------------- */
+            if (!isset($data['calling_code'])) {
+                $normalizePhone = function (?string $phone, string $countryIso2) {
+                    if (empty($phone)) {
+                        return null;
+                    }
 
-                // Keep digits and +
-                $raw = preg_replace('/[^\d+]/', '', trim($phone));
+                    // Keep digits and +
+                    $raw = preg_replace('/[^\d+]/', '', trim($phone));
 
-                // Case 1: Already international
-                if (Str::startsWith($raw, '+')) {
-                    $digits = preg_replace('/\D+/', '', $raw);
+                    // Case 1: Already international
+                    if (Str::startsWith($raw, '+')) {
+                        $digits = preg_replace('/\D+/', '', $raw);
 
-                    if (strlen($digits) < 8 || strlen($digits) > 15) {
-                        Log::error('Invalid international phone length', [
+                        if (strlen($digits) < 8 || strlen($digits) > 15) {
+                            Log::error('Invalid international phone length', [
+                                'phone' => $phone,
+                                'digits' => strlen($digits),
+                            ]);
+                            return null;
+                        }
+
+                        return '+' . $digits;
+                    }
+
+                    // Case 2: Local number
+                    $local = ltrim(preg_replace('/\D+/', '', $raw), '0');
+
+                    $country = Country::where('iso2', strtoupper($countryIso2))->first();
+                    if (!$country || empty($country->dial_code)) {
+                        Log::error('Missing country dial code for phone normalization', [
                             'phone' => $phone,
-                            'digits' => strlen($digits),
+                            'country' => $countryIso2,
                         ]);
                         return null;
                     }
 
-                    return '+' . $digits;
-                }
+                    $dialCode = ltrim($country->dial_code, '+');
+                    $full = $dialCode . $local;
 
-                // Case 2: Local number
-                $local = ltrim(preg_replace('/\D+/', '', $raw), '0');
+                    if (strlen($full) < 8 || strlen($full) > 15) {
+                        Log::error('Phone failed length validation after normalization', [
+                            'original_phone' => $phone,
+                            'normalized' => '+' . $full,
+                            'digits' => strlen($full),
+                            'country' => $countryIso2,
+                        ]);
+                        return null;
+                    }
 
-                $country = Country::where('iso2', strtoupper($countryIso2))->first();
-                if (!$country || empty($country->dial_code)) {
-                    Log::error('Missing country dial code for phone normalization', [
-                        'phone' => $phone,
-                        'country' => $countryIso2,
-                    ]);
-                    return null;
-                }
-
-                $dialCode = ltrim($country->dial_code, '+');
-                $full = $dialCode . $local;
-
-                if (strlen($full) < 8 || strlen($full) > 15) {
-                    Log::error('Phone failed length validation after normalization', [
-                        'original_phone' => $phone,
-                        'normalized' => '+' . $full,
-                        'digits' => strlen($full),
-                        'country' => $countryIso2,
-                    ]);
-                    return null;
-                }
-
-                return '+' . $full;
-            };
+                    return '+' . $full;
+                };
+            }
 
             /* -------------------------------------------------
             | ID & MEDIA
@@ -732,8 +734,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             /* -------------------------------------------------
-         | BASIC NORMALIZATION
-         * ------------------------------------------------- */
+            | BASIC NORMALIZATION
+            * ------------------------------------------------- */
             $addr = $data['residential_address'] ?? [];
 
             $gender = strtolower(trim($data['gender'] ?? 'male'));
