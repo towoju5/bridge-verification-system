@@ -258,9 +258,15 @@ class BusinessController extends Controller
 
         session(['business_customer_id' => $businessId]);
 
-        $business = Customer::whereCustomerId($businessId)->first();
-        if (! $business) {
-            return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
+        $customer = Customer::whereCustomerId($businessId)->first();
+        if (! $customer) {
+            return response()->json(['success' => false, 'message' => 'Business with the provided Customer_ID not found.'], 404);
+        }
+
+        $business = BusinessCustomer::whereCustomerId($businessId)->first();
+
+        if (!$business) {
+            $business = new BusinessCustomer();
         }
 
         // Collect rules for steps 1..9 + custom steps
