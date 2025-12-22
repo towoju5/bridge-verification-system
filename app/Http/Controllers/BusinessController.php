@@ -322,7 +322,7 @@ class BusinessController extends Controller
         }
 
         // Handle Step 7: Business identifying documents (ID images)
-        if ($request->has('identifying_information')) {
+        if ($request->filled('identifying_information')) {
             $ids = $request->input('identifying_information', []);
             $finalIds = [];
             foreach ($ids as $i => $id) {
