@@ -430,7 +430,7 @@ class BusinessController extends Controller
             case 6:
                 return [
                     'documents'                     => 'required|array|min:1',
-                    'documents.*.purpose'          => 'required|string|min:1',
+                    'documents.*.purpose'           => 'required|string|min:1',
                     'documents.*.description'       => 'required|string',
                     'documents.*.file'              => 'nullable|file',
                 ];
@@ -719,7 +719,7 @@ class BusinessController extends Controller
         }
     }
 
-    // ---------- Shared dropdown endpoints ----------
+    /*---------- Shared dropdown endpoints ----------*/
     public function getOccupations()
     {
         return response()->json(config('bridge_data.occupations'));
@@ -728,6 +728,7 @@ class BusinessController extends Controller
     {
         return response()->json(config('bridge_data.account_purposes'));
     }
+
     public function getSourceOfFunds()
     {
         return response()->json(config('bridge_data.source_of_funds'));

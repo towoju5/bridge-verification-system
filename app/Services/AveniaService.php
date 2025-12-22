@@ -30,9 +30,9 @@ class AveniaService
      | SUB ACCOUNT
      * --------------------------------------------------------- */
 
-    public function createSubAccount($customerId, $payload): array
+    public function createSubAccount($customerId, $payload)
     {
-        $response = $this->post('/account/sub-accounts', $payload);
+        $response = $this->post("/account/sub-accounts", $payload);
         logger("Response from creating avenia sub account", ['response' => $response->json()]);
         $result = $response->json();
         if ($result['error'] ?? false) {
@@ -99,8 +99,8 @@ class AveniaService
             );
 
             /* -------------------------------------------------
-        | STEP 0.5: CREATE / FETCH SUBACCOUNT
-        * ------------------------------------------------- */
+            | STEP 0.5: CREATE / FETCH SUBACCOUNT
+            * ------------------------------------------------- */
             $aveniaCustomerIdExists = get_customer_meta(
                 $customer->customer_id,
                 'avenia_customer_id'
@@ -132,14 +132,14 @@ class AveniaService
             ]);
 
             /* -------------------------------------------------
-        | STEP 1: REQUEST DOCUMENT UPLOAD URL
-        * ------------------------------------------------- */
+            | STEP 1: REQUEST DOCUMENT UPLOAD URL
+            * ------------------------------------------------- */
             $docType = strtoupper($idInfo['type'] ?? 'ID');
             if (!in_array($docType, ['ID', 'DRIVERS-LICENSE', 'PASSPORT'])) {
                 $docType = 'ID';
             }
 
-            $docData = $this->post('/documents', [
+            $docData = $this->post("/documents?subAccountId=$aveniaCustomerId", [
                 'documentType' => $docType,
                 'isDoubleSided' => !empty($idInfo['image_back_file']),
                 'subAccountId' => $aveniaCustomerId,
@@ -149,7 +149,7 @@ class AveniaService
                 throw new Exception('Failed to request document upload');
             }
 
-            $selfieData = $this->post('/documents', [
+            $selfieData = $this->post("/documents?subAccountId=$aveniaCustomerId", [
                 'documentType' => 'SELFIE',
                 'subAccountId' => $aveniaCustomerId,
             ]);
@@ -159,8 +159,8 @@ class AveniaService
             }
 
             /* -------------------------------------------------
-        | STEP 2: FILE UPLOADS
-        * ------------------------------------------------- */
+            | STEP 2: FILE UPLOADS
+            * ------------------------------------------------- */
             $getBinary = function (string $path): array {
                 $binary = filter_var($path, FILTER_VALIDATE_URL)
                     ? Http::get($path)->body()
@@ -195,9 +195,9 @@ class AveniaService
             $upload($selfieData['uploadURLFront'], $selfieBinary, $selfieMime, 'selfie');
 
             /* -------------------------------------------------
-        | STEP 3: SUBMIT KYC
-        * ------------------------------------------------- */
-            $kycResponse = $this->post('/kyc/new-level-1/api', [
+            | STEP 3: SUBMIT KYC
+            * ------------------------------------------------- */
+            $kycResponse = $this->post("/kyc/new-level-1/api?subAccountId=$aveniaCustomerId", [
                 'subAccountId'        => $aveniaCustomerId,
                 'fullName'            => $fullName,
                 'dateOfBirth'         => date('Y-m-d', strtotime($data['birth_date'])),
@@ -243,9 +243,9 @@ class AveniaService
      | Public API methods
      * --------------------------------------------------------- */
 
-    public function createQuote(array $payload)
+    public function createQuote(array $payload, $aveniaCustomerId = "af55224d-f4ea-4335-898f-15d3a1659bc9")
     {
-        return $this->get('/account/quote/fixed-rate', $payload);
+        return $this->get("/account/quote/fixed-rate?subAccountId=$aveniaCustomerId", $payload);
     }
 
     public function login()
@@ -255,16 +255,16 @@ class AveniaService
         return response()->json($result);
     }
 
-    public function deposit(array $payload)
+    public function deposit(array $payload, $aveniaCustomerId = "af55224d-f4ea-4335-898f-15d3a1659bc9")
     {
-        $response = $this->post('/account/tickets/', $payload);
+        $response = $this->post("/account/tickets?subAccountId=$aveniaCustomerId", $payload);
         return $response;
     }
 
     public function getAccountInfo()
     {
         try {
-            return $this->get('/account/sub-accounts/5beccf54-29d7-4b59-98d8-9b8f7fbba961');
+            return $this->get('/account/sub-accounts');
         } catch (Throwable $th) {
             Log::info($th);
         }
@@ -283,18 +283,19 @@ class AveniaService
                 "outputThirdParty" => false,
             ];
 
+            $aveniaCustomerId = "af55224d-f4ea-4335-898f-15d3a1659bc9";
+
             $avenia = new AveniaService();
-            $quote = $avenia->createQuote($quote_payload);
+            $quote = $avenia->createQuote($quote_payload, $aveniaCustomerId);
             logger("quote generation respoonse", ['quote_generation' => $quote]);
             if (isset($quote['quoteToken'])) {
                 // make a post request to generate the deposit
                 $payload = [
                     "quoteToken" => $quote['quoteToken'],
-                    "externalId" => 'Yativo-234',
+                    "externalId" => 'Yativo-'.microtime(),
                     "ticketBlockchainOutput" => [
-                        "walletChain" => "solana",
-                        "walletAddress" => "CyuXhQVaNrku3K44HdCfxkEPNr7i8GnRu3irKrRc6YpC",
-                        "walletMemo" => "optional memo"
+                        "walletChain" => "POLYGON",
+                        "walletAddress" => "0x316363Fd9B3e7E9e1ea4cC8503681a15A0cc5ECb",
                     ]
                 ];
                 $deposit = $avenia->deposit($payload);
@@ -326,24 +327,41 @@ class AveniaService
     protected function aveniaRequest(string $method, string $url, ?array $payload = null)
     {
         try {
-            // Normalize payload
             $payload = $payload ?? [];
+            $method  = strtoupper($method);
 
-            // Normalize URI
-            $uri = str_replace('//', '/', "/v2/{$url}");
+            // Normalize base path
+            $basePath = '/v2/' . ltrim($url, '/');
 
-            // Handle GET query parameters
-            if ($method === 'GET' && ! empty($payload)) {
-                // (optional but recommended) ensure stable signing
-                ksort($payload);
+            // Parse existing query params from URL
+            $parsed = parse_url($basePath);
 
-                $queryString = http_build_query($payload);
-                $uri .= '?' . $queryString;
+            $path = $parsed['path'] ?? '';
+            $existingQuery = [];
+
+            if (!empty($parsed['query'])) {
+                parse_str($parsed['query'], $existingQuery);
+            }
+
+            // Final URI
+            $uri = $path;
+
+            // Merge query params safely
+            if ($method === 'GET') {
+                $query = array_merge($existingQuery, $payload);
+            } else {
+                // POST: keep existing query only (payload stays body)
+                $query = $existingQuery;
+            }
+
+            if (!empty($query)) {
+                ksort($query);
+                $uri .= '?' . http_build_query($query);
             }
 
             $timestamp = (string) round(microtime(true) * 1000);
 
-            // Body is ONLY for POST
+            // POST body only
             $body = $method === 'POST'
                 ? json_encode($payload, JSON_UNESCAPED_SLASHES)
                 : '';
@@ -355,7 +373,7 @@ class AveniaService
                 file_get_contents($this->privateKeyPath)
             );
 
-            if (! $privateKey) {
+            if (!$privateKey) {
                 throw new Exception('Invalid private key');
             }
 
@@ -366,19 +384,18 @@ class AveniaService
                 OPENSSL_ALGO_SHA256
             );
 
-            $signatureBase64 = base64_encode($signature);
-
             $headers = [
                 'X-API-Key'       => $this->apiKey,
                 'X-API-Timestamp' => $timestamp,
-                'X-API-Signature' => $signatureBase64,
+                'X-API-Signature' => base64_encode($signature),
                 'Content-Type'    => 'application/json',
             ];
 
-            Log::info('Avenia signing debug', [
+            Log::info('Avenia request debug', [
                 'method' => $method,
                 'uri'    => $uri,
-                'base_url' => $this->baseUrl
+                'query'  => $query ?? [],
+                'body'   => $payload,
             ]);
 
             $request = Http::withHeaders($headers);
@@ -388,8 +405,6 @@ class AveniaService
                 'POST' => $request->post($this->baseUrl . $uri, $payload),
                 default => throw new Exception("Unsupported method {$method}")
             };
-
-            Log::info("Hello", ['result' => $response->json(), 'uri' => $uri]);
 
             return $response;
         } catch (Throwable $th) {
@@ -404,9 +419,10 @@ class AveniaService
         }
     }
 
-    public function get_iso3($iso2):?string
+
+    public function get_iso3($iso2): ?string
     {
-        $country = Country::where('iso2',$iso2)->first();
+        $country = Country::where('iso2', $iso2)->first();
         return $country->iso3;
-        }
+    }
 }
