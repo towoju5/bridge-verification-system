@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SubmitBusinessKycToPlatforms;
 use App\Models\BusinessCustomer;
+use App\Models\Customer;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -248,7 +249,7 @@ class BusinessController extends Controller
             return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
         }
         session('business_customer_id', $request->customer_id);
-        $business = BusinessCustomer::find($businessId);
+        $business = Customer::find($businessId);
         if (! $business) {
             return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
         }
