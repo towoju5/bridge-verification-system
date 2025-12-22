@@ -448,7 +448,7 @@ class BusinessController extends Controller
      * @param string $prefix
      * @return string|null Stored filename (e.g., "document_abc123.jpg")
      */
-    private function normalizeAndStoreFile($input, int $businessId, string $prefix = 'file')
+    private function normalizeAndStoreFile($input, string|int $businessId, string $prefix = 'file')
     {
         try {
             $contents = null;
