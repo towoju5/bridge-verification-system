@@ -517,7 +517,7 @@ class BusinessController extends Controller
     /**
      * Rules generator for each step — used by saveBusinessVerificationStep and submitAll
      */
-    private function rulesForStep(int $step)
+    private function rulesForStep(string|int $step)
     {
         switch ($step) {
             case 1:
