@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Endorsement;
+use App\Services\AveniaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -191,12 +192,13 @@ class SubmitBusinessToTazapay implements ShouldQueue
     public function handleAveniaKyb()
     {
         try {
-            $baseUrl = env('AVENIA_BASE_URL')."/kyc/new-level-1/web-sdk";
+            $endpoint = "/kyc/new-level-1/web-sdk";
             $payload = [
                 "redirectUrl" => "https://kyc.yativo.com/kyb-complete"
             ];
             $customerId = $this->businessData['customer_id'];
-            $response = Http::timeout(30)->post($baseUrl, $payload);
+            $avenia = new AveniaService();
+            $response = $avenia->post($endpoint, $payload);
 
             $result = $response->json();
             if ($response->successful()) {

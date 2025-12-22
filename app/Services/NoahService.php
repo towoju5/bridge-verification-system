@@ -78,6 +78,7 @@ class NoahService
     {
         $response = $this->processOnboarding($customerId);
         if ($response->successful()) {
+            $body = $response->json();
             $hostedUrl = $body['HostedURL'] ?? null;
             foreach (['base', 'sepa', 'spei'] as $service) {
                 update_endorsement($customerId, $service, "submitted", $hostedUrl);
@@ -86,9 +87,10 @@ class NoahService
             Log::info('Noah onboarding initiated', [
                 'customer_id' => $customerId,
                 'hosted_kyc_url' => $hostedUrl,
+                'body' => $body
             ]);
 
-            Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
+            // Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
         } else {
             logger('Failed to initiate Noah onboarding: ' . $response->body());
         }

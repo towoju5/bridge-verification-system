@@ -88,7 +88,7 @@ class AveniaService
 
             foreach ($requiredAddressFields as $field) {
                 if (empty($address[$field])) {
-                    throw new Exception("Missing required address field: {$field}");
+                    // throw new Exception("Missing required address field: {$field}");
                 }
             }
 
