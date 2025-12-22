@@ -32,6 +32,13 @@ class BusinessController extends Controller
                 $table->json('extra_business_info')->nullable()->after('email');
             });
         }
+
+        if (!Schema::hasColumn('business_customers', 'collections_data')) {
+            Schema::table('business_customers', function (Blueprint $table) {
+                $table->json('collections_data')->nullable()->after('identifying_information');
+                $table->json('payouts_data')->nullable()->after('collections_data');
+            });
+        }
     }
 
     public function showAccountTypeSelection()
@@ -100,13 +107,6 @@ class BusinessController extends Controller
                 'message' => 'Validation failed.',
                 'errors'  => $validator->errors(),
             ], 422);
-        }
-
-        if (!Schema::hasColumn('business_customers', 'collections_data')) {
-            Schema::table('business_customers', function (Blueprint $table) {
-                $table->json('collections_data')->nullable()->after('identifying_information');
-                $table->json('payouts_data')->nullable()->after('collections_data');
-            });
         }
 
         // validated data (non-files)
