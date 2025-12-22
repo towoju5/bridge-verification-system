@@ -241,116 +241,6 @@ class BusinessController extends Controller
     }
 
 
-    /**
-     * Submit all data in a single API call (full payload + files).
-     * Accepts nested arrays and files in the same shape as individual steps.
-     */
-    // public function submitAll(Request $request)
-    // {
-    //     $businessId =  $request->customer_id ?? session('business_customer_id') ?? $request->header('X-Business-Id');
-    //     if (! $businessId) {
-    //         return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
-    //     }
-    //     session('business_customer_id', $request->customer_id);
-    //     $business = Customer::find($businessId);
-    //     if (! $business) {
-    //         return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
-    //     }
-
-    //     // Collect rules for steps 1..9
-    //     $allRules = [];
-    //     for ($i = 1; $i <= 9; $i++) {
-    //         $allRules = array_merge($allRules, $this->rulesForStep($i));
-    //     }
-
-    //     $validator = Validator::make($request->all(), $allRules);
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Validation failed.',
-    //             'errors'  => $validator->errors(),
-    //         ], 422);
-    //     }
-
-    //     // Now map step-by-step (reuse mapping), and process files similar to single-step handler
-    //     $payload = $validator->validated();
-
-    //     // Merge mapped data
-    //     $merged = [];
-    //     for ($s = 1; $s <= 9; $s++) {
-    //         $mapped = $this->mapBusinessStepDataToModel($payload, $s);
-    //         $merged = array_merge_recursive($merged, $mapped);
-    //     }
-
-    //     foreach (['registered_address', 'physical_address'] as $addr) {
-    //         if ($request->hasFile("{$addr}.proof_of_address_file")) {
-    //             $file = $request->file("{$addr}.proof_of_address_file");
-    //             $path = $file->store("public/business_documents/{$business->id}");
-    //             Arr::set($merged, "{$addr}.proof_of_address_file", basename($path));
-    //         }
-    //     }
-
-    //     // documents array files
-    //     if ($request->has('documents')) {
-    //         $docs = $request->input('documents', []);
-    //         $finalDocs = [];
-    //         foreach ($docs as $i => $doc) {
-    //             $d = $doc;
-    //             if ($request->hasFile("documents.{$i}.file")) {
-    //                 $file = $request->file("documents.{$i}.file");
-    //                 $path = $file->store("public/business_documents/{$business->id}");
-    //                 $d['file'] = basename($path);
-    //             }
-    //             $finalDocs[] = $d;
-    //         }
-    //         $merged['documents'] = $finalDocs;
-    //     }
-
-    //     // identifying_information images
-    //     if ($request->has('identifying_information')) {
-    //         $ids = $request->input('identifying_information', []);
-    //         $finalIds = [];
-    //         foreach ($ids as $i => $id) {
-    //             $item = $id;
-    //             if ($request->hasFile("identifying_information.{$i}.image_front")) {
-    //                 $front = $request->file("identifying_information.{$i}.image_front");
-    //                 $path  = $front->store("public/business_documents/{$business->id}");
-    //                 $item['image_front'] = basename($path);
-    //             }
-    //             if ($request->hasFile("identifying_information.{$i}.image_back")) {
-    //                 $back = $request->file("identifying_information.{$i}.image_back");
-    //                 $path = $back->store("public/business_documents/{$business->id}");
-    //                 $item['image_back'] = basename($path);
-    //             }
-    //             $finalIds[] = $item;
-    //         }
-    //         $merged['identifying_information'] = $finalIds;
-    //     }
-
-    //     // extra documents
-    //     $extra = $business->extra_documents ?? [];
-    //     if ($request->hasFile('extra_documents')) {
-    //         $files = $request->file('extra_documents');
-    //         foreach ($files as $k => $f) {
-    //             $path = $f->store("public/business_documents/{$business->id}");
-    //             $extra[$k] = basename($path);
-    //         }
-    //     }
-    //     $merged['extra_documents'] = $extra;
-
-    //     $business->fill($merged);
-    //     $business->status = 'completed';
-    //     $business->save();
-
-    //     SubmitBusinessKycToPlatforms::dispatch($business)->afterResponse();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'message' => 'All data submitted successfully.',
-    //         'business_data' => $business->fresh(),
-    //     ]);
-    // }
 
     /**
      * Submit all data in a single API call (full payload + files).
@@ -368,7 +258,7 @@ class BusinessController extends Controller
 
         session(['business_customer_id' => $businessId]);
 
-        $business = Customer::find($businessId);
+        $business = Customer::whereCustomerId($businessId)->first();
         if (! $business) {
             return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
         }
