@@ -545,8 +545,8 @@ class BusinessController extends Controller
                     'physical_address.street_line_1'   => 'required|string|max:255',
                     'physical_address.city'            => 'required|string|max:100',
                     'physical_address.country'         => 'required|string|size:2',
-                    'registered_address.proof_of_address_file' => 'nullable|file',
-                    'physical_address.proof_of_address_file'  => 'nullable|file',
+                    'registered_address.proof_of_address_file' => 'nullable',
+                    'physical_address.proof_of_address_file'  => 'nullable',
                 ];
             case 3:
                 return [
@@ -598,7 +598,7 @@ class BusinessController extends Controller
                     'documents'                     => 'required|array|min:1',
                     'documents.*.purpose'           => 'required|string|min:1',
                     'documents.*.description'       => 'required|string',
-                    'documents.*.file'              => 'nullable|file',
+                    'documents.*.file'              => 'nullable',
                 ];
             case 7:
                 return [
@@ -608,8 +608,8 @@ class BusinessController extends Controller
                     'identifying_information.*.number'              => 'required|string',
                     'identifying_information.*.description'         => 'nullable|string',
                     'identifying_information.*.expiration'          => 'required|date|after:today',
-                    'identifying_information.*.image_front'         => 'nullable|file',
-                    'identifying_information.*.image_back'          => 'nullable|file',
+                    'identifying_information.*.image_front'         => 'nullable',
+                    'identifying_information.*.image_back'          => 'nullable',
                 ];
 
             case 'business': // EXTRA BUSINESS INFO
