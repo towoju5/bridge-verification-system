@@ -9,6 +9,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -242,23 +243,143 @@ class BusinessController extends Controller
      * Submit all data in a single API call (full payload + files).
      * Accepts nested arrays and files in the same shape as individual steps.
      */
+    // public function submitAll(Request $request)
+    // {
+    //     $businessId =  $request->customer_id ?? session('business_customer_id') ?? $request->header('X-Business-Id');
+    //     if (! $businessId) {
+    //         return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
+    //     }
+    //     session('business_customer_id', $request->customer_id);
+    //     $business = Customer::find($businessId);
+    //     if (! $business) {
+    //         return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
+    //     }
+
+    //     // Collect rules for steps 1..9
+    //     $allRules = [];
+    //     for ($i = 1; $i <= 9; $i++) {
+    //         $allRules = array_merge($allRules, $this->rulesForStep($i));
+    //     }
+
+    //     $validator = Validator::make($request->all(), $allRules);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Validation failed.',
+    //             'errors'  => $validator->errors(),
+    //         ], 422);
+    //     }
+
+    //     // Now map step-by-step (reuse mapping), and process files similar to single-step handler
+    //     $payload = $validator->validated();
+
+    //     // Merge mapped data
+    //     $merged = [];
+    //     for ($s = 1; $s <= 9; $s++) {
+    //         $mapped = $this->mapBusinessStepDataToModel($payload, $s);
+    //         $merged = array_merge_recursive($merged, $mapped);
+    //     }
+
+    //     foreach (['registered_address', 'physical_address'] as $addr) {
+    //         if ($request->hasFile("{$addr}.proof_of_address_file")) {
+    //             $file = $request->file("{$addr}.proof_of_address_file");
+    //             $path = $file->store("public/business_documents/{$business->id}");
+    //             Arr::set($merged, "{$addr}.proof_of_address_file", basename($path));
+    //         }
+    //     }
+
+    //     // documents array files
+    //     if ($request->has('documents')) {
+    //         $docs = $request->input('documents', []);
+    //         $finalDocs = [];
+    //         foreach ($docs as $i => $doc) {
+    //             $d = $doc;
+    //             if ($request->hasFile("documents.{$i}.file")) {
+    //                 $file = $request->file("documents.{$i}.file");
+    //                 $path = $file->store("public/business_documents/{$business->id}");
+    //                 $d['file'] = basename($path);
+    //             }
+    //             $finalDocs[] = $d;
+    //         }
+    //         $merged['documents'] = $finalDocs;
+    //     }
+
+    //     // identifying_information images
+    //     if ($request->has('identifying_information')) {
+    //         $ids = $request->input('identifying_information', []);
+    //         $finalIds = [];
+    //         foreach ($ids as $i => $id) {
+    //             $item = $id;
+    //             if ($request->hasFile("identifying_information.{$i}.image_front")) {
+    //                 $front = $request->file("identifying_information.{$i}.image_front");
+    //                 $path  = $front->store("public/business_documents/{$business->id}");
+    //                 $item['image_front'] = basename($path);
+    //             }
+    //             if ($request->hasFile("identifying_information.{$i}.image_back")) {
+    //                 $back = $request->file("identifying_information.{$i}.image_back");
+    //                 $path = $back->store("public/business_documents/{$business->id}");
+    //                 $item['image_back'] = basename($path);
+    //             }
+    //             $finalIds[] = $item;
+    //         }
+    //         $merged['identifying_information'] = $finalIds;
+    //     }
+
+    //     // extra documents
+    //     $extra = $business->extra_documents ?? [];
+    //     if ($request->hasFile('extra_documents')) {
+    //         $files = $request->file('extra_documents');
+    //         foreach ($files as $k => $f) {
+    //             $path = $f->store("public/business_documents/{$business->id}");
+    //             $extra[$k] = basename($path);
+    //         }
+    //     }
+    //     $merged['extra_documents'] = $extra;
+
+    //     $business->fill($merged);
+    //     $business->status = 'completed';
+    //     $business->save();
+
+    //     SubmitBusinessKycToPlatforms::dispatch($business)->afterResponse();
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'All data submitted successfully.',
+    //         'business_data' => $business->fresh(),
+    //     ]);
+    // }
+
+    /**
+     * Submit all data in a single API call (full payload + files).
+     * Supports:
+     *   - Direct file uploads (multipart/form-data)
+     *   - Base64-encoded strings (standard or "base64:" prefixed)
+     *   - Publicly accessible URLs (http/https)
+     */
     public function submitAll(Request $request)
     {
-        $businessId =  $request->customer_id ?? session('business_customer_id') ??$request->header('X-Business-Id');
+        $businessId = $request->customer_id ?? session('business_customer_id') ?? $request->header('X-Business-Id');
         if (! $businessId) {
             return response()->json(['success' => false, 'message' => 'Customer ID is required.'], 400);
         }
-        session('business_customer_id', $request->customer_id);
+
+        session(['business_customer_id' => $businessId]);
+
         $business = Customer::find($businessId);
         if (! $business) {
             return response()->json(['success' => false, 'message' => 'Business record not found.'], 404);
         }
 
-        // Collect rules for steps 1..9
+        // Collect rules for steps 1..9 + custom steps
         $allRules = [];
         for ($i = 1; $i <= 9; $i++) {
             $allRules = array_merge($allRules, $this->rulesForStep($i));
         }
+        // Add rules for custom sections (business, collections, payouts)
+        $allRules = array_merge($allRules, $this->rulesForStep('business'));
+        $allRules = array_merge($allRules, $this->rulesForStep('collections'));
+        $allRules = array_merge($allRules, $this->rulesForStep('payouts'));
 
         $validator = Validator::make($request->all(), $allRules);
 
@@ -270,72 +391,135 @@ class BusinessController extends Controller
             ], 422);
         }
 
-        // Now map step-by-step (reuse mapping), and process files similar to single-step handler
         $payload = $validator->validated();
-
-        // Merge mapped data
         $merged = [];
+
+        // Map step data (1–9)
         for ($s = 1; $s <= 9; $s++) {
             $mapped = $this->mapBusinessStepDataToModel($payload, $s);
             $merged = array_merge_recursive($merged, $mapped);
         }
 
+        // Handle Step 2: Address proof files
         foreach (['registered_address', 'physical_address'] as $addr) {
-            if ($request->hasFile("{$addr}.proof_of_address_file")) {
-                $file = $request->file("{$addr}.proof_of_address_file");
-                $path = $file->store("public/business_documents/{$business->id}");
-                Arr::set($merged, "{$addr}.proof_of_address_file", basename($path));
+            $fileInput = $request->file("{$addr}.proof_of_address_file") ?? $request->input("{$addr}.proof_of_address_file");
+            if ($fileInput) {
+                $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'proof_of_address');
+                if ($storedName) {
+                    Arr::set($merged, "{$addr}.proof_of_address_file", $storedName);
+                }
             }
         }
 
-        // documents array files
+        // Handle Step 6: Supporting documents
         if ($request->has('documents')) {
             $docs = $request->input('documents', []);
             $finalDocs = [];
             foreach ($docs as $i => $doc) {
                 $d = $doc;
-                if ($request->hasFile("documents.{$i}.file")) {
-                    $file = $request->file("documents.{$i}.file");
-                    $path = $file->store("public/business_documents/{$business->id}");
-                    $d['file'] = basename($path);
+                $fileInput = $request->file("documents.{$i}.file") ?? ($doc['file'] ?? null);
+                if ($fileInput) {
+                    $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'document');
+                    if ($storedName) {
+                        $d['file'] = $storedName;
+                    }
                 }
                 $finalDocs[] = $d;
             }
             $merged['documents'] = $finalDocs;
         }
 
-        // identifying_information images
+        // Handle Step 7: Business identifying documents (ID images)
         if ($request->has('identifying_information')) {
             $ids = $request->input('identifying_information', []);
             $finalIds = [];
             foreach ($ids as $i => $id) {
                 $item = $id;
-                if ($request->hasFile("identifying_information.{$i}.image_front")) {
-                    $front = $request->file("identifying_information.{$i}.image_front");
-                    $path  = $front->store("public/business_documents/{$business->id}");
-                    $item['image_front'] = basename($path);
+                // Front image
+                $frontInput = $request->file("identifying_information.{$i}.image_front") ?? ($id['image_front'] ?? null);
+                if ($frontInput) {
+                    $storedName = $this->normalizeAndStoreFile($frontInput, $business->id, 'id_front');
+                    if ($storedName) {
+                        $item['image_front'] = $storedName;
+                    }
                 }
-                if ($request->hasFile("identifying_information.{$i}.image_back")) {
-                    $back = $request->file("identifying_information.{$i}.image_back");
-                    $path = $back->store("public/business_documents/{$business->id}");
-                    $item['image_back'] = basename($path);
+                // Back image
+                $backInput = $request->file("identifying_information.{$i}.image_back") ?? ($id['image_back'] ?? null);
+                if ($backInput) {
+                    $storedName = $this->normalizeAndStoreFile($backInput, $business->id, 'id_back');
+                    if ($storedName) {
+                        $item['image_back'] = $storedName;
+                    }
                 }
                 $finalIds[] = $item;
             }
             $merged['identifying_information'] = $finalIds;
         }
 
-        // extra documents
-        $extra = $business->extra_documents ?? [];
-        if ($request->hasFile('extra_documents')) {
-            $files = $request->file('extra_documents');
-            foreach ($files as $k => $f) {
-                $path = $f->store("public/business_documents/{$business->id}");
-                $extra[$k] = basename($path);
+        // Handle Step 8: Extra documents
+        $extra = [];
+        if ($request->has('extra_documents')) {
+            $extraDocs = $request->input('extra_documents', []);
+            foreach ($extraDocs as $k => $doc) {
+                $d = $doc;
+                $fileInput = $request->file("extra_documents.{$k}.file") ?? ($doc['file'] ?? null);
+                if ($fileInput) {
+                    $storedName = $this->normalizeAndStoreFile($fileInput, $business->id, 'extra_doc');
+                    if ($storedName) {
+                        $d['file'] = $storedName;
+                    }
+                }
+                $extra[] = $d;
             }
+            $merged['extra_documents'] = $extra;
         }
-        $merged['extra_documents'] = $extra;
 
+        // Handle custom sections: 'business', 'collections', 'payouts'
+        if (isset($payload['meeting_mode'])) {
+            $merged['extra_business_info'] = Arr::only($payload, [
+                'meeting_mode',
+                'industry_vertical',
+                'business_description',
+                'obo_usage',
+                'monthly_volume_usd',
+                'avg_transaction_usd',
+                'max_transaction_usd',
+                'primary_account_purpose',
+                'sender_geographies',
+            ]);
+        }
+
+        if (isset($payload['sender_industries'])) {
+            $merged['collections_data'] = Arr::only($payload, [
+                'sender_industries',
+                'sender_types',
+                'top_5_senders',
+                'incoming_from_fintech_wallets',
+                'incoming_fintech_wallet_details',
+                'collection_currencies',
+                'current_collection_provider',
+                'reason_for_switching_collection',
+                'expected_monthly_disbursement_usd',
+                'avg_transaction_amount_collection',
+                'max_transaction_amount_collection',
+            ]);
+        }
+
+        if (isset($payload['payout_primary_purpose'])) {
+            $merged['payouts_data'] = Arr::only($payload, [
+                'payout_primary_purpose',
+                'beneficiary_geographies',
+                'beneficiary_industries',
+                'beneficiary_types',
+                'top_5_beneficiaries',
+                'primary_payout_method',
+                'payout_currencies',
+                'current_payout_provider',
+                'reason_for_switching_payout',
+            ]);
+        }
+
+        // Save all data
         $business->fill($merged);
         $business->status = 'completed';
         $business->save();
@@ -347,6 +531,95 @@ class BusinessController extends Controller
             'message' => 'All data submitted successfully.',
             'business_data' => $business->fresh(),
         ]);
+    }
+
+    /**
+     * Accepts a file in one of three forms:
+     * 1. UploadedFile (from multipart)
+     * 2. Base64 string (data:image/... or base64:...)
+     * 3. Public URL (http/https)
+     *
+     * Returns stored filename (e.g., "doc_abc123.jpg") or null on failure.
+     */
+    /**
+     * Normalize and store a file from one of three sources:
+     * 1. UploadedFile (direct upload)
+     * 2. Base64 string (e.g., "image/png;base64,..." or "base64:image/jpg,...")
+     * 3. Public URL (http/https)
+     *
+     * @param mixed $input
+     * @param int $businessId
+     * @param string $prefix
+     * @return string|null Stored filename (e.g., "document_abc123.jpg")
+     */
+    private function normalizeAndStoreFile($input, int $businessId, string $prefix = 'file')
+    {
+        try {
+            $contents = null;
+            $extension = 'bin';
+
+            // Case 1: Direct upload (Laravel UploadedFile)
+            if ($input instanceof \Illuminate\Http\UploadedFile) {
+                if (!$input->isValid()) {
+                    return null;
+                }
+                $contents = file_get_contents($input->getRealPath());
+                $extension = $input->getClientOriginalExtension() ?: $input->guessExtension() ?: 'bin';
+            }
+            // Case 2: Base64 string
+            elseif (is_string($input) && (Str::contains($input, ';base64,') || Str::startsWith($input, 'base64:'))) {
+                // Normalize: support both "image/png;base64,..." and "base64:image/jpg,..."
+                $pattern = '/^(?:|base64:)([a-zA-Z0-9\/+]+),(.+)$/i';
+                if (!preg_match($pattern, $input, $matches)) {
+                    return null;
+                }
+                $mime = $matches[1];
+                $encoded = $matches[2];
+                $contents = base64_decode($encoded, true);
+                if ($contents === false) {
+                    return null;
+                }
+                $extension = match ($mime) {
+                    'image/jpeg', 'image/jpg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    'application/pdf' => 'pdf',
+                    'text/plain' => 'txt',
+                    default => explode('/', $mime, 2)[1] ?? 'bin'
+                };
+            }
+            // Case 3: Public URL
+            elseif (is_string($input) && filter_var($input, FILTER_VALIDATE_URL)) {
+                $scheme = parse_url($input, PHP_URL_SCHEME);
+                if (!in_array($scheme, ['http', 'https'])) {
+                    return null;
+                }
+                $response = Http::timeout(30)->accept('*/*')->get($input);
+                if (!$response->successful()) {
+                    return null;
+                }
+                $contents = $response->body();
+                $contentType = $response->header('Content-Type') ?: 'application/octet-stream';
+                $extension = match ($contentType) {
+                    'image/jpeg', 'image/jpg' => 'jpg',
+                    'image/png' => 'png',
+                    'application/pdf' => 'pdf',
+                    default => explode('/', $contentType, 2)[1] ?? 'bin'
+                };
+            } else {
+                return null; // Unsupported type
+            }
+
+            // Generate safe filename
+            $filename = "{$prefix}_" . Str::random(12) . '.' . $extension;
+            $path = "public/business_documents/{$businessId}/{$filename}";
+            Storage::put($path, $contents);
+
+            return basename($path);
+        } catch (\Exception $e) {
+            // Optionally log: \Log::warning("File store failed: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
