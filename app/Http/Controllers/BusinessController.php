@@ -373,7 +373,7 @@ class BusinessController extends Controller
         }
 
         // Handle custom sections: 'business', 'collections', 'payouts'
-        if (isset($payload['meeting_mode'])) {
+        if (isset($payload['extra_business_info'])) {
             $merged['extra_business_info'] = Arr::only($payload, [
                 'meeting_mode',
                 'industry_vertical',
@@ -387,7 +387,7 @@ class BusinessController extends Controller
             ]);
         }
 
-        if (isset($payload['sender_industries'])) {
+        if (isset($payload['collections_data'])) {
             $merged['collections_data'] = Arr::only($payload, [
                 'sender_industries',
                 'sender_types',
@@ -403,7 +403,7 @@ class BusinessController extends Controller
             ]);
         }
 
-        if (isset($payload['payout_primary_purpose'])) {
+        if (isset($payload['payouts_data'])) {
             $merged['payouts_data'] = Arr::only($payload, [
                 'payout_primary_purpose',
                 'beneficiary_geographies',
@@ -417,6 +417,7 @@ class BusinessController extends Controller
             ]);
         }
 
+        $business->customer_id = $request->customer_id;
         // Save all data
         $business->fill($merged);
         $business->status = 'completed';
