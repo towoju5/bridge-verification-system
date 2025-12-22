@@ -373,49 +373,53 @@ class BusinessController extends Controller
         }
 
         // Handle custom sections: 'business', 'collections', 'payouts'
-        if (isset($payload['extra_business_info'])) {
-            $merged['extra_business_info'] = Arr::only($payload, [
-                'meeting_mode',
-                'industry_vertical',
-                'business_description',
-                'obo_usage',
-                'monthly_volume_usd',
-                'avg_transaction_usd',
-                'max_transaction_usd',
-                'primary_account_purpose',
-                'sender_geographies',
-            ]);
-        }
+        // if (isset($payload['extra_business_info'])) {
+        //     $merged['extra_business_info'] = Arr::only($payload, [
+        //         'meeting_mode',
+        //         'industry_vertical',
+        //         'business_description',
+        //         'obo_usage',
+        //         'monthly_volume_usd',
+        //         'avg_transaction_usd',
+        //         'max_transaction_usd',
+        //         'primary_account_purpose',
+        //         'sender_geographies',
+        //     ]);
+        // }
 
-        if (isset($payload['collections_data'])) {
-            $merged['collections_data'] = Arr::only($payload, [
-                'sender_industries',
-                'sender_types',
-                'top_5_senders',
-                'incoming_from_fintech_wallets',
-                'incoming_fintech_wallet_details',
-                'collection_currencies',
-                'current_collection_provider',
-                'reason_for_switching_collection',
-                'expected_monthly_disbursement_usd',
-                'avg_transaction_amount_collection',
-                'max_transaction_amount_collection',
-            ]);
-        }
+        // if (isset($payload['collections_data'])) {
+        //     $merged['collections_data'] = Arr::only($payload, [
+        //         'sender_industries',
+        //         'sender_types',
+        //         'top_5_senders',
+        //         'incoming_from_fintech_wallets',
+        //         'incoming_fintech_wallet_details',
+        //         'collection_currencies',
+        //         'current_collection_provider',
+        //         'reason_for_switching_collection',
+        //         'expected_monthly_disbursement_usd',
+        //         'avg_transaction_amount_collection',
+        //         'max_transaction_amount_collection',
+        //     ]);
+        // }
 
-        if (isset($payload['payouts_data'])) {
-            $merged['payouts_data'] = Arr::only($payload, [
-                'payout_primary_purpose',
-                'beneficiary_geographies',
-                'beneficiary_industries',
-                'beneficiary_types',
-                'top_5_beneficiaries',
-                'primary_payout_method',
-                'payout_currencies',
-                'current_payout_provider',
-                'reason_for_switching_payout',
-            ]);
-        }
+        // if (isset($payload['payouts_data'])) {
+        //     $merged['payouts_data'] = Arr::only($payload, [
+        //         'payout_primary_purpose',
+        //         'beneficiary_geographies',
+        //         'beneficiary_industries',
+        //         'beneficiary_types',
+        //         'top_5_beneficiaries',
+        //         'primary_payout_method',
+        //         'payout_currencies',
+        //         'current_payout_provider',
+        //         'reason_for_switching_payout',
+        //     ]);
+        // }
+
+        $business->extra_business_info = $request->extra_business_info;
+        $business->collections_data = $request->collections_data;
+        $business->payouts_data = $request->payouts_data;
 
         $business->customer_id = $request->customer_id;
         // Save all data
