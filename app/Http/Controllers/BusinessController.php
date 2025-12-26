@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Jobs\SubmitBusinessKycToPlatforms;
 use App\Models\BusinessCustomer;
 use App\Models\Customer;
+use App\Services\NoahService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -929,5 +931,69 @@ class BusinessController extends Controller
         $id       = session('business_customer_id');
         $business = BusinessCustomer::find($id);
         return $business ? response()->json(['data' => $business]) : response()->json(['error' => 'Not found'], 404);
+    }
+
+    public function regenerateNoahKycLink(
+        string $customerId,
+        string $service,
+    ) {
+        try {
+            $noahService = new NoahService();
+            // 1. Validate endorsement existence
+            $endorsement = get_customer_endorsement($customerId, $service);
+
+            if (!$endorsement) {
+                return response()->json([
+                    "status"  => "failed",
+                    "message" => "Customer KYC not found for {$service}",
+                    "data"    => []
+                ], 404);
+            }
+
+            // 2. Already approved
+            if ($endorsement->status === 'approved') {
+                return response()->json([
+                    "status"  => "successful",
+                    "message" => "Customer already approved for {$service}",
+                    "data"    => $endorsement
+                ], 200);
+            }
+
+            // 3. Regenerate onboarding link
+            $response = $noahService->processOnboarding($customerId);
+
+            if (!$response->successful()) {
+                return response()->json([
+                    "status"  => "failed",
+                    "message" => "Unable to regenerate KYC link",
+                    "data"    => []
+                ], 422);
+            }
+
+            // 4. Reload updated endorsement
+            $updatedEndorsement = get_customer_endorsement($customerId, $service);
+
+            return response()->json([
+                "status"  => "successful",
+                "message" => "KYC link regenerated successfully",
+                "data"    => $updatedEndorsement->makeHidden([
+                    "errors",
+                    "requirements_due",
+                    "future_requirements_due",
+                    "metadata",
+                ])
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error("Noah KYC regeneration failed", [
+                'customer_id' => $customerId,
+                'service'     => $service,
+                'exception'   => $e
+            ]);
+
+            return response()->json([
+                "status"  => "error",
+                "message" => "Unable to regenerate link, please contact support"
+            ], 500);
+        }
     }
 }

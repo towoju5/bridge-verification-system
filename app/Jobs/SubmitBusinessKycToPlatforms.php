@@ -40,11 +40,11 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
         logger("submitting business KYB");
 
         // Submit to each platform
+        $results['noah']        = $this->submitToNoah();
+        $results['avenia']      = $this->avenia();
         $results['tazapay']     = $this->submitToTazapay();
         $results['borderless']  = $this->submitToBorderless();
-        $results['noah']        = $this->submitToNoah();
         $results['transfi']     = $this->submitToTransfi();
-        $results['avenia']      = $this->avenia();
         // $results['bitnob']      = $this->bitnob();
 
         // Log final status
@@ -294,54 +294,60 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             if (!$customer) {
                 logger("Customer not found");
             }
-            $addr = $this->business->registered_address;
-            $data = [
-                "businessName" => $this->business->business_legal_name,
-                "email"        => $this->business->email,
-                "regNo"        => $this->business->registration_number,
-                "date"         => $this->business->incorporation_date->format('d-m-Y'), // Transfi uses DD-MM-YYYY
-                "country"      => $addr['country'] ?? 'NG',
-                "phone"        => $this->business->phone_number,
-                "phoneCode"        => $this->business->phone_calling_code,
-                "address"      => [
-                    "street"     => $addr['street_line_1'] ?? '',
-                    "city"       => $addr['city'] ?? '',
-                    "state"      => $addr['subdivision'] ?? '',
-                    "postalCode" => $addr['postal_code'] ?? '',
-                ],
-            ];
+            if (!$this->business->incorporation_date) {
+                Log::warning('Transfi skipped: incorporation date missing', [
+                    'business_id' => $this->business->id,
+                ]);
+            } else {
+                $addr = $this->business->registered_address;
+                $data = [
+                    "businessName" => $this->business->business_legal_name,
+                    "email"        => $this->business->email,
+                    "regNo"        => $this->business->registration_number,
+                    "date"         => $this->business->incorporation_date,
+                    "country"      => $addr['country'] ?? 'NG',
+                    "phone"        => $this->business->phone_number,
+                    "phoneCode"        => $this->business->phone_calling_code,
+                    "address"      => [
+                        "street"     => $addr['street_line_1'] ?? '',
+                        "city"       => $addr['city'] ?? '',
+                        "state"      => $addr['subdivision'] ?? '',
+                        "postalCode" => $addr['postal_code'] ?? '',
+                    ],
+                ];
 
-            $customerId = $customer->customer_id;
-            $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
-            $response = Http::timeout(20)
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'MID' => env('TRANSFI_MERCHANT_ID'),
-                    'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
-                ])
-                ->post("{$baseUrl}/users/individual", $data);
+                $customerId = $customer->customer_id;
+                $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
+                $response = Http::timeout(20)
+                    ->withHeaders([
+                        'Accept' => 'application/json',
+                        'MID' => env('TRANSFI_MERCHANT_ID'),
+                        'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                    ])
+                    ->post("{$baseUrl}/users/individual", $data);
 
 
-            if ($response->successful()) {
-                $transfiUserId = $response->json()['userId'] ?? null;
-                if ($transfiUserId) {
-                    // send request to generate KYB URI
-                    $kybPayload = ["email" => $this->business->email];
-                    $res = Http::timeout(20)
-                        ->withHeaders([
-                            'Accept' => 'application/json',
-                            'MID' => env('TRANSFI_MERCHANT_ID'),
-                            'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
-                        ])
-                        ->post("{$baseUrl}/users/individual", $data);
-                    if ($res->successful() && isset($res->json()['link'])) {
-                        $link = $res->json()['link'];
-                        // update the Endorsement
-                        update_endorsement($customerId, 'asian', 'pending', $link);
+                if ($response->successful()) {
+                    $transfiUserId = $response->json()['userId'] ?? null;
+                    if ($transfiUserId) {
+                        // send request to generate KYB URI
+                        $kybPayload = ["email" => $this->business->email];
+                        $res = Http::timeout(20)
+                            ->withHeaders([
+                                'Accept' => 'application/json',
+                                'MID' => env('TRANSFI_MERCHANT_ID'),
+                                'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
+                            ])
+                            ->post("{$baseUrl}/users/individual", $data);
+                        if ($res->successful() && isset($res->json()['link'])) {
+                            $link = $res->json()['link'];
+                            // update the Endorsement
+                            update_endorsement($customerId, 'asian', 'pending', $link);
+                        }
                     }
+                    // since it's successful let generate a KYB url
+                    return ['status' => 'success', 'provider_id' => $response->json()['reference'] ?? null];
                 }
-                // since it's successful let generate a KYB url
-                return ['status' => 'success', 'provider_id' => $response->json()['reference'] ?? null];
             }
             logger("Transfi business submitted", ['response' => $response->json()]);
         } catch (\Exception $e) {
