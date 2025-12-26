@@ -89,6 +89,7 @@ class SubmitBusinessToNoah implements ShouldQueue
             });
 
             $noah = new NoahService();
+            $noah->processOnboarding($customerId);
             // submitting prefil kyb data
             $response = $noah->post("/onboarding/{$customerId}/prefill", $payload);
 
