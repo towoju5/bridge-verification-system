@@ -20,16 +20,26 @@ class AveniaBusinessService
     /**
      * Step 1: Create Subaccount for Business (COMPANY)
      */
-    public function businessCreateSubaccount(string $name): mixed
+    public function businessCreateSubaccount(string $name, string $customerId): mixed
     {
         $response = $this->avenia->post("/account/sub-accounts", [
             'accountType' => 'COMPANY',
             'name' => $name,
         ]);
         if ($response->successful()) {
-            return $response->json()['id'];
+            $subAccountId = $response->json()['id'];
+            if($subAccountId) {
+                $hostedUrl = $this->businessInitiateKybWebSdk($subAccountId);
+                if($hostedUrl && is_array($hostedUrl)) {
+                    add_customer_meta($customerId, 'avenia_sub_account_id', $subAccountId);
+                    update_endorsement($customerId, 'brazil', 'under_review', $hostedUrl);
+                }
+            }
+
+            logger("Avenia sub-account created successfully", ['subAccountId' => $subAccountId, 'hostedUrl' => $hostedUrl]);
         }
 
+        logger("Avenia sub-account creation response", ['response' => $response->json()]);
         return ['error' => $response->json()];
     }
 

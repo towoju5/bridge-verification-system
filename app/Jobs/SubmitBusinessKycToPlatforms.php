@@ -194,7 +194,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     {
         // firstly create sub account
         $avenia = new AveniaBusinessService();
-        $response = $avenia->businessCreateSubaccount($this->business->business_legal_name);
+        $response = $avenia->businessCreateSubaccount($this->business->business_legal_name, $this->business->customer_id);
         return $response;
     }
 
