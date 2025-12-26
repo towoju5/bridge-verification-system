@@ -52,14 +52,21 @@ class NoahService
                 $client = $client->withQueryParameters($queryParams);
             }
 
-            return [$client, $fullUrl, $body];
+            $result = [$client, $fullUrl, $body];
+            logger('Noah API client built', [
+                'method' => $method,
+                'url' => $fullUrl,
+                'headers' => $headers,
+                'query_params' => $queryParams,
+                'result' => $result,
+            ]);
+            return $result;
         } catch (\Throwable $th) {
             Log::error('Error building Noah API client', [
                 'method' => $method,
                 'path' => $path,
                 'error' => $th->getMessage(),
             ]);
-            // throw $th;
         }
     }
 

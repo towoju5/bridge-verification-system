@@ -102,6 +102,7 @@ class SubmitBusinessToNoah implements ShouldQueue
                 // Step 3: Submit documents
                 $this->submitNoahDocument($customerId, $data['identifying_information'] ?? []);
             }
+            logger("Noah KYB submission response", ['response' => $response->json()]);
         } catch (\Throwable $th) {
             logger("Error submitting business KYC to Noah: " . $th->getMessage(), ['business_data' => $this->businessData]);
         }

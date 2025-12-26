@@ -192,6 +192,11 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
 
     protected function avenia()
     {
+        $exists = get_customer_meta($this->business->customer_id, 'avenia_sub_account_id');
+        if($exists) {
+            logger("Avenia sub-account already exists for customer {$this->business->customer_id}, skipping creation.");
+            return;
+        }
         // firstly create sub account
         $avenia = new AveniaBusinessService();
         $response = $avenia->businessCreateSubaccount($this->business->business_legal_name, $this->business->customer_id);
