@@ -28,9 +28,10 @@ class AveniaBusinessService
         ]);
         if ($response->successful()) {
             $subAccountId = $response->json()['id'];
-            if($subAccountId) {
+            if ($subAccountId) {
                 $hostedUrl = $this->businessInitiateKybWebSdk($subAccountId);
-                if($hostedUrl && is_array($hostedUrl)) {
+                logger("Avenia KYB initiation response", ['hostedUrl' => $hostedUrl]);
+                if ($hostedUrl && is_array($hostedUrl)) {
                     add_customer_meta($customerId, 'avenia_sub_account_id', $subAccountId);
                     update_endorsement($customerId, 'brazil', 'under_review', $hostedUrl);
                 }
@@ -68,7 +69,7 @@ class AveniaBusinessService
             'subAccountId' => $subAccountId,
         ]);
 
-        
+
 
         if ($response->successful()) {
             return $response->json()['balances'];
@@ -87,7 +88,7 @@ class AveniaBusinessService
             'subAccountId' => $subAccountId,
         ]);
 
-        
+
 
         if ($response->successful()) {
             return $response->json()['limitInfo'];
@@ -109,7 +110,7 @@ class AveniaBusinessService
 
         $response = $this->avenia->get("/account/statement", $queryParams);
 
-        
+
 
         if ($response->successful()) {
             return $response->json();
@@ -122,22 +123,29 @@ class AveniaBusinessService
     /**
      * Step 6: Business Verification (KYB Level 1 via Web SDK)
      */
-    public function businessInitiateKybWebSdk(string $subAccountId): ?array
+    public function businessInitiateKybWebSdk(string $subAccountId)
     {
-        $response = $this->avenia->post("/kyc/new-level-1/web-sdk", [
-            'subAccountId' => $subAccountId,
-        ]);
+        try {
+            $response = $this->avenia->post("/kyc/new-level-1/web-sdk?subAccountId={$subAccountId}", [
+                'subAccountId' => $subAccountId,
+            ]);
 
-        if ($response->successful()) {
-            return [
-                'attemptId' => $response->json('attemptId'),
-                'authorizedRepresentativeUrl' => trim($response->json('authorizedRepresentativeUrl')),
-                'basicCompanyDataUrl' => trim($response->json('basicCompanyDataUrl')),
-            ];
+            if ($response->successful()) {
+                $result = [
+                    'attemptId' => $response->json('attemptId'),
+                    'authorizedRepresentativeUrl' => trim($response->json('authorizedRepresentativeUrl')),
+                    'basicCompanyDataUrl' => trim($response->json('basicCompanyDataUrl')),
+                ];
+                logger("Avenia KYB Web SDK initiation successful", ['result' => $result]);
+                return $result;
+            }
+
+            return null;
+        } catch (\Throwable $th) {
+            logger("Error initiating Avenia KYB Web SDK: " . $th->getMessage(), ['subAccountId' => $subAccountId]);
         }
-
-        return null;
     }
+
 
     /**
      * Step 7: Create BRL Bank Account / PIX Key
@@ -148,7 +156,7 @@ class AveniaBusinessService
         // accountNumber, accountType
         $response = $this->avenia->post("/account/beneficiaries/bank-accounts/brl/", $bankData);
 
-        
+
 
         if ($response->successful()) {
             return $response->json()['id'];
@@ -167,7 +175,7 @@ class AveniaBusinessService
         // inputAmount, inputThirdParty, outputThirdParty, blockchainSendMethod
         $response = $this->avenia->get("/account/quote/fixed-rate", $params);
 
-        
+
 
         if ($response->successful()) {
             return $response->json()['id'];
@@ -187,7 +195,7 @@ class AveniaBusinessService
         // ticketBlockchainOutput (beneficiaryWalletId)
         $response = $this->avenia->post("/account/tickets/", $ticketData);
 
-        
+
 
         if ($response->successful()) {
             return $response->json()['id'];

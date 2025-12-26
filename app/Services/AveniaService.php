@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
+use function Illuminate\Log\log;
+
 class AveniaService
 {
     protected string $baseUrl;
@@ -409,16 +411,18 @@ class AveniaService
                 default => throw new Exception("Unsupported method {$method}")
             };
 
+            logger("Avenia request response", [
+                'status'   => $response->status(),
+                'response' => $response->json(),
+            ]);
+
             return $response;
         } catch (Throwable $th) {
             Log::error('Avenia request failed', [
                 'error' => $th->getMessage(),
             ]);
 
-            return [
-                'error'   => true,
-                'message' => 'Avenia request failed',
-            ];
+            // return $response->json();
         }
     }
 
