@@ -331,6 +331,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             if ($response->successful()) {
                 $transfiUserId = $response->json()['userId'] ?? null;
                 if ($transfiUserId) {
+                    add_customer_meta($customerId, 'transfi_user_id', $transfiUserId);
                     // send request to generate KYB URI
                     $kybPayload = ["email" => $this->business->email];
                     $res = Http::timeout(20)
