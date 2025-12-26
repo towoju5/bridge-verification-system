@@ -295,7 +295,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
         try {
             logger("initiating Transfi business submission");
             logger("transfi incoming payload", ['data' => $this->business]);
-            $customer = Customer::whereCustomerId($this->business->customer_id);
+            $customer = Customer::whereCustomerId($this->business->customer_id)->first();
             if (!$customer) {
                 logger("Customer not found");
             }
