@@ -5,7 +5,9 @@ use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CustomerController;
+use App\Jobs\SubmitBusinessKycToPlatforms;
 use App\Jobs\ThirdPartyKycSubmission;
+use App\Models\BusinessCustomer;
 use App\Models\CustomerSubmission;
 use Illuminate\Support\Facades\Artisan;
 
@@ -46,6 +48,17 @@ Route::prefix('api/data')->group(function () {
     Route::get('identification-types/{countryCode}', [CustomerController::class, 'getIdentificationTypesByCountry'])->name('api.data.identification.types');
     Route::get('get-customer', [CustomerController::class, 'fetchUserData']);
 });
+
+
+Route::get('resubmit-kyb', function() {
+    $req = request();
+    $submission = BusinessCustomer::where('customer_id', $req->query('customer_id'))->latest()->first();
+    if (!$submission) {
+        return response()->json( ['message' => 'No submission found for the provided customer ID.']);
+    }
+    SubmitBusinessKycToPlatforms::dispatch($submission);
+    return response()->json( ['message' => 'KYB resubmission job has been queued successfully.']);
+})->name('business.resubmit.kyb');
 
 
 Route::prefix('api/business-customer')->group(function () {

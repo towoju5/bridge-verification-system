@@ -75,7 +75,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "vertical"             => $this->business->business_industry, // NAICS code
                 "website"              => $this->business->primary_website,
                 "registration_number"  => $this->business->registration_number,
-                "registration_date"    => $this->business->incorporation_date->format('Y-m-d'),
+                "registration_date"    => $this->business->incorporation_date?->format('Y-m-d'),
                 "statement_descriptor" => $this->business->statement_descriptor,
                 "representatives"      => $this->mapRepresentativesToTazapay(),
                 "documents"            => $this->mapDocumentsToTazapay(),
@@ -137,7 +137,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "email"                            => $this->business->email,
                 "name"                             => $this->business->business_legal_name,
                 "businessTradeName"                => $this->business->business_trade_name,
-                "dateOfIncorporation"              => $this->business->incorporation_date->format('Y-m-d'),
+                "dateOfIncorporation"              => $this->business->incorporation_date?->format('Y-m-d'),
                 "description"                      => $this->business->business_description,
                 "sourceOfFunds"                    => $this->business->source_of_funds,
                 "businessIndustryCode"             => $this->business->business_industry,

@@ -54,6 +54,17 @@ class NoahService
         return [$client, $fullUrl, $body];
     }
 
+    public function fetchCustomerData($customerId)
+    {
+        $response = $this->get("/customers/{$customerId}");
+        if ($response->successful()) {
+            $body = $response->json();
+            Log::info('fetch Noah user', ['customer_id' => $customerId, 'response' => $body]);
+        }
+
+        return response()->json($response->json(), $response->status());
+    }
+
     public function get(string $path, array $queryParams = [])
     {
         [$client, $url] = $this->buildClient('GET', $path, $queryParams);
