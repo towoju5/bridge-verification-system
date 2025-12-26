@@ -48,6 +48,12 @@ class AveniaService
             $result['id']
         );
 
+        update_endorsement(
+            $customerId,
+            'brazil',
+            'under_review'
+        );
+
         return $result;
     }
 
