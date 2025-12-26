@@ -29,29 +29,38 @@ class NoahService
 
     protected function buildClient(string $method, string $path, ?array $queryParams = null, ?string $body = null)
     {
-        $fullUrl = normalizeNoahApiUrl($this->baseUrl . ltrim($path, '/'));
+        try {
+            $fullUrl = normalizeNoahApiUrl($this->baseUrl . ltrim($path, '/'));
 
-        $signature = $this->signer->signRequest($method, $fullUrl, $queryParams, $body);
+            $signature = $this->signer->signRequest($method, $fullUrl, $queryParams, $body);
 
-        $headers = [
-            'X-Api-Key' => $this->apiKey,
-            'Api-Signature' => $signature,
-            'Accept' => 'application/json',
-        ];
+            $headers = [
+                'X-Api-Key' => $this->apiKey,
+                'Api-Signature' => $signature,
+                'Accept' => 'application/json',
+            ];
 
-        if ($body !== null) {
-            $headers['Content-Type'] = 'application/json';
+            if ($body !== null) {
+                $headers['Content-Type'] = 'application/json';
+            }
+
+            $client = Http::withHeaders($headers)
+                ->timeout(30)
+                ->withOptions(['http_errors' => false]);
+
+            if ($queryParams && !empty($queryParams)) {
+                $client = $client->withQueryParameters($queryParams);
+            }
+
+            return [$client, $fullUrl, $body];
+        } catch (\Throwable $th) {
+            Log::error('Error building Noah API client', [
+                'method' => $method,
+                'path' => $path,
+                'error' => $th->getMessage(),
+            ]);
+            // throw $th;
         }
-
-        $client = Http::withHeaders($headers)
-            ->timeout(30)
-            ->withOptions(['http_errors' => false]);
-
-        if ($queryParams && !empty($queryParams)) {
-            $client = $client->withQueryParameters($queryParams);
-        }
-
-        return [$client, $fullUrl, $body];
     }
 
     public function fetchCustomerData($customerId)
@@ -87,24 +96,31 @@ class NoahService
 
     public function noahOnboardingInit($customerId)
     {
-        logger("initiating onboarding session for customer", ['customer_id' => $customerId]);
-        $response = $this->processOnboarding($customerId);
-        if ($response->successful()) {
-            $body = $response->json();
-            $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa', 'spei'] as $service) {
-                update_endorsement($customerId, $service, "submitted", $hostedUrl);
+        try {
+            logger("initiating onboarding session for customer", ['customer_id' => $customerId]);
+            $response = $this->processOnboarding($customerId);
+            if ($response->successful()) {
+                $body = $response->json();
+                $hostedUrl = $body['HostedURL'] ?? null;
+                foreach (['base', 'sepa', 'spei'] as $service) {
+                    update_endorsement($customerId, $service, "submitted", $hostedUrl);
+                }
+
+                Log::info('Noah onboarding initiated', [
+                    'customer_id' => $customerId,
+                    'hosted_kyc_url' => $hostedUrl,
+                    'body' => $body
+                ]);
+
+                // Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
+            } else {
+                logger('Failed to initiate Noah onboarding: ' . $response->body());
             }
-
-            Log::info('Noah onboarding initiated', [
+        } catch (\Throwable $th) {
+            logger("Error processing onboarding for Noah", [
                 'customer_id' => $customerId,
-                'hosted_kyc_url' => $hostedUrl,
-                'body' => $body
+                'error' => $th->getMessage(),
             ]);
-
-            // Log::info('Noah onboarding initiated', ['customer_id' => $customerId, 'response' => $body]);
-        } else {
-            logger('Failed to initiate Noah onboarding: ' . $response->body());
         }
     }
 
@@ -113,38 +129,38 @@ class NoahService
         logger("processing onboarding for customer", ['customer_id' => $customerId]);
         try {
             $noah = new NoahService();
-        // Onboarding initiation may require an empty body or minimal payload
-        $returnUrl = session()->get('return_url', 'https://google.com');
-        $payload = [
-            "Metadata" => [
-                "CustomerId" => $customerId
-            ],
-            "ReturnURL" => $returnUrl,
-            "FiatOptions" => [
-                ["FiatCurrencyCode" => "USD"],
-                ["FiatCurrencyCode" => "EUR"],
-            ]
-        ];
+            // Onboarding initiation may require an empty body or minimal payload
+            $returnUrl = session()->get('return_url', 'https://google.com');
+            $payload = [
+                "Metadata" => [
+                    "CustomerId" => $customerId
+                ],
+                "ReturnURL" => $returnUrl,
+                "FiatOptions" => [
+                    ["FiatCurrencyCode" => "USD"],
+                    ["FiatCurrencyCode" => "EUR"],
+                ]
+            ];
 
-        logger('Noah Onboarding Payload:', ['payload' => $payload]);
+            logger('Noah Onboarding Payload:', ['payload' => $payload]);
 
-        $noah = new NoahService();
-        $response = $noah->post("/onboarding/{$customerId}", $payload);
-        $body = $response->json();
+            $noah = new NoahService();
+            $response = $noah->post("/onboarding/{$customerId}", $payload);
+            $body = $response->json();
 
-        logger('Noah Onboarding Response:', [
-            'status' => $response->status(),
-            'body' => $body,
-            'hosted_kyc_url' => $body['HostedURL'] ?? null,
-        ]);
+            logger('Noah Onboarding Response:', [
+                'status' => $response->status(),
+                'body' => $body,
+                'hosted_kyc_url' => $body['HostedURL'] ?? null,
+            ]);
 
-        if ($response->successful()) {
-            $hostedUrl = $body['HostedURL'] ?? null;
-            foreach (['base', 'sepa', 'spei'] as $service) {
-                update_endorsement($customerId, $service, "submitted", $hostedUrl);
+            if ($response->successful()) {
+                $hostedUrl = $body['HostedURL'] ?? null;
+                foreach (['base', 'sepa', 'spei'] as $service) {
+                    update_endorsement($customerId, $service, "submitted", $hostedUrl);
+                }
             }
-        }
-        return $response;
+            return $response;
         } catch (\Throwable $th) {
             logger("Error processing onboarding for Noah: " . $th->getMessage(), ['customer_id' => $customerId]);
         }

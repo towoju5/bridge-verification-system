@@ -202,7 +202,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     {
         try {
             $data = $this->business;
-            $customer = Customer::whereCustomerId($this->business->customer_id);
+            $customer = Customer::whereCustomerId($this->business->customer_id)->first();
             $idInfo = $data['identifying_information'][0] ?? [];
             $idFront = ($idInfo['image_front_file'] ?? null);
             $selfie = ($data['selfie_image'] ?? null);
@@ -458,6 +458,10 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
 
     protected function formatDate($date, string $format = 'Y-m-d'): ?string
     {
-        return $date ? \Carbon\Carbon::parse($date)->format($format) : null;
+        if (!$date) {
+            return null;
+        }
+
+        return \Carbon\Carbon::parse($date)->format($format);
     }
 }
