@@ -325,7 +325,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                     'MID' => env('TRANSFI_MERCHANT_ID'),
                     'Authorization' => 'Basic ' . base64_encode(env('TRANSFI_USERNAME') . ':' . env('TRANSFI_PASSWORD')),
                 ])
-                ->post("{$baseUrl}/users/individual", $data);
+                ->post("{$baseUrl}/users/business", $data);
 
 
             if ($response->successful()) {
