@@ -75,7 +75,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "vertical"             => $this->business->business_industry, // NAICS code
                 "website"              => $this->business->primary_website,
                 "registration_number"  => $this->business->registration_number,
-                "registration_date"    => $this->business->incorporation_date?->format('Y-m-d'),
+                "registration_date"    => $this->formatDate($this->business->incorporation_date),
                 "statement_descriptor" => $this->business->statement_descriptor,
                 "representatives"      => $this->mapRepresentativesToTazapay(),
                 "documents"            => $this->mapDocumentsToTazapay(),
@@ -137,7 +137,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "email"                            => $this->business->email,
                 "name"                             => $this->business->business_legal_name,
                 "businessTradeName"                => $this->business->business_trade_name,
-                "dateOfIncorporation"              => $this->business->incorporation_date?->format('Y-m-d'),
+                "dateOfIncorporation"              => $this->formatDate($this->business->incorporation_date),
                 "description"                      => $this->business->business_description,
                 "sourceOfFunds"                    => $this->business->source_of_funds,
                 "businessIndustryCode"             => $this->business->business_industry,
@@ -154,7 +154,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                         "hasControl"                => $person['has_control'] ?? false,
                         "isSigner"                  => $person['is_signer'] ?? false,
                         "ownershipPercentage"       => $person['ownership_percentage'],
-                        "relationshipEstablishedAt" => $person['relationship_established_at'] ?? now()->format('Y-m-d'),
+                        "relationshipEstablishedAt" => $this->formatDate($person['relationship_established_at']),
                         "controlPersonTitle"        => $person['title'] ?? 'Director',
                     ];
                 }, $this->business->associated_persons, $uboIds),
@@ -454,5 +454,10 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             ]
         ];
         */
+    }
+
+    protected function formatDate($date, string $format = 'Y-m-d'): ?string
+    {
+        return $date ? \Carbon\Carbon::parse($date)->format($format) : null;
     }
 }
