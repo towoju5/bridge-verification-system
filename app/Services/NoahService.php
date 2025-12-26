@@ -87,6 +87,7 @@ class NoahService
 
     public function noahOnboardingInit($customerId)
     {
+        logger("initiating onboarding session for customer", ['customer_id' => $customerId]);
         $response = $this->processOnboarding($customerId);
         if ($response->successful()) {
             $body = $response->json();
@@ -109,7 +110,9 @@ class NoahService
 
     public function processOnboarding($customerId)
     {
-        $noah = new NoahService();
+        logger("processing onboarding for customer", ['customer_id' => $customerId]);
+        try {
+            $noah = new NoahService();
         // Onboarding initiation may require an empty body or minimal payload
         $returnUrl = session()->get('return_url', 'https://google.com');
         $payload = [
@@ -142,5 +145,8 @@ class NoahService
             }
         }
         return $response;
+        } catch (\Throwable $th) {
+            logger("Error processing onboarding for Noah: " . $th->getMessage(), ['customer_id' => $customerId]);
+        }
     }
 }

@@ -27,75 +27,83 @@ class SubmitBusinessToNoah implements ShouldQueue
 
     public function handle(): void
     {
-        // Parse registered address (required)
-        $business = $this->businessData;
-        logger("business data passed: ", ['kyc_payload' => $business]);
-        $customerId = $business['customer_id'];
+        try {
+            // Parse registered address (required)
+            $business = $this->businessData;
+            logger("business data passed: ", ['kyc_payload' => $business]);
+            $customerId = $business['customer_id'];
 
-        // Decode JSON fields safely
-        $registeredAddress = $business['registered_address'];
-        $associatedPersons = $business['associated_persons'];
+            // Decode JSON fields safely
+            $registeredAddress = $business['registered_address'];
+            $associatedPersons = $business['associated_persons'];
 
-        // Build associates array
-        $associates = [];
-        foreach ($associatedPersons as $person) {
-            $associates[] = [
-                "ID" => $person['id'] ?? null,
-                "RelationshipTypes" => array_filter([
-                    $person['has_ownership'] ? "UBO" : null,
-                    $person['is_director'] ? "Director" : null,
-                    $person['is_signer'] ? "Representative" : null,
+            // Build associates array
+            $associates = [];
+            foreach ($associatedPersons as $person) {
+                $associates[] = [
+                    "ID" => $person['id'] ?? null,
+                    "RelationshipTypes" => array_filter([
+                        $person['has_ownership'] ? "UBO" : null,
+                        $person['is_director'] ? "Director" : null,
+                        $person['is_signer'] ? "Representative" : null,
+                    ]),
+                    "FullName" => [
+                        "FirstName" => $person['first_name'] ?? null,
+                        "LastName"  => $person['last_name'] ?? null,
+                    ],
+                    "DateOfBirth" => $person['birth_date'] ?? null,
+                ];
+            }
+
+            // Remove null ID fields
+            $associates = array_map(function ($a) {
+                return array_filter($a, fn($v) => $v !== null);
+            }, $associates);
+
+            logger("Noah KYB Associates: ", ['associates' => $associates]);
+
+            $payload = [
+                "Type" => "BusinessCustomerPrefill",
+                "RegistrationCountry" => $registeredAddress['country'] ?? "US",
+                "CompanyName" => $business['business_legal_name'],
+                "RegistrationNumber" => $business['registration_number'],
+                "LegalAddress" => array_filter([
+                    "Street" => $registeredAddress['street_line_1'] ?? null,
+                    "City"   => $registeredAddress['city'] ?? null,
+                    "PostCode" => $registeredAddress['postcode'] ?? null,
+                    "State" => $registeredAddress['state'] ?? null,
+                    "Country" => $registeredAddress['country'] ?? null,
                 ]),
-                "FullName" => [
-                    "FirstName" => $person['first_name'] ?? null,
-                    "LastName"  => $person['last_name'] ?? null,
-                ],
-                "DateOfBirth" => $person['birth_date'] ?? null,
+                "IncorporationDate" => $business['incorporation_date'] ? date("Y-m-d", strtotime($business['incorporation_date'])) : null,
+                "EntityType" => $business['business_type'],   // mapped from 'llc'
+                "TaxID" => $business['tax_id'],
+                "PrimaryWebsite" => $business['primary_website'],
+                "Associates" => $associates,
             ];
-        }
 
-        // Remove null ID fields
-        $associates = array_map(function ($a) {
-            return array_filter($a, fn($v) => $v !== null);
-        }, $associates);
+            logger("Noah KYB Payload: ", ['payload' => $payload]);
 
-        $payload = [
-            "Type" => "BusinessCustomerPrefill",
-            "RegistrationCountry" => $registeredAddress['country'] ?? "US",
-            "CompanyName" => $business['business_legal_name'],
-            "RegistrationNumber" => $business['registration_number'],
-            "LegalAddress" => array_filter([
-                "Street" => $registeredAddress['street_line_1'] ?? null,
-                "City"   => $registeredAddress['city'] ?? null,
-                "PostCode" => $registeredAddress['postcode'] ?? null,
-                "State" => $registeredAddress['state'] ?? null,
-                "Country" => $registeredAddress['country'] ?? null,
-            ]),
-            "IncorporationDate" => $business['incorporation_date'] ? date("Y-m-d", strtotime($business['incorporation_date'])) : null,
-            "EntityType" => $business['business_type'],   // mapped from 'llc'
-            "TaxID" => $business['tax_id'],
-            "PrimaryWebsite" => $business['primary_website'],
-            "Associates" => $associates,
-        ];
+            // Remove null / empty fields from top-level payload
+            $payload = array_filter($payload, function ($v) {
+                return !($v === null || $v === "" || $v === []);
+            });
 
-        // Remove null / empty fields from top-level payload
-        $payload = array_filter($payload, function ($v) {
-            return !($v === null || $v === "" || $v === []);
-        });
-
-        $noah = new NoahService();
-        // submitting prefil kyb data
-        $response = $noah->post("/onboarding/{$customerId}/prefill", $payload);
+            $noah = new NoahService();
+            // submitting prefil kyb data
+            $response = $noah->post("/onboarding/{$customerId}/prefill", $payload);
 
 
-        if ($response->successful()) {
-            // generate the onboarding url
-            logger("generating onboarding session url for business", ['business' => $business]);
-            $noahService = new NoahService();
-            $noahService->noahOnboardingInit($customerId);
+            if ($response->successful()) {
+                // generate the onboarding url
+                logger("generating onboarding session url for business", ['business' => $business]);
+                $noahService = new NoahService();
+                $noahService->noahOnboardingInit($customerId);
 
-            // Step 3: Submit documents
-            $this->submitNoahDocument($customerId, $data['identifying_information'] ?? []);
+                // Step 3: Submit documents
+                $this->submitNoahDocument($customerId, $data['identifying_information'] ?? []);
+            }
+        } catch (\Throwable $th) {
+            logger("Error submitting business KYC to Noah: " . $th->getMessage(), ['business_data' => $this->businessData]);
         }
     }
 
