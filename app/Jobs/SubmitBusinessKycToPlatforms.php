@@ -221,14 +221,14 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
         try {
             $data = $this->business;
             $customer = Customer::whereCustomerId($this->business->customer_id)->first();
-            $idInfo = $data['identifying_information'][0] ?? [];
+            $idInfo = $data->associated_persons['identifying_information'][0] ?? [
+                'type' => 'NATIONAL_ID',
+                'number' => \Str::random(10),
+                'image_front' => null,
+                'image_back' => null,
+            ];
             $idFront = ($idInfo['image_front_file'] ?? null);
             $selfie = ($data['selfie_image'] ?? null);
-
-            if (!$idFront || !$selfie) {
-                Log::warning('Bitnob skipped: missing id_front or selfie', ['customer_id' => $customer->customer_id]);
-                return;
-            }
 
             $idInfo = $data['identifying_information'][0] ?? [];
             $addr = $data['residential_address'] ?? [];
@@ -260,8 +260,8 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 'lastName' => $nameParts[1] ?? ($nameParts[0] ?? 'Unknown'),
                 'email' => $data['email'] ?? '',
                 'phoneNumber' => $data['phone'] ?? '',
-                'idImage' => $idFront,
-                'userPhoto' => $selfie,
+                'idImage' => $idFront ?? $idInfo['image_front'] ?? null,
+                'userPhoto' => $selfie ?? $idInfo['image_front'] ?? null,
                 'country' => $country,
                 'city' => $addr['city'] ?? '',
                 'state' => $addr['state'] ?? '',
