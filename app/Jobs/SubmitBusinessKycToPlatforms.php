@@ -84,8 +84,9 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "purpose_of_use"       => [$this->business->account_purpose],
             ];
 
+            $endpoint = str_replace('//', '/', config('services.tazapay.base_url') . '/kyb');
             $response = Http::withBasicAuth(env('TAZAPAY_API_KEY'), env('TAZAPAY_SECRET_KEY'))
-                ->post(config('services.tazapay.base_url') . '/kyb', $data);
+                ->post($endpoint, $data);
 
             if ($response->successful()) {
                 Log::info("KYC to Tazapay submitted successfully");
