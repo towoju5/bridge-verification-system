@@ -33,6 +33,9 @@ class SubmitBusinessToNoah implements ShouldQueue
             logger("business data passed: ", ['kyc_payload' => $business]);
             $customerId = $business['customer_id'];
 
+            $noah = new NoahService();
+            $noah->processOnboarding($customerId);
+            
             // Decode JSON fields safely
             $registeredAddress = $business['registered_address'];
             $associatedPersons = $business['associated_persons'];
@@ -87,9 +90,6 @@ class SubmitBusinessToNoah implements ShouldQueue
             $payload = array_filter($payload, function ($v) {
                 return !($v === null || $v === "" || $v === []);
             });
-
-            $noah = new NoahService();
-            $noah->processOnboarding($customerId);
             // submitting prefil kyb data
             $response = $noah->post("/onboarding/{$customerId}/prefill", $payload);
 

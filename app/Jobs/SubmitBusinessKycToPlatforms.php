@@ -91,6 +91,11 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             if ($response->successful()) {
                 Log::info("KYC to Tazapay submitted successfully");
                 $result = $response->json();
+                if(isset($result['id'])){
+                    Log::info("Tazapay KYB ID: " . $result['id']);
+                    add_customer_meta($this->business->customer_id, 'tazapay_customer_id', $result['id']);
+                    update_endorsement($this->business->customer_id, 'cobo_pobo', 'submitted', null); 
+                }
                 return ['status' => 'success', 'provider_id' => $result['id'] ?? null];
             } else {
                 throw new \Exception("HTTP {$response->status()}: " . $response->body());
