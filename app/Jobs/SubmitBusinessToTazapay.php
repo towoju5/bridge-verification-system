@@ -22,7 +22,7 @@ class SubmitBusinessToTazapay implements ShouldQueue
         public array $businessData
     ) {}
 
-    public function handle(): void
+    public function handle()
     {
         $registrationAddress = $this->businessData['registered_address'] ?? [];
         $physicalAddress     = $this->businessData['physical_address'] ?? [];
@@ -175,18 +175,41 @@ class SubmitBusinessToTazapay implements ShouldQueue
             'purpose_of_use'       => $this->businessData['high_risk_activities'] ?: ['none_of_the_above'],
         ];
 
-        $response = Http::withToken(config('services.tazapay.secret'))
-            ->withHeaders(['Accept' => 'application/json'])
-            ->post('https://service.tazapay.com/v3/entity', $payload);
+        $endpoint = str_replace('//', '/', config('services.tazapay.base_url') . 'entity');
+        $response = Http::withBasicAuth(env('TAZAPAY_API_KEY'), env('TAZAPAY_SECRET_KEY'))
+            ->post($endpoint, $payload);
 
-        if (!$response->successful()) {
-            update_endorsement($this->businessData['customer_id'], "cobo_pobo", 'submitted');
-            Log::error('Tazapay submission failed', [
-                'session_id' => $this->businessData['session_id'],
-                'status'     => $response->status(),
-                'body'       => $response->body(),
-            ]);
+        if ($response->successful()) {
+            Log::info("Entity creation on Tazapay submitted successfully");
+            $result = $response->json('data');
+            if (isset($result['id'])) {
+                Log::info("Tazapay KYB ID: " . $result['id']);
+                add_customer_meta($this->businessData['customer_id'], 'tazapay_customer_id', $result['id']);
+                update_endorsement($this->businessData['customer_id'], 'cobo_pobo', 'submitted', null);
+
+                return ['status' => 'success', 'provider_id' => $result['id'] ?? null];
+            }
+            return ['status' => 'success', 'provider_id' => $result['id'] ?? null];
+        } else {
+            logger("Entity creation failed HTTP {$response->status()}: " . $response->body());
         }
+
+        logger("Tazapay KYB submission failed for business", ['reslt' => $response->json()]);
+        return ['status' => 'error', 'provider_id' => null];
+
+
+        // $response = Http::withToken(config('services.tazapay.secret'))
+        //     ->withHeaders(['Accept' => 'application/json'])
+        //     ->post('https://service.tazapay.com/v3/entity', $payload);
+
+        // if (!$response->successful()) {
+        //     update_endorsement($this->businessData['customer_id'], "cobo_pobo", 'submitted');
+        //     Log::error('Tazapay submission failed', [
+        //         'session_id' => $this->businessData['session_id'],
+        //         'status'     => $response->status(),
+        //         'body'       => $response->body(),
+        //     ]);
+        // }
     }
 
     public function handleAveniaKyb()

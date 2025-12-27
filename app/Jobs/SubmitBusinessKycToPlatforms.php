@@ -60,6 +60,13 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
     protected function submitToTazapay()
     {
         try {
+            dispatch(new \App\Jobs\SubmitBusinessToTazapay($this->business->toArray()))->onQueue('kyc');
+            // Let the job handle logging and errors
+        } catch (\Exception $e) {
+            Log::error("Tazapay KYB submission failed for business {$this->business->id}", [
+                'error' => $e->getMessage(),
+            ]);
+
             $data = [
                 "name"                 => $this->business->business_legal_name,
                 "type"                 => $this->mapBusinessTypeToTazapay($this->business->business_type),
@@ -91,14 +98,14 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
             if ($response->successful()) {
                 Log::info("KYC to Tazapay submitted successfully");
                 $result = $response->json();
-                if(isset($result['id'])){
+                if (isset($result['id'])) {
                     Log::info("Tazapay KYB ID: " . $result['id']);
                     add_customer_meta($this->business->customer_id, 'tazapay_customer_id', $result['id']);
-                    update_endorsement($this->business->customer_id, 'cobo_pobo', 'submitted', null); 
+                    update_endorsement($this->business->customer_id, 'cobo_pobo', 'submitted', null);
                 }
                 return ['status' => 'success', 'provider_id' => $result['id'] ?? null];
             } else {
-                throw new \Exception("HTTP {$response->status()}: " . $response->body());
+                logger("HTTP {$response->status()}: " . $response->body());
             }
         } catch (\Exception $e) {
             Log::error("Tazapay KYB submission failed for business {$this->business->id}", [
