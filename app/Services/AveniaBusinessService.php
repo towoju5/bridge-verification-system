@@ -20,10 +20,10 @@ class AveniaBusinessService
     /**
      * Step 1: Create Subaccount for Business (COMPANY)
      */
-    public function businessCreateSubaccount(string $name, string $customerId): mixed
+    public function businessCreateSubaccount(string $name, string $customerId, $customerType = 'COMPANY'): mixed
     {
         $response = $this->avenia->post("/account/sub-accounts", [
-            'accountType' => 'COMPANY',
+            'accountType' => $customerType,
             'name' => $name,
         ]);
         if ($response->successful()) {
@@ -33,7 +33,7 @@ class AveniaBusinessService
                 logger("Avenia KYB initiation response", ['hostedUrl' => $hostedUrl]);
                 if ($hostedUrl && is_array($hostedUrl)) {
                     add_customer_meta($customerId, 'avenia_sub_account_id', $subAccountId);
-                    update_endorsement($customerId, 'brazil', 'under_review', $hostedUrl);
+                    update_endorsement($customerId, 'brazil', 'pending', $hostedUrl);
                 }
             }
 

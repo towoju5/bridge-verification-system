@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 use App\Models\Country;
 use App\Models\CustomerMeta;
+use App\Services\AveniaBusinessService;
 use App\Services\AveniaService;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -989,6 +990,21 @@ class ThirdPartyKycSubmission implements ShouldQueue
     public function avenia(Customer $customer, array $data)
     {
         try {
+
+            $exists = get_customer_meta($customer->customer_id, 'avenia_sub_account_id');
+            if ($exists) {
+                logger("Avenia sub-account already exists for customer {$customer->customer_id}, skipping creation.");
+                return;
+            }
+            // firstly create sub account
+            $avenia = new AveniaBusinessService();
+            $response = $avenia->businessCreateSubaccount($customer->customerName ?? $customer->customer_name, $customer->customer_id, 'INDIVIDUAL');
+           
+
+            // 
+
+
+
             logger("initiating avenia for individual");
             $avenia = new AveniaService();
             // generate avenia kyc url
