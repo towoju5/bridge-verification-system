@@ -364,7 +364,7 @@ class CustomerController extends Controller
             case 1:
                 $rules = [
                     'first_name'   => 'required|string|max:1024',
-                    'middle_name'  => 'required|string|max:1024',
+                    'middle_name'  => 'sometimes|string|max:1024',
                     'last_name'    => 'required|string|max:1024',
                     'email'        => 'required|email|max:1024',
                     'calling_code' => ['required', 'string', 'regex:/^\+\d{1,4}$/'],
@@ -911,7 +911,7 @@ class CustomerController extends Controller
             // STEP 1 – Personal Info + Selfie
             $step1 = $this->safeValidate($data, [
                 'first_name'   => 'required|string|max:1024',
-                'middle_name'  => 'required|string|max:1024',
+                'middle_name'  => 'sometimes|string|max:1024',
                 'last_name'    => 'required|string|max:1024',
                 'email'        => 'required|email|max:1024',
                 'calling_code' => ['required', 'string', 'regex:/^\+\d{1,4}$/'],

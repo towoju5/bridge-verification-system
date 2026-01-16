@@ -999,7 +999,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // firstly create sub account
             $avenia = new AveniaBusinessService();
             $response = $avenia->businessCreateSubaccount($customer->customerName ?? $customer->customer_name, $customer->customer_id, 'INDIVIDUAL');
-           
+           logger("Avenia KYC URL Generation resultsed in: ", ['result' => $response]);
 
             // 
 
