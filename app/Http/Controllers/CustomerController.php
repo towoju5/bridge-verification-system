@@ -435,7 +435,7 @@ class CustomerController extends Controller
                     'uploaded_documents.*.file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
                 ];
 
-                $requiredTypes = ['proof_of_funds'];
+                $requiredTypes = []; //['proof_of_funds'];
 
                 $validator = Validator::make($request->all(), $rules);
 
