@@ -974,7 +974,7 @@ class CustomerController extends Controller
                 $front = $processedRequest->file("identifying_information.$i.image_front_file");
                 if (! $front) {
                     DB::rollBack();
-                    return $respond(false, "ID front image required at index {$i}.");
+                    return $respond(false, "Please provide Identity document at index {$i}.");
                 }
 
                 $validated['data']['image_front_file'] = $front;
@@ -1112,9 +1112,9 @@ class CustomerController extends Controller
         $data  = $request->all();
         $files = [];
 
-        $convert = function (&$value, $keyPath) use (&$convert, &$files) {
+        $convert = function ($value, $keyPath) use (&$convert, &$files, &$data) {
 
-            // Detect if value is Base64 image/file
+            // Detect Base64 file
             if (is_string($value) && preg_match('/^data:(.+);base64,(.*)$/', $value, $m)) {
 
                 $mime = $m[1];
@@ -1123,19 +1123,18 @@ class CustomerController extends Controller
                 $binary = base64_decode($base64Data);
                 if ($binary === false) return;
 
-                // Detect extension from mime
                 $extension = match (true) {
                     str_contains($mime, 'jpeg') => 'jpg',
                     str_contains($mime, 'png')  => 'png',
                     str_contains($mime, 'pdf')  => 'pdf',
+                    str_contains($mime, 'heic') => 'heic',
+                    str_contains($mime, 'tif')  => 'tif',
                     default => 'bin',
                 };
 
-                // Create a persistent temp file (fix for stat() errors)
                 $tmpPath = sys_get_temp_dir() . '/' . Str::uuid() . '.' . $extension;
                 file_put_contents($tmpPath, $binary);
 
-                // Build UploadedFile instance
                 $uploaded = new UploadedFile(
                     $tmpPath,
                     basename($tmpPath),
@@ -1144,28 +1143,26 @@ class CustomerController extends Controller
                     true
                 );
 
-                // Store in Symfony file bag
+                // Put file into Symfony FileBag structure
                 Arr::set($files, $keyPath, $uploaded);
 
-                // Replace value in request data
-                $value = $uploaded;
+                // Remove base64 string from normal request data
+                Arr::forget($data, $keyPath);
 
                 return;
             }
 
-            // Recurse into arrays
             if (is_array($value)) {
                 foreach ($value as $k => $v) {
-                    $convert($value[$k], $keyPath ? "$keyPath.$k" : $k);
+                    $convert($v, $keyPath ? "$keyPath.$k" : $k);
                 }
             }
         };
 
         foreach ($data as $k => $v) {
-            $convert($data[$k], $k);
+            $convert($v, $k);
         }
 
-        // Rebuild the request object
         return Request::create(
             $request->getPathInfo(),
             $request->getMethod(),
@@ -1175,7 +1172,6 @@ class CustomerController extends Controller
             $request->server->all()
         );
     }
-
 
 
     private function processBase64InArray(array &$data, array &$files, string $prefix): void
@@ -1443,7 +1439,7 @@ class CustomerController extends Controller
                     "message" => "Unable to regenerate link, please contact support"
                 ], 500);
             }
-        } else if(in_array($service, ['brazil'])) {
+        } else if (in_array($service, ['brazil'])) {
             // generate brla/avenia kyc/kyb link
             $avenia = new AveniaBusinessService();
             $generate = $avenia->businessCreateSubaccount($name, $customerId);
