@@ -1024,10 +1024,10 @@ class CustomerController extends Controller
 
             $types = collect($docs)->pluck('type');
 
-            if (! $types->contains('proof_of_funds')) {
-                DB::rollBack();
-                return $respond(false, "Document 'proof_of_funds' is required.");
-            }
+            // if (! $types->contains('proof_of_funds')) {
+            //     DB::rollBack();
+            //     return $respond(false, "Document 'proof_of_funds' is required.");
+            // }
 
             // Map into model data using existing mapping logic
             $modelData = [];
