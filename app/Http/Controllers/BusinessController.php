@@ -53,6 +53,11 @@ class BusinessController extends Controller
     {
         $sessionId = $request->customer_id; // $request->signed_agreement_id ?? Str::uuid();
 
+        $customer = Customer::whereCustomerId($sessionId)->first();
+        if (! $customer) {
+            return response()->json(['success' => false, 'message' => 'Business with the provided Customer_ID not found.'], 404);
+        }
+
         BusinessCustomer::firstOrCreate([
             'customer_id' => $request->customer_id
         ], [

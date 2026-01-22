@@ -768,17 +768,42 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $residenceCountryIso2 = $resolveCountryToIso2($addr['country'] ?? $nationalityIso2);
 
             /* -------------------------------------------------
-         | PHONE FINAL
-         * ------------------------------------------------- */
-            $phoneNumber = $normalizePhone(
-                $data['phone'] ?? null,
-                $nationalityIso2
-            );
+            | PHONE FINAL
+            * ------------------------------------------------- */
+            if (!empty($data['calling_code'])) {
+                // Trust incoming phone if calling code exists
+                $phoneNumber = $data['phone'] ?? null;
+            } else {
+                // Normalize only when calling code is missing
+                $phoneNumber = $normalizePhone(
+                    $data['phone'] ?? null,
+                    $nationalityIso2
+                );
+            }
 
-            if (!$phoneNumber) {
-                Log::error('Phone normalization failed', [
+            /*
+            |--------------------------------------------------------------------------
+            | Length Validation (Always enforced)
+            |--------------------------------------------------------------------------
+            */
+            $validatePhoneLength = function (?string $phone) {
+                if (empty($phone)) {
+                    return false;
+                }
+
+                // Keep only digits
+                $digits = preg_replace('/\D+/', '', $phone);
+
+                return strlen($digits) >= 8 && strlen($digits) <= 15;
+            };
+
+            if (!$validatePhoneLength($phoneNumber)) {
+                Log::error('Phone failed length validation', [
                     'customer_id' => $customer->customer_id,
                     'input_phone' => $data['phone'] ?? null,
+                    'final_phone' => $phoneNumber,
+                    'calling_code' => $data['calling_code'] ?? null,
+                    'digits' => strlen(preg_replace('/\D+/', '', $phoneNumber ?? '')),
                 ]);
                 return;
             }
@@ -999,7 +1024,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // firstly create sub account
             $avenia = new AveniaBusinessService();
             $response = $avenia->businessCreateSubaccount($customer->customerName ?? $customer->customer_name, $customer->customer_id, 'INDIVIDUAL');
-           logger("Avenia KYC URL Generation resultsed in: ", ['result' => $response]);
+            logger("Avenia KYC URL Generation resultsed in: ", ['result' => $response]);
 
             // 
 
