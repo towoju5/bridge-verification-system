@@ -829,7 +829,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => $dob,
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phone' => $phoneNumber,
+                    'phoneCode' => $data['calling_code'],
+                    'phone' => str_replace("+", "", $data['phone']),
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
                 ];
