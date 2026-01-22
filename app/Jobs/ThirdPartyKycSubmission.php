@@ -835,6 +835,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'address' => $addressPayload,
                 ];
 
+
+                logger("Tranfer user creation payload is: ", ["user" => $userPayload]);
+
                 $res = Http::timeout(20)
                     ->withHeaders([
                         'Accept' => 'application/json',
