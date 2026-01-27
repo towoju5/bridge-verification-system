@@ -30,6 +30,7 @@ class Endorsement extends Model
         'submitted',
         'approved',
         'rejected',
+        'declined',
         'under_review',
         'pending'
     ];

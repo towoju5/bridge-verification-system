@@ -777,7 +777,7 @@ class CustomerController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'customer_id'   => 'required',
-                'customer_type' => 'required|in:individual,business',
+                'customer_type' => 'required|in:individual,business,unknown',
             ]);
 
             if ($validator->fails()) {
@@ -800,6 +800,21 @@ class CustomerController extends Controller
                         ->whereCustomerId($validated['customer_id'])
                         ->where('type', 'business')
                         ->first()?->toArray();
+                    break;
+
+                case 'unknown':
+                    $customer = CustomerSubmission::query()
+                        ->whereCustomerId($validated['customer_id'])
+                        ->where('type', 'individual')
+                        ->latest()
+                        ->first()?->toArray();
+
+                    if (!$customer) {
+                        $customer = BusinessCustomer::query()
+                            ->whereCustomerId($validated['customer_id'])
+                            ->where('type', 'business')
+                            ->first()?->toArray();
+                    }
                     break;
 
                 default:

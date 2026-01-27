@@ -321,7 +321,7 @@ class SubmitBusinessKycToPlatforms implements ShouldQueue
                 "date"         => $this->business->incorporation_date ?? null,
                 "country"      => $addr['country'] ?? 'NG',
                 "phone"        => $this->business->phone_number,
-                "phoneCode"        => $this->business->phone_calling_code,
+                "phoneCode"    => $this->business->phone_calling_code,
                 "address"      => [
                     "street"     => $addr['street_line_1'] ?? '',
                     "city"       => $addr['city'] ?? '',

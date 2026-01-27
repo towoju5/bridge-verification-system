@@ -86,7 +86,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'has_selfie' => $hasSelfie,
             ]);
         }
-        $this->borderless($customer, $this->submissionData);
+        // currently disabled as per MD's request
+        // $this->borderless($customer, $this->submissionData);
         $this->tazapay($customer, $this->submissionData);
     }
 
@@ -94,27 +95,32 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         try {
             $user = $data;
-            $metaExists = get_customer_meta($user['customer_id'], 'tazapay_entity_id');
 
+            $metaExists = get_customer_meta($user['customer_id'], 'tazapay_entity_id');
             if ($metaExists) {
-                return response()->json(['message' => "User already enrolled for Tazapay"]);
+                return response()->json(['message' => 'User already enrolled for Tazapay']);
             }
 
-            // Decode JSON fields stored as strings
-            $residentialAddress = $user['residential_address'];
-            $identifyingInfo = $user['identifying_information'];
-            $uploadedDocuments = $user['uploaded_documents']; // array of user files
+            // ========= NORMALIZATION =========
+            $dob = \Carbon\Carbon::parse($user['birth_date'])->format('Y-m-d');
 
-            // Extract ID document (take first if multiple)
+            $countryCode = strtoupper($user['nationality']);
+            if (!preg_match('/^[A-Z]{2}$/', $countryCode)) {
+                throw new \InvalidArgumentException('Invalid ISO 3166-1 alpha-2 country code');
+            }
+
+            // ========= DATA EXTRACTION =========
+            $residentialAddress = $user['residential_address'] ?? [];
+            $identifyingInfo    = $user['identifying_information'] ?? [];
+            $uploadedDocuments = $user['uploaded_documents'] ?? [];
+
             $idDoc = $identifyingInfo[0] ?? null;
-
-            // Extract proof of address file if available
             $proofOfAddressFile = $residentialAddress['proof_of_address_file'] ?? null;
 
-            // Build Tazapay-compatible documents array
+            // ========= DOCUMENTS =========
             $documents = [];
 
-            /* ========= 1. Proof of Address Document ========= */
+            // 1. Proof of Address
             if ($proofOfAddressFile) {
                 $documents[] = [
                     "type"        => "address",
@@ -122,88 +128,91 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     "tag"         => "AddressProofDoc",
                     "file_name"   => "proof_of_address",
                     "description" => "Proof of Address",
-                    "url"         => $proofOfAddressFile
+                    "url"         => $proofOfAddressFile,
                 ];
             }
 
-            /* ========= 2. Identification Document ========= */
-            if ($idDoc && isset($idDoc['image_front_file'])) {
+            // 2. Identification Document (Front)
+            if ($idDoc && !empty($idDoc['image_front_file'])) {
                 $documents[] = [
                     "type"        => "id_document",
                     "sub_type"    => $idDoc['type'] ?? "other",
                     "tag"         => "IdentityDocument",
                     "file_name"   => "id_front",
                     "description" => "Front of Identification Document",
-                    "url"         => $idDoc['image_front_file']
+                    "url"         => $idDoc['image_front_file'],
                 ];
             }
 
-            // If passport or national ID has back image
-            if ($idDoc && isset($idDoc['image_back_file']) && $idDoc['image_back_file']) {
+            // 3. Identification Document (Back)
+            if ($idDoc && !empty($idDoc['image_back_file'])) {
                 $documents[] = [
                     "type"        => "id_document",
                     "sub_type"    => $idDoc['type'] ?? "other",
                     "tag"         => "IdentityDocumentBack",
                     "file_name"   => "id_back",
                     "description" => "Back of Identification Document",
-                    "url"         => $idDoc['image_back_file']
+                    "url"         => $idDoc['image_back_file'],
                 ];
             }
 
-            /* ========= 3. Proof of Funds Document ========= */
-            if (!empty($uploadedDocuments)) {
-                foreach ($uploadedDocuments as $doc) {
+            // 4. Proof of Funds / Additional Docs
+            foreach ($uploadedDocuments as $doc) {
+                if (!empty($doc['file'])) {
                     $documents[] = [
                         "type"        => $doc['type'] ?? "other",
                         "sub_type"    => "other",
                         "tag"         => "AdditionalDoc",
                         "file_name"   => $doc['type'] ?? "document",
-                        "description" => ucfirst(str_replace('_', ' ', $doc['type'])),
-                        "url"         => $doc['file']
+                        "description" => ucfirst(str_replace('_', ' ', $doc['type'] ?? 'document')),
+                        "url"         => $doc['file'],
                     ];
                 }
             }
 
-            /* ========= 4. Selfie ========= */
-            if ($user['selfie_image']) {
+            // 5. Selfie
+            if (!empty($user['selfie_image'])) {
                 $documents[] = [
                     "type"        => "identity_verification",
                     "sub_type"    => "selfie",
                     "tag"         => "SelfieImage",
                     "file_name"   => "selfie",
                     "description" => "Selfie for identity verification",
-                    "url"         => $user['selfie_image']
+                    "url"         => $user['selfie_image'],
                 ];
             }
 
-            /* ========= BUILD FINAL PAYLOAD ========= */
+            // ========= FINAL PAYLOAD =========
             $payload = [
-                "name"   => trim("{$user['first_name']} {$user['middle_name']} {$user['last_name']}"),
-                "type"   => "individual",
-                "email"  => $user['email'],
+                "name"  => trim("{$user['first_name']} {$user['middle_name']} {$user['last_name']}"),
+                "type"  => "individual",
+                "email" => $user['email'],
 
                 "registration_address" => [
                     "line1"       => $residentialAddress['street_line_1'] ?? '',
                     "line2"       => $residentialAddress['street_line_2'] ?? '',
                     "city"        => $residentialAddress['city'] ?? '',
                     "state"       => $residentialAddress['state'] ?? '',
-                    "country"     => $residentialAddress['country'] ?? '',
+                    "country"     => $countryCode,
                     "postal_code" => $residentialAddress['postal_code'] ?? '',
                 ],
 
                 "phone" => [
-                    "calling_code" => $user['calling_code'] ?? ltrim($this->extractCallingCode($user['phone']), '+'),
-                    "number"       => $user['phone'],
+                    "calling_code" => $user['calling_code']
+                        ?? ltrim($this->extractCallingCode($user['phone']), '+'),
+                    "number" => $user['phone'],
                 ],
 
                 "individual" => [
                     "national_identification_number" => [
-                        "type"   => $idDoc['type'] ?? "other",
-                        "number" => $idDoc['number'] ?? null,
+                        "type" => "tax_id",
                     ],
-                    "date_of_birth" => substr($user['birth_date'], 0, 10),
-                    "nationality"   => $user['nationality'],
+                    "date_of_birth" => $dob,
+                    "nationality"   => $countryCode,
                 ],
+
+                // Tax ID used as registration number
+                "registration_number" => $user['taxId'] ?? null,
 
                 "documents" => $documents,
 
@@ -211,26 +220,44 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 "reference_id" => $user['customer_id'],
             ];
 
-            $endpoint = "https://service.tazapay.com/v3/entity";
-            $response = Http::withToken(config('services.tazapay.secret'))
+            // ========= API CALL =========
+            $endpoint = env('TAZAPAY_BASE_URL', "https://service-sandbox.tazapay.com/v3");
+
+            $response = Http::withBasicAuth(env('TAZAPAY_API_KEY'), env('TAZAPAY_SECRET_KEY'))
                 ->withHeaders(['Accept' => 'application/json'])
-                ->post($endpoint, $payload);
+                ->post("{$endpoint}/entity", $payload);
 
+            logger("Tazapay KYC payload", ['payload' => $payload, 'response' => $response->json()]);
 
+            // ========= RESPONSE HANDLING =========
             if ($response->successful()) {
-                $response = $apiResponse['data'] ?? [];
-                $entityId = $response['id'] ?? null;
-                $approvalStatus = $response['approval_status'] ?? null;
-                add_customer_meta($user['customer_id'], 'tazapay_entity_id', $entityId);
-                update_endorsement($user['customer_id'], 'cobo_pobo', $approvalStatus ?? "under_review");
+                $apiResponse  = $response->json();
+                $responseData = $apiResponse['data'] ?? [];
+
+                $entityId   = $responseData['id'] ?? null;
+                $status     = $responseData['approval_status'] ?? 'under_review';
+
+                // Normalize external → internal status
+                $normalizedStatus = match ($status) {
+                    'submitted' => 'under_review',
+                    default     => $status,
+                };
+
+                if ($entityId) {
+                    add_customer_meta($user['customer_id'], 'tazapay_entity_id', $entityId);
+                }
+
+                update_endorsement($user['customer_id'], 'cobo_pobo', $normalizedStatus);
             }
 
+
             return $payload;
-        } catch (Throwable $th) {
+        } catch (\Throwable $th) {
             report($th);
             return [];
         }
     }
+
 
     /**
      * Extract calling code and number from phone formats like +2349010031860
@@ -836,7 +863,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 ];
 
 
-                logger("Tranfer user creation payload is: ", ["user" => $userPayload]);
 
                 $res = Http::timeout(20)
                     ->withHeaders([
@@ -847,6 +873,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                         ),
                     ])
                     ->post("{$baseUrl}/users/individual", $userPayload);
+
+                logger("Transfi user creation payload is: ", [
+                    "user" => $userPayload,
+                    'result' => $res->json()
+                ]);
 
                 if ($res->failed()) {
                     Log::error('TransFi user registration failed', [
@@ -1020,22 +1051,26 @@ class ThirdPartyKycSubmission implements ShouldQueue
     {
         try {
 
+
             $exists = get_customer_meta($customer->customer_id, 'avenia_sub_account_id');
             if ($exists) {
                 logger("Avenia sub-account already exists for customer {$customer->customer_id}, skipping creation.");
                 return;
             }
             // firstly create sub account
-            $avenia = new AveniaBusinessService();
-            $response = $avenia->businessCreateSubaccount($customer->customerName ?? $customer->customer_name, $customer->customer_id, 'INDIVIDUAL');
-            logger("Avenia KYC URL Generation resultsed in: ", ['result' => $response]);
-
-            // 
-
-
-
-            logger("initiating avenia for individual");
             $avenia = new AveniaService();
+            // $avenia = new AveniaBusinessService();
+            
+            $subAccountPayload = [
+                'accountType' => 'INDIVIDUAL',
+                'name' => $customer->customerName ?? $customer->customer_name,
+            ];
+
+            $response = $avenia->createSubAccount($customer->customer_id, $subAccountPayload);
+            logger("Avenia sub_account creation: ", ['result' => $response]);
+
+
+            logger("initiating avenia for individual - web sdk");
             // generate avenia kyc url
             $kyc = $avenia->post("/kyc/new-level-1/web-sdk", [
                 "redirectUrl" => "https://google.com"
