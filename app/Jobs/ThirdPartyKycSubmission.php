@@ -135,9 +135,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // 2. Identification Document (Front)
             if ($idDoc && !empty($idDoc['image_front_file'])) {
                 $documents[] = [
-                    "type"        => "id_document",
-                    "sub_type"    => $idDoc['type'] ?? "other",
-                    "tag"         => "IdentityDocument",
+                    "type"        => "other",
+                    "sub_type"    => "other",
+                    "tag"         => "additionalDocs",
                     "file_name"   => "id_front",
                     "description" => "Front of Identification Document",
                     "url"         => $idDoc['image_front_file'],
@@ -147,9 +147,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // 3. Identification Document (Back)
             if ($idDoc && !empty($idDoc['image_back_file'])) {
                 $documents[] = [
-                    "type"        => "id_document",
-                    "sub_type"    => $idDoc['type'] ?? "other",
-                    "tag"         => "IdentityDocumentBack",
+                    "type"        => "other",
+                    "sub_type"    => "other",
+                    "tag"         => "additionalDocs",
                     "file_name"   => "id_back",
                     "description" => "Back of Identification Document",
                     "url"         => $idDoc['image_back_file'],
@@ -895,7 +895,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => Carbon::parse($data['birth_date'])->format('d-m-Y'),
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phoneCode' => $data['calling_code'] ?? '',
+                    'phoneCode' => $data['calling_code'] ?? ltrim($this->extractCallingCode($data['phone']), '+'),,
                     'phone' => str_replace("+", "", $data['phone'] ?? ''),
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
