@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -17,52 +20,28 @@ jobs:
           username: uprisingsynergyltd
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            set -e
+            set -e  # stop on error
 
-            echo "==> Deploy started at $(date)"
-
-            # 1. Go to bare repository
+            echo "==> Pulling latest code from GitHub..."
             cd /var/repo/kyc_yativo_com.git
+            git fetch origin main
 
-            # 2. Fetch everything
-            git fetch --all --prune
+            echo "==> Checking out to live directory..."
+            git --work-tree=/var/www/kyc.yativo.com --git-dir=/var/repo/kyc_yativo_com.git checkout -f main
 
-            # 3. FORCE main to match GitHub
-            git reset --hard origin/main
-
-            # 4. Export repo into live directory
-            git --work-tree=/var/www/kyc.yativo.com \
-                --git-dir=/var/repo/kyc_yativo_com.git \
-                checkout -f main
-
-            # 5. Fix permissions
+            echo "==> Setting correct permissions..."
             sudo chown -R uprisingsynergyltd:www-data /var/www/kyc.yativo.com
             sudo chmod -R 775 /var/www/kyc.yativo.com/storage /var/www/kyc.yativo.com/bootstrap/cache
 
-            # 6. Laravel deploy steps
+            echo "==> Installing dependencies..."
             cd /var/www/kyc.yativo.com
+            /usr/bin/php /usr/local/bin/composer install --no-interaction --prefer-dist --optimize-autoloader
 
-            /usr/bin/php /usr/local/bin/composer install \
-              --no-dev \
-              --no-interaction \
-              --prefer-dist \
-              --optimize-autoloader
-
-            # 7. Clear ALL runtime state
-            /usr/bin/php artisan down || true
-            /usr/bin/php artisan cache:clear
-            /usr/bin/php artisan config:clear
-            /usr/bin/php artisan route:clear
-            /usr/bin/php artisan view:clear
-
-            # 8. Database + rebuild caches
+            echo "==> Running Laravel optimizations..."
             /usr/bin/php artisan migrate --force
             /usr/bin/php artisan config:cache
             /usr/bin/php artisan route:cache
             /usr/bin/php artisan view:cache
-            /usr/bin/php artisan up
+            /usr/bin/php artisan cache:clear
 
-            # 9. Log deployed commit
-            git rev-parse HEAD > storage/logs/deployed_commit.log
-
-            echo "✅ Deployment finished successfully"
+            echo "✅ Deployment completed successfully."
