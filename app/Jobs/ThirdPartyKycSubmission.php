@@ -18,8 +18,7 @@ use App\Services\AveniaBusinessService;
 use App\Services\AveniaService;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
-
-
+use Illuminate\Support\Carbon as SupportCarbon;
 
 class ThirdPartyKycSubmission implements ShouldQueue
 {
@@ -161,9 +160,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
             foreach ($uploadedDocuments as $doc) {
                 if (!empty($doc['file'])) {
                     $documents[] = [
-                        "type"        => $doc['type'] ?? "other",
+                        "type"        => "other",
                         "sub_type"    => "other",
-                        "tag"         => "AdditionalDoc",
+                        "tag"         => "additionalDocs",
                         "file_name"   => $doc['type'] ?? "document",
                         "description" => ucfirst(str_replace('_', ' ', $doc['type'] ?? 'document')),
                         "url"         => $doc['file'],
@@ -174,9 +173,9 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // 5. Selfie
             if (!empty($user['selfie_image'])) {
                 $documents[] = [
-                    "type"        => "identity_verification",
-                    "sub_type"    => "selfie",
-                    "tag"         => "SelfieImage",
+                    "type"        => "other",
+                    "sub_type"    => "other",
+                    "tag"         => "additionalDocs",
                     "file_name"   => "selfie",
                     "description" => "Selfie for identity verification",
                     "url"         => $user['selfie_image'],
@@ -207,14 +206,16 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 "individual" => [
                     "national_identification_number" => [
                         "type" => "tax_id",
+                        "number" => $user['taxId'] ?? null,
                     ],
                     "date_of_birth" => $dob,
                     "nationality"   => $countryCode,
                 ],
+                'purpose_of_use' => ["collect", "payout"],
 
                 // Tax ID used as registration number
                 "registration_number" => $user['taxId'] ?? null,
-
+                "relationship" => "customer",
                 "documents" => $documents,
 
                 "submit"       => true,
@@ -891,7 +892,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $userPayload = [
                     'firstName' => $data['first_name'] ?? '',
                     'lastName' => $data['last_name'] ?? '',
-                    'date' => $dob,
+                    'date' => Carbon::parse($data['birth_date'])->format('d-m-Y'),
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
                     'phoneCode' => $data['calling_code'] ?? '',
@@ -961,7 +962,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
-                'dob' => $dob,
+                'dob' => Carbon::parse($dob)->format('Y-m-d'),
                 'email' => $data['email'] ?? '',
                 'gender' => $gender,
                 'phoneNo' => $phoneNumber,
