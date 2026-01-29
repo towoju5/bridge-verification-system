@@ -895,7 +895,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => Carbon::parse($data['birth_date'])->format('d-m-Y'),
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phoneCode' => $data['calling_code'] ?? ltrim($this->extractCallingCode($data['phone']), '+'),,
+                    'phoneCode' => $data['calling_code'] ?? ltrim($this->extractCallingCode($data['phone']), '+'),
                     'phone' => str_replace("+", "", $data['phone'] ?? ''),
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
@@ -959,6 +959,24 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 return;
             }
 
+
+            $identifyingInfo    = $data['identifying_information'] ?? [];
+
+            $idDoc = $identifyingInfo[0] ?? null;
+            $id_front = null;
+            // 2. Identification Document (Front)
+            if ($idDoc && !empty($idDoc['image_front_file'])) {
+                $id_front = [
+                    "type"        => "other",
+                    "sub_type"    => "other",
+                    "tag"         => "additionalDocs",
+                    "file_name"   => "id_front",
+                    "description" => "Front of Identification Document",
+                    "url"         => $idDoc['image_front_file'],
+                ];
+            }
+
+
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
@@ -976,7 +994,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'idDocUserName' => trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? '')),
                 'idDocIssuerCountry' => $issuerCountryIso2,
                 'idDocExpiryDate' => $idInfo['expiration_date'] ?? null,
-                'idDocFrontSide' => $idFront,
+                'idDocFrontSide' => $idFront ?? $id_front,
                 'idDocBackSide' => $idBack,
                 'selfie' => $selfie,
                 'userId' => $userId,
