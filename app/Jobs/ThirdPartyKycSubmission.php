@@ -87,22 +87,23 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]);
         }
         // currently disabled as per MD's request
-        // $this->borderless($customer, $this->submissionData);
         $this->tazapay($customer, $this->submissionData);
+        // $this->borderless($customer, $this->submissionData);
     }
 
     public function tazapay(Customer $customer, $data)
     {
         try {
             $user = $data;
-
+            logger("Tazapay KYC submission started", ['customer_id' => $user['customer_id']]);
             $metaExists = get_customer_meta($user['customer_id'], 'tazapay_entity_id');
             if ($metaExists) {
+                logger("Tazapay KYC skipped: already enrolled", ['customer_id' => $user['customer_id']]);
                 return response()->json(['message' => 'User already enrolled for Tazapay']);
             }
 
             // ========= NORMALIZATION =========
-            $dob = \Carbon\Carbon::parse($user['birth_date'])->format('Y-m-d');
+            $dob = Carbon::parse($user['birth_date'])->format('Y-m-d');
 
             $countryCode = strtoupper($user['nationality']);
             if (!preg_match('/^[A-Z]{2}$/', $countryCode)) {
@@ -252,7 +253,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
 
 
             return $payload;
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             report($th);
             return [];
         }
@@ -657,8 +658,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
             $baseUrl = rtrim(env('TRANSFI_API_URL', 'https://api.transfi.com/v2/'), '/');
 
             /* -------------------------------------------------
-         | COUNTRY ISO2 RESOLUTION
-         * ------------------------------------------------- */
+        | COUNTRY ISO2 RESOLUTION
+        * ------------------------------------------------- */
             $countryCache = [];
 
             $resolveCountryToIso2 = function ($input) use (&$countryCache) {
@@ -685,64 +686,62 @@ class ThirdPartyKycSubmission implements ShouldQueue
             };
 
             /* -------------------------------------------------
-            | PHONE NORMALIZATION (E.164)
-            * ------------------------------------------------- */
-            if (!isset($data['calling_code'])) {
-                $normalizePhone = function (?string $phone, string $countryIso2) {
-                    if (empty($phone)) {
-                        return null;
-                    }
+        | PHONE NORMALIZATION (E.164)
+        * ------------------------------------------------- */
+            $normalizePhone = function (?string $phone, string $countryIso2) {
+                if (empty($phone)) {
+                    return null;
+                }
 
-                    // Keep digits and +
-                    $raw = preg_replace('/[^\d+]/', '', trim($phone));
+                // Keep digits and +
+                $raw = preg_replace('/[^\d+]/', '', trim($phone));
 
-                    // Case 1: Already international
-                    if (Str::startsWith($raw, '+')) {
-                        $digits = preg_replace('/\D+/', '', $raw);
+                // Case 1: Already international
+                if (Str::startsWith($raw, '+')) {
+                    $digits = preg_replace('/\D+/', '', $raw);
 
-                        if (strlen($digits) < 8 || strlen($digits) > 15) {
-                            Log::error('Invalid international phone length', [
-                                'phone' => $phone,
-                                'digits' => strlen($digits),
-                            ]);
-                            return null;
-                        }
-
-                        return '+' . $digits;
-                    }
-
-                    // Case 2: Local number
-                    $local = ltrim(preg_replace('/\D+/', '', $raw), '0');
-
-                    $country = Country::where('iso2', strtoupper($countryIso2))->first();
-                    if (!$country || empty($country->dial_code)) {
-                        Log::error('Missing country dial code for phone normalization', [
+                    if (strlen($digits) < 8 || strlen($digits) > 15) {
+                        Log::error('Invalid international phone length', [
                             'phone' => $phone,
-                            'country' => $countryIso2,
+                            'digits' => strlen($digits),
                         ]);
                         return null;
                     }
 
-                    $dialCode = ltrim($country->dial_code, '+');
-                    $full = $dialCode . $local;
+                    return '+' . $digits;
+                }
 
-                    if (strlen($full) < 8 || strlen($full) > 15) {
-                        Log::error('Phone failed length validation after normalization', [
-                            'original_phone' => $phone,
-                            'normalized' => '+' . $full,
-                            'digits' => strlen($full),
-                            'country' => $countryIso2,
-                        ]);
-                        return null;
-                    }
+                // Case 2: Local number
+                $local = ltrim(preg_replace('/\D+/', '', $raw), '0');
 
-                    return '+' . $full;
-                };
-            }
+                $country = Country::where('iso2', strtoupper($countryIso2))->first();
+                if (!$country || empty($country->dial_code)) {
+                    Log::error('Missing country dial code for phone normalization', [
+                        'phone' => $phone,
+                        'country' => $countryIso2,
+                    ]);
+                    return null;
+                }
+
+                $dialCode = ltrim($country->dial_code, '+');
+                $full = $dialCode . $local;
+
+                if (strlen($full) < 8 || strlen($full) > 15) {
+                    Log::error('Phone failed length validation after normalization', [
+                        'original_phone' => $phone,
+                        'normalized' => '+' . $full,
+                        'digits' => strlen($full),
+                        'country' => $countryIso2,
+                    ]);
+                    return null;
+                }
+
+                return '+' . $full;
+            };
 
             /* -------------------------------------------------
-            | ID & MEDIA
-            * ------------------------------------------------- */
+        | ID & MEDIA
+        * ------------------------------------------------- */
             $idInfo  = $data['identifying_information'][0] ?? [];
             $idFront = $idInfo['image_front_file'] ?? null;
             $idBack  = $idInfo['image_back_file'] ?? $idFront;
@@ -755,15 +754,15 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             if (!$idFront || !$selfie) {
-                Log::warning('TransFi skipped: missing ID front or selfie', [
+                Log::error('TransFi skipped: missing ID front or selfie', [
                     'customer_id' => $customer->customer_id,
                 ]);
                 return;
             }
 
             /* -------------------------------------------------
-            | BASIC NORMALIZATION
-            * ------------------------------------------------- */
+        | BASIC NORMALIZATION
+        * ------------------------------------------------- */
             $addr = $data['residential_address'] ?? [];
 
             $gender = strtolower(trim($data['gender'] ?? 'male'));
@@ -771,15 +770,24 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 $gender = 'male';
             }
 
+            // Parse date of birth in yyyy-mm-dd format (as required by API)
             $dob = null;
             if (!empty($data['birth_date'])) {
                 try {
-                    $dob = Carbon::parse($data['birth_date'])->format('d-m-Y');
+                    $dob = Carbon::parse($data['birth_date'])->format('Y-m-d');
                 } catch (\Exception $e) {
-                    Log::info('Invalid DOB supplied', [
+                    Log::error('Invalid DOB supplied', [
                         'customer_id' => $customer->customer_id,
+                        'birth_date' => $data['birth_date'],
                     ]);
                 }
+            }
+
+            if (!$dob) {
+                Log::error('TransFi skipped: missing or invalid birth date', [
+                    'customer_id' => $customer->customer_id,
+                ]);
+                return;
             }
 
             $idType = strtolower($idInfo['type'] ?? 'id_card');
@@ -788,31 +796,34 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             /* -------------------------------------------------
-         | COUNTRY ISO2
-         * ------------------------------------------------- */
+        | COUNTRY ISO2
+        * ------------------------------------------------- */
             $nationalityIso2 = $resolveCountryToIso2($data['nationality'] ?? 'NG');
             $issuerCountryIso2 = $resolveCountryToIso2($idInfo['issuing_country'] ?? $nationalityIso2);
             $residenceCountryIso2 = $resolveCountryToIso2($addr['country'] ?? $nationalityIso2);
 
             /* -------------------------------------------------
-            | PHONE FINAL
-            * ------------------------------------------------- */
+        | PHONE FINAL (with proper + prefix handling)
+        * ------------------------------------------------- */
             if (!empty($data['calling_code'])) {
                 // Trust incoming phone if calling code exists
                 $phoneNumber = $data['phone'] ?? null;
+
+                // Ensure it has the + prefix as required by API
+                if ($phoneNumber && !str_starts_with($phoneNumber, '+')) {
+                    $phoneNumber = '+' . ltrim($phoneNumber, '+');
+                }
             } else {
-                // Normalize only when calling code is missing
+                // Normalize when calling code is missing
                 $phoneNumber = $normalizePhone(
                     $data['phone'] ?? null,
                     $nationalityIso2
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Length Validation (Always enforced)
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------
+        | Length Validation (Always enforced)
+        * ------------------------------------------------- */
             $validatePhoneLength = function (?string $phone) {
                 if (empty($phone)) {
                     return false;
@@ -836,8 +847,8 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             /* -------------------------------------------------
-         | ADDRESS
-         * ------------------------------------------------- */
+        | ADDRESS
+        * ------------------------------------------------- */
             $addressPayload = [
                 'street' => $addr['street_line_1'] ?? '',
                 'city' => $addr['city'] ?? '',
@@ -847,8 +858,35 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ];
 
             /* -------------------------------------------------
-         | CREATE TRANSFI USER
-         * ------------------------------------------------- */
+        | VALIDATE REQUIRED FIELDS FOR KYC
+        * ------------------------------------------------- */
+            $requiredFields = [
+                'email' => $data['email'] ?? '',
+                'firstName' => $data['first_name'] ?? '',
+                'lastName' => $data['last_name'] ?? '',
+                'street' => $addressPayload['street'],
+                'city' => $addressPayload['city'],
+                'postalCode' => $addressPayload['postalCode'],
+            ];
+
+            $missingFields = [];
+            foreach ($requiredFields as $fieldName => $fieldValue) {
+                if (empty($fieldValue)) {
+                    $missingFields[] = $fieldName;
+                }
+            }
+
+            if (!empty($missingFields)) {
+                Log::error('TransFi KYC missing required fields', [
+                    'customer_id' => $customer->customer_id,
+                    'missing_fields' => $missingFields,
+                ]);
+                return;
+            }
+
+            /* -------------------------------------------------
+        | CREATE TRANSFI USER
+        * ------------------------------------------------- */
             if (!$customer->transfi_user_id) {
                 $userPayload = [
                     'firstName' => $data['first_name'] ?? '',
@@ -856,13 +894,11 @@ class ThirdPartyKycSubmission implements ShouldQueue
                     'date' => $dob,
                     'email' => $data['email'] ?? '',
                     'gender' => $gender,
-                    'phoneCode' => $data['calling_code'],
-                    'phone' => str_replace("+", "", $data['phone']),
+                    'phoneCode' => $data['calling_code'] ?? '',
+                    'phone' => str_replace("+", "", $data['phone'] ?? ''),
                     'country' => $nationalityIso2,
                     'address' => $addressPayload,
                 ];
-
-
 
                 $res = Http::timeout(20)
                     ->withHeaders([
@@ -900,14 +936,32 @@ class ThirdPartyKycSubmission implements ShouldQueue
             }
 
             /* -------------------------------------------------
-         | FINAL KYC PAYLOAD
-         * ------------------------------------------------- */
-            $transfiUserId = get_customer_meta($customer->customer_id, 'transfi_user_id');
+        | FINAL KYC PAYLOAD
+        * ------------------------------------------------- */
+            $transfiUserIdMeta = get_customer_meta($customer->customer_id, 'transfi_user_id');
+
+            // Extract userId properly from meta structure
+            $userId = null;
+            if (is_object($transfiUserIdMeta)) {
+                $userId = $transfiUserIdMeta->value[0] ?? $transfiUserIdMeta->value ?? null;
+            } elseif (is_array($transfiUserIdMeta)) {
+                $userId = $transfiUserIdMeta['value'][0] ?? $transfiUserIdMeta['value'] ?? $transfiUserIdMeta[0] ?? null;
+            } else {
+                $userId = $transfiUserIdMeta;
+            }
+
+            if (!$userId) {
+                Log::error('TransFi userId not found in customer meta', [
+                    'customer_id' => $customer->customer_id,
+                    'meta_value' => $transfiUserIdMeta,
+                ]);
+                return;
+            }
 
             $payload = [
                 'firstName' => $data['first_name'] ?? '',
                 'lastName' => $data['last_name'] ?? '',
-                'dob' => Carbon::parse($data['birth_date'])->format('Y-m-d'),
+                'dob' => $dob,
                 'email' => $data['email'] ?? '',
                 'gender' => $gender,
                 'phoneNo' => $phoneNumber,
@@ -924,12 +978,12 @@ class ThirdPartyKycSubmission implements ShouldQueue
                 'idDocFrontSide' => $idFront,
                 'idDocBackSide' => $idBack,
                 'selfie' => $selfie,
-                'userId' => $transfiUserId->value[0],
+                'userId' => $userId,
             ];
 
             /* -------------------------------------------------
-         | SUBMIT KYC
-         * ------------------------------------------------- */
+        | SUBMIT KYC
+        * ------------------------------------------------- */
             $response = Http::asMultipart()
                 ->timeout(20)
                 ->withHeaders([
@@ -944,6 +998,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             if ($response->successful()) {
                 Log::info('TransFi KYC submitted successfully', [
                     'customer_id' => $customer->customer_id,
+                    'response_status' => $response->json()['status'] ?? 'unknown',
                 ]);
                 update_endorsement($customer->customer_id, 'asian', 'under_review', null);
             } else {
@@ -961,7 +1016,6 @@ class ThirdPartyKycSubmission implements ShouldQueue
             ]);
         }
     }
-
 
     private function bitnob(Customer $customer, array $data): void
     {
@@ -1060,7 +1114,7 @@ class ThirdPartyKycSubmission implements ShouldQueue
             // firstly create sub account
             $avenia = new AveniaService();
             // $avenia = new AveniaBusinessService();
-            
+
             $subAccountPayload = [
                 'accountType' => 'INDIVIDUAL',
                 'name' => $customer->customerName ?? $customer->customer_name,
